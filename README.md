@@ -1,197 +1,368 @@
-# Pokémon Reloaded en Android
+<div align="center">
 
-Ejecuta **Pokémon Reloaded** en Android sin emulador de Windows de por medio.
+# Pokémon Reloaded para Android
 
-Este repositorio es una versión mejorada del port de [@Klisee](https://github.com/Klisee)
-([pokemon-reloaded-android](https://github.com/Klisee/pokemon-reloaded-android)), que a su vez se apoya en
-[OpenGMK](https://github.com/OpenGMK/OpenGMK). Todo el código se distribuye bajo **GPL-2.0** (ver `LICENSE`).
-Las versiones se descargan de la página de [Releases](../../releases); la app las busca aquí sola.
-El juego en sí (Pokémon Reloaded) **no** está incluido: lo importas tú desde un `.zip`.
+**El juego original de PC, ejecutado de forma nativa en tu móvil. Sin Wine, sin emulación de Windows.**
 
-## Qué es esto, en realidad
+[![Última versión](https://img.shields.io/github/v/release/waldnerverges27-collab/pokemon-reloaded-android-mejorado?label=versi%C3%B3n&color=d9b567)](../../releases/latest)
+[![Licencia](https://img.shields.io/badge/licencia-GPL--2.0-blue)](LICENSE)
+![Android](https://img.shields.io/badge/Android-10%2B-3ddc84)
+![ABI](https://img.shields.io/badge/ABI-arm64--v8a%20%C2%B7%20armeabi--v7a-555)
+![Paquete](https://img.shields.io/badge/paquete-com.ahjin.pr-555)
 
-Lo de "port" es un decir, y conviene aclararlo. Pokémon Reloaded es un juego hecho en Game Maker 8
-para Windows, y aquí **no se ha reescrito ni recompilado nada**. Lo que hace esta app es
-**ejecutar el juego original tal cual**, con sus archivos intactos, sobre
-[OpenGMK](https://github.com/OpenGMK/OpenGMK): una reimplementación nativa en Rust del motor de
-Game Maker 8.
+[Descargar](../../releases/latest) · [Cómo se usa](#cómo-se-usa) · [Funciones](#funciones) · [Compilar](#compilar-desde-el-código) · [Historial](#historial-de-versiones)
 
-Dicho de otro modo: no hay Wine, no hay Windows emulado, no hay capa de traducción. El motor está
-escrito para Android y compilado para el móvil, así que el juego corre prácticamente como un nativo.
-Lo único que se ha "porteado" son las tripas del motor, no el juego.
+</div>
 
-La app sí aporta todo lo de fuera del juego: importar el juego desde un `.zip`, controles táctiles,
-ajustes, gestión de partidas y logs. El juego en sí no se toca.
+---
 
-## Cómo funciona
+## Índice
 
-- **Importar.** Le das a Importar y eliges el `.zip` del juego. La app lo descomprime en su propio
-  almacenamiento privado, así que no depende de permisos de almacenamiento ni de dónde lo tengas
-  guardado.
-- **Ejecutar.** El motor (OpenGMK, en Rust) se carga como librería nativa y arranca el runner de
-  Game Maker 8 sobre los datos del juego. El render va por OpenGL ES y el audio por AAudio.
-- **Controles.** La capa táctil no es fija: cambia según el estado del juego, así que en el mapa
-  tienes una cruceta y en los menús otra cosa. Cada botón pulsa una tecla del juego, y puedes
-  reasignar cualquiera desde Ajustes → Mando → Controles. También funciona un mando real, detectado solo.
-- **Partidas.** Se leen y escriben en la carpeta del juego. Desde Ajustes → Partidas puedes verlas,
-  exportarlas, importarlas, borrarlas y mover una de una ranura a otra. Si jugabas en PC, tu partida
-  entra por aquí.
-- **Salir y volver.** Al mandar la app a segundo plano, el bucle se detiene y el audio se corta de
-  verdad; al volver, sigue donde estaba en vez de quedarse en negro.
-- **Logs.** Si algo va mal, la app escribe un log y lo puedes compartir como archivo de texto desde
-  Ajustes → Logs, sin perderlo al reiniciar el móvil.
+1. [Qué es](#qué-es)
+2. [Cómo se usa](#cómo-se-usa)
+3. [Funciones](#funciones)
+4. [Rendimiento y fotogramas por segundo](#rendimiento-y-fotogramas-por-segundo)
+5. [Arquitectura](#arquitectura)
+6. [Estructura del repositorio](#estructura-del-repositorio)
+7. [Compilar desde el código](#compilar-desde-el-código)
+8. [Firma y actualizaciones](#firma-y-actualizaciones)
+9. [Herramientas de diagnóstico](#herramientas-de-diagnóstico)
+10. [Historial de versiones](#historial-de-versiones)
+11. [Estado y problemas conocidos](#estado-y-problemas-conocidos)
+12. [Licencia y créditos](#licencia-y-créditos)
 
-## Novedades de la 0.5.0
+---
 
-- **Paquete propio: `com.ahjin.pr`.** Es una app distinta de la de Klisee y de la 0.4.0 (otro
-  `applicationId`), así que se instala **en paralelo**, no actualiza a la anterior y no hereda sus
-  datos: hay que volver a importar el `.zip` del juego. Las partidas de la app vieja se pueden
-  sacar desde su pantalla de partidas y traer a esta.
-- **Firma propia.** Las releases se firman con una clave de release del proyecto (no con la de
-  depuración). Quien compile por su cuenta tendrá otra firma y no podrá actualizar encima.
-- **Tema "Obsidiana y oro".** Fondo casi negro, texto marfil y un único acento dorado champán; en claro,
-  marfil con bronce. Sin color dinámico, para que se vea igual en todos los móviles. Se elige en
-  Ajustes → Apariencia (oscuro por defecto, claro o según el sistema). Icono con fondo obsidiana.
-- **Avance rápido corregido.** El juego vigila el reloj real (script `CheckDaySpeed`) y baja
-  `room_speed` de 5 en 5 cuando cree que va demasiado rápido; con x2 o más se frenaba a sí mismo.
-  Ahora, mientras se avanza rápido, la room vuelve a su velocidad de diseño.
-- **A cuántos fps va el juego:** a 30, por diseño. Las 717 rooms tienen `room_speed = 30`
-  (`gm8exe/examples/roomspeed.rs`) y el único código que lo toca solo puede bajarlo, nunca subirlo.
+## Qué es
 
-## Extras de la 0.4.0
+**Pokémon Reloaded** es un juego de fans hecho en **Game Maker 8** para Windows. Esta aplicación lo
+ejecuta en Android **tal cual**: con sus archivos originales intactos, sin reescribirlo ni
+recompilarlo. Para ello se apoya en [OpenGMK](https://github.com/OpenGMK/OpenGMK), una
+reimplementación nativa, escrita en Rust, del motor de Game Maker 8.
 
-Todo esto se configura en Ajustes → Extras (y la escala, en Ajustes → Resolución). **No he podido
-probarlo en un móvil de verdad**: está compilado y las partes que se pueden comprobar sin móvil están
-comprobadas, pero si algo falla, el log (Ajustes → Logs) lo dirá.
+No hay Wine, ni Windows emulado, ni capa de traducción: el motor se compila para el procesador del
+móvil y el juego corre prácticamente como un programa nativo. Lo único que se ha portado son las
+tripas del motor, no el juego.
 
-- **Guardado rápido** (experimental): tres ranuras. Un botón guarda toda la partida y otro la
-  devuelve (hay que pulsarlo dos veces seguidas, para no perder el progreso por un toque sin querer).
-  Es independiente del guardado del propio juego. No guarda los sonidos (son datos fijos): la música
-  en bucle vuelve a empezar al cargar. El archivo se escribe aparte y se renombra, así que un fallo
-  nunca estropea la ranura anterior.
-- **Avance rápido** x2, x3 o x4, con el sonido silenciado si quieres. Solo acorta la espera entre
-  fotogramas: la lógica del juego no cambia. Se desactiva solo si el móvil se calienta mucho.
-- **Botones propios**: hasta 8, con la tecla, el texto (3 letras) y las pantallas que elijas, y
-  **diseños guardados** con nombre en el editor de posiciones.
-- **Botones que se difuminan** cuando no tocas la pantalla (siguen funcionando).
-- **Imagen**: escala de **píxeles perfectos** (múltiplos enteros), filtro suave opcional, rejilla LCD o
-  líneas CRT, y respeto de la cámara/muesca.
-- **FPS, tiempo por fotograma y memoria** en una esquina, y **ahorro de batería** (manual, o
-  automático con el ahorro del sistema o el móvil caliente).
-- **Mando**: vibración al pulsar y atajos propios (guardado rápido, cargar, avance rápido).
-- **armeabi-v7a**: el APK lleva también el motor de 32 bits (sin probar en ningún móvil de 32 bits).
+Todo lo que rodea al juego lo aporta la app: importación desde un `.zip`, controles táctiles
+adaptados a cada pantalla, gestión de partidas, ajustes, actualizaciones y registros.
 
-Probado a medias: el análisis del formato de `extras.conf` y de los botones propios se probó en el
-ordenador; el resto, no. Una **caché de sprites** se descartó tras medir: leer y decodificar todo el
-`.exe` del juego tarda menos de un segundo en un PC, y el atlas ya montado ocupa 256 MB, así que
-guardarlo en disco sería más lento que volver a generarlo.
+Este proyecto parte del port de [@Klisee](https://github.com/Klisee)
+([pokemon-reloaded-android](https://github.com/Klisee/pokemon-reloaded-android)) y lo desarrolla en una
+línea propia, con otro paquete (`com.ahjin.pr`), firma propia, nueva interfaz y numerosas mejoras
+de audio, controles, rendimiento y extras.
 
-## Cómo está montado
+> **El juego no está incluido.** El repositorio no contiene ningún recurso de Pokémon Reloaded; lo
+> importas tú a partir del `.zip` oficial.
+
+## Cómo se usa
+
+### Requisitos
+
+- Android 10 o superior (API 29).
+- Un procesador de 64 bits (arm64-v8a). El APK incluye también el motor de 32 bits (armeabi-v7a).
+- El juego en un `.zip`, disponible en el [blog de F3R](https://pokemon-reloaded.blogspot.com/).
+- Unos 350 MB libres para el juego descomprimido (el `.zip` pesa unos 200 MB).
+
+### Instalación
+
+1. Descarga el APK de la [última versión](../../releases/latest) e instálalo.
+2. Abre la app y pulsa **Importar** para elegir el `.zip` del juego (o **Descargar** para abrir el blog).
+3. Pulsa **Jugar**.
+
+Si ya jugabas en PC, tu partida entra desde **Ajustes → Partidas → Importar**.
+
+> **Sobre el paquete.** La app usa el identificador `com.ahjin.pr`. Es independiente de cualquier
+> versión anterior con otro identificador: se instala en paralelo, no la actualiza y no comparte datos
+> con ella. A partir de aquí, las actualizaciones dentro de la app funcionan con normalidad.
+
+## Funciones
+
+### Controles táctiles
+
+- **Se adaptan al juego.** La capa táctil cambia según lo que ocurre en pantalla (mapa, combate,
+  diálogos, menús, elecciones, Zona Safari), de modo que cada situación muestra solo los botones
+  que hacen falta.
+- **Aspecto nativo.** Botones translúcidos con borde suave, iconos y letras vectoriales,
+  animación al pulsar y brillo del color de cada botón. Se puede volver al pixel art clásico del juego.
+- **Joystick de 8 direcciones** en todo el juego, con diagonales con histéresis, zona muerta
+  ajustable y modo flotante que sigue al pulgar.
+- **Editor de posiciones y tamaños.** Arrastra, redimensiona u oculta cada botón por pantalla del
+  juego. Admite **diseños guardados** con nombre.
+- **Botones propios:** hasta 8, con la tecla, el texto de 3 letras y las pantallas que elijas.
+- **Respuesta táctil cuidada:** deslizar de un botón a otro sin levantar el dedo, vibración
+  ajustable (apagada, ligera, fuerte), difuminado de los botones cuando no se usan y bordes de la
+  pantalla excluidos del gesto «atrás» del sistema.
+- **Mandos físicos:** detección automática, reasignación de teclas, vibración y atajos propios.
+
+### Audio
+
+- Mezcla en un **hilo propio**. El callback de AAudio solo copia desde un búfer circular de unos
+  60 ms, así que la música y los efectos no se cortan al mezclarse.
+- Reapertura automática del dispositivo de audio, limitador suave contra saturación y
+  preparación al cargar de los sonidos con frecuencia especial (los gritos).
+- Si hubiera huecos, se registran en el log (`[aaudio] N huecos de audio`).
+- Música MIDI sintetizada con SoundFont integrado.
+
+### Imagen
+
+- **Escala de píxeles perfectos** (múltiplos enteros), para un píxel nítido y uniforme.
+- Filtro suave opcional, **rejilla LCD** y **líneas CRT**.
+- Respeto de la muesca y la cámara frontal.
+
+### Extras
+
+Se configuran en **Ajustes → Extras**.
+
+| Extra | Descripción |
+| --- | --- |
+| **Guardado rápido** | Tres ranuras independientes del guardado del juego. Guardar es un toque; cargar exige pulsar dos veces seguidas, para no perder progreso por error. El archivo se escribe aparte y se renombra, de modo que un fallo nunca estropea la ranura anterior. La música en bucle vuelve a empezar al cargar. |
+| **Avance rápido** | x2, x3 o x4, con sonido silenciable. Solo acorta la espera entre fotogramas: la lógica del juego no cambia. Se desactiva solo si el móvil se calienta mucho. |
+| **Indicador de rendimiento** | FPS, tiempo por fotograma y memoria residente en una esquina. |
+| **Ahorro de batería** | Manual, o automático con el ahorro del sistema o el móvil caliente. |
+
+### Apariencia de la aplicación
+
+Tema **«Obsidiana y oro»**: fondo casi negro, texto marfil y un único acento dorado champán; en
+modo claro, marfil con bronce. No usa el color dinámico del sistema, de modo que se ve igual en
+todos los móviles. Se elige en **Ajustes → Apariencia** (oscuro por defecto, claro o según el
+sistema). La tipografía es Google Sans Flex y la interfaz sigue Material 3 Expressive.
+
+### Gestión de partidas, registros y actualizaciones
+
+- **Partidas:** ver, exportar, importar, borrar y mover entre ranuras.
+- **Registros:** la app guarda un log que se puede compartir como archivo de texto desde
+  **Ajustes → Logs**, y que sobrevive a un reinicio.
+- **Segundo plano:** al salir de la app el bucle se detiene y el audio se corta; al volver, el juego
+  continúa donde estaba.
+- **Actualizaciones:** la app consulta las releases de este repositorio, descarga el APK y lo
+  instala tras verificar que el paquete y la firma coinciden con los de la app instalada.
+
+## Rendimiento y fotogramas por segundo
+
+**El juego va a 30 fotogramas por segundo por diseño, no por una limitación de la aplicación.**
+Esto se ha comprobado con datos del propio juego:
+
+- Las **717 rooms** del juego tienen `room_speed = 30`
+  (`src/OpenGMK/gm8exe/examples/roomspeed.rs`).
+- En todo el GML del juego solo hay un script que modifica `room_speed`, `CheckDaySpeed`, y únicamente
+  puede **bajarlo** (de 5 en 5, hasta 5) o devolverlo a 30; nunca lo sube por encima de 30.
+- El motor espera `1 / room_speed` segundos entre pasos. Subir ese valor no daría más fluidez:
+  aceleraría el juego. Ir más allá de 30 fps visuales requeriría interpolar fotogramas.
+
+Qué hace la aplicación para que esos 30 fps se vean estables:
+
+- **`ANativeWindow_setFrameRate`**: avisa al sistema de que el juego produce 30 fps, para que
+  la pantalla use un múltiplo exacto (60 o 120 Hz, nunca 90) y el compositor no tenga que adivinar.
+- **ADPF (`PerformanceHintManager`)**: informa de lo que tarda cada fotograma con un objetivo del
+  70 % del tiempo disponible, para que el sistema mantenga los relojes del procesador.
+- **Memoria**: tras cargar el juego y al pasar a segundo plano se devuelve al sistema lo que el
+  asignador retiene (`mallopt` `M_PURGE`); el log muestra `[mem] … MB → … MB`.
+- **Arranque**: los atlases de texturas se suben por lotes, lo que redujo la carga inicial de
+  ~85 s a unos segundos en las GPU donde era lenta.
+
+Medidas útiles: leer y decodificar todo el `.exe` del juego tarda unos 0,7 s en un PC; los sprites
+ocupan unos 115 MB descomprimidos y el atlas ya montado, 256 MB. Con esos números se descartó una
+caché de sprites en disco, que habría sido más lenta que regenerarlos.
+
+> **Avance rápido.** El juego vigila el reloj real (`CheckDaySpeed`, que ejecuta
+> `obj_DayNightControl`) y baja `room_speed` si considera que el tiempo pasa demasiado deprisa, que es
+> justo lo que ve cuando se avanza rápido. Para que x2, x3 y x4 signifiquen lo que dicen, durante el
+> avance rápido la room recupera la velocidad con la que fue diseñada.
+
+## Arquitectura
 
 ```mermaid
 flowchart TB
-    subgraph app["App · Kotlin + Compose"]
+    subgraph app["App · Kotlin + Jetpack Compose"]
         launcher["Lanzador e interfaz"]
-        ajustes["Ajustes · partidas · logs"]
-        overlay["Controles táctiles"]
+        ajustes["Ajustes · partidas · logs · extras"]
+        editor["Editor de controles"]
+        upd["Actualizador"]
     end
 
     subgraph engine["Motor · Rust (OpenGMK)"]
         runner["Runner de Game Maker 8"]
         render["Render OpenGL ES"]
-        audio["Audio (AAudio)"]
+        audio["Audio · AAudio + MIDI"]
+        touch["Capa táctil"]
+        extras["Guardado rápido · avance rápido · efectos"]
     end
 
-    juego["Datos del juego original (tu .zip)"]
+    juego[("Datos del juego original (tu .zip)")]
 
     launcher -->|importa el .zip| juego
-    app <-->|JNI| engine
+    app <-->|"JNI y ficheros de configuración"| engine
     engine -->|lee y ejecuta| juego
 ```
 
-La app y el motor son dos mundos separados que hablan por JNI. El motor no sabe de Android ni de
-interfaz: solo sabe ejecutar el juego. La app no sabe de Game Maker: solo lo lanza y lo envuelve.
-Esa separación es la que permite tocar la interfaz sin romper el motor, y viceversa.
+La app y el motor son dos mundos separados que se comunican por JNI y mediante ficheros de
+configuración en el almacenamiento privado. El motor no sabe de interfaz: solo ejecuta el juego. La
+app no sabe de Game Maker: solo lo lanza y lo envuelve. Esa separación permite tocar la interfaz sin
+romper el motor, y viceversa.
 
-## Qué necesitas
+| Capa | Tecnología |
+| --- | --- |
+| Interfaz | Kotlin, Jetpack Compose, Material 3 Expressive, Google Sans Flex |
+| Motor | Rust sobre OpenGMK (`gm8emulator`, `gm8exe`) |
+| Vídeo | OpenGL ES con EGL propio |
+| Audio | AAudio por FFI + `rustysynth` para MIDI |
+| Entrada | Capa táctil propia, mandos de Android, vibración |
+| Empaquetado | Gradle 9.4.1 · AGP 9.2.1 · `minSdk 29` · `targetSdk 36` · `compileSdk 37` |
 
-Los archivos originales del juego, que están en el blog de **F3R**:
-[pokemon-reloaded.blogspot.com](https://pokemon-reloaded.blogspot.com/)
+## Estructura del repositorio
 
-El repo no incluye ningún asset del juego, y eso es justo lo que lo mantiene limpio.
+```
+.
+├── android/                 App Android (Kotlin / Compose)
+│   └── app/src/main/
+│       ├── java/com/ahjin/pr/   Lanzador, ajustes, editor de controles, actualizador
+│       ├── assets/              Sprites de botones, SoundFont, diseño por defecto de los controles
+│       └── res/                 Tema, tipografía e iconos
+├── src/OpenGMK/             OpenGMK con las modificaciones para Android
+│   ├── gm8emulator/             Motor: runner, render, audio, capa táctil, extras
+│   ├── gm8exe/                  Lector de ejecutables GM8 (+ ejemplos de diagnóstico)
+│   └── …
+├── vendor/                  Dependencias de ventana y sesión adaptadas (`ramen`, `udon`)
+├── patches/                 Parches respecto a OpenGMK, para poder revisarlos
+├── tools/                   Utilidades (generador del diseño de controles)
+└── LICENSE                  GPL-2.0
+```
 
-## Cómo se usa
+## Compilar desde el código
 
-1. Instala el APK de la última release.
-2. Consigue el juego en un `.zip` y dale a **Importar** (o usa **Descargar** para abrir el blog).
-3. **Jugar**. Si ya tenías partida en el PC, tráela desde Ajustes → Partidas.
+### Requisitos
 
-## Estado
+- **Rust** estable con los destinos `aarch64-linux-android` y `armv7-linux-androideabi`
+  (`rustup target add …`).
+- **Android NDK r27c**.
+- **JDK 21** y **Gradle 9.4.1**.
+- **Android SDK** con la plataforma 37 y sus licencias aceptadas.
 
-Está en beta y se nota: puede petar. Si algo falla, guarda un log desde Ajustes → Logs y ábrelo como
-issue.
+### 1. El motor (`libgm8emulator.so`)
 
-Ya resuelto:
+Se compila con el enlazador del NDK para API 29. Con `cargo-ndk`:
 
-- **La pantalla negra en móviles con GPU PowerVR** (MediaTek Helio y similares). El motor enlazaba el
-  VAO/VBO/programa una sola vez y daba por anulado el búfer tras cada dibujo: en GPUs diferidas
-  (TBDR) eso dejaba al procesador de vértices leyendo memoria descartada y no se pintaba nada. Ahora
-  se enlazan en cada dibujo, no se invalida el búfer, el bloque de uniforms `std140` tiene los
-  offsets correctos y los atlases se suben por lotes — con esto último el arranque pasó de ~85 s a
-  un momento. Gracias a **Alexpix0 (Armando)**, que lo encontró y probó. (Los detalles del
-  diagnóstico están en el historial de commits.)
-- **El escalado en combate**, que se quedaba con la cámara descolocada.
-- **El movimiento Vuelo**, que no llegaba a conectar.
-- **La XP infinita** al abrir la mochila tras debilitar a un Pokémon.
-- **El cierre en combates dobles** al cambiar de Pokémon.
+```bash
+cd src/OpenGMK
+cargo ndk -t arm64-v8a -t armeabi-v7a --platform 29 build -p gm8emulator --release
+```
 
-Cambios de esta rama (`pokemon-reloaded-android-mejorado`, sin probar aún en todos los móviles):
+O directamente con Cargo, apuntando el enlazador al NDK (ejemplo para arm64):
 
-- **Audio**: la mezcla va en su propio hilo y el callback de AAudio solo copia desde un buffer circular
-  de ~60 ms, así que ya no se corta al mezclar música y efectos. Si hay huecos, se cuentan en el log
-  (`[aaudio] N huecos de audio`). Los sonidos con frecuencia rara (los gritos) se preparan al cargar el
-  juego y no al sonar, y se retiró el modo de rendimiento sostenido, que limitaba los relojes del móvil.
-- **Controles táctiles con aspecto nativo** (v0.3.1-mejorado.2): botones translúcidos con borde suave,
-  letras e iconos vectoriales, animación al pulsar y brillo del color de cada botón. Se puede volver al
-  pixel art en Ajustes → Aspecto de los controles. **Editor de posiciones** en Ajustes: arrastra, cambia
-  el tamaño u oculta cada botón por pantalla del juego; se guarda en `files/layout.conf`
-  (`tools/generate-layout.py` regenera las posiciones de origen).
-- **Controles táctiles más nativos**: vibración al tocar (apagada / ligera / fuerte), deslizar el dedo de
-  un botón a otro sin levantarlo, joystick flotante opcional que sigue al pulgar, zona muerta ajustable,
-  joystick de 8 direcciones (diagonales con histéresis), tamaño de los botones ajustable y
-  los bordes de la pantalla excluidos del gesto «atrás» del sistema.
-- **Rendimiento**: aviso de 30 fps al compositor (`ANativeWindow_setFrameRate`), sesión de
-  `PerformanceHintManager` (ADPF) con la duración de cada frame con un objetivo del 70 % del frame.
-- **Memoria**: tras cargar el juego y al pasar a segundo plano se devuelve al sistema lo que el
-  asignador retiene (`mallopt` M_PURGE); el log muestra `[mem] ... MB -> ... MB`. Con
-  `gm8exe/examples/memstats.rs` se mide qué ocupan los recursos del juego.
+```bash
+export NDK=/ruta/al/android-ndk-r27c
+export TC=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin
+export CC_aarch64_linux_android=$TC/aarch64-linux-android29-clang
+export AR_aarch64_linux_android=$TC/llvm-ar
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$TC/aarch64-linux-android29-clang
 
-Lo que ahora mismo da problemas, y resolveré después:
+cd src/OpenGMK
+cargo build --release --target aarch64-linux-android -p gm8emulator --lib
+```
 
-Y por ir haciendo, sin orden:
+La biblioteca resultante debe quedar en `src/OpenGMK/target/<triple>/release/libgm8emulator.so`;
+Gradle la copia a `jniLibs` antes de empaquetar y se niega a continuar si falta la de arm64 o si
+algún `.so` no es un ELF válido. La de 32 bits es opcional.
 
-- Poner imágenes propias (pixel art) a más botones táctiles.
-- Más ajustes de rendimiento en móviles modestos.
+> La compilación del motor solo está pensada para los destinos Android: `cargo check` en un
+> ordenador de escritorio no funciona por dependencias de audio nativas.
+
+### 2. La aplicación
+
+```bash
+cd android
+./build.sh :app:assembleRelease      # o `gradle :app:assembleRelease`
+```
+
+El APK queda en `android/app/build/outputs/apk/release/`. Con Gradle se necesitan unos 2 GB de
+memoria para el proceso; en equipos justos conviene tener swap.
+
+## Firma y actualizaciones
+
+Las versiones publicadas se firman con una **clave de release propia**. La clave nunca se sube al
+repositorio: `android/keystore/` y `android/keystore.properties` están en `.gitignore`.
+
+Para firmar tu propia compilación, crea `android/keystore.properties`:
+
+```properties
+storeFile=keystore/mi-clave.jks
+storePassword=…
+keyAlias=…
+keyPassword=…
+```
+
+Sin ese archivo, Gradle firma con la clave de depuración. **Una compilación firmada con otra clave no
+puede instalarse encima de la oficial**, y la app rechaza actualizarse con un APK cuyo paquete o
+firma no coincidan con los de la instalada.
+
+El actualizador consulta `releases/latest` de este repositorio (las prereleases se ignoran), toma el
+primer asset `.apk`, compara versiones numéricamente y entrega el archivo al instalador del sistema
+mediante un `FileProvider`.
+
+## Herramientas de diagnóstico
+
+Pequeños programas de apoyo en `src/OpenGMK/gm8exe/examples/`. Se ejecutan en un PC sobre el `.exe` del juego:
+
+```bash
+cd src/OpenGMK
+cargo run --release -p gm8exe --example roomspeed -- "juego.exe"            # room_speed de cada room
+cargo run --release -p gm8exe --example memstats  -- "juego.exe"            # qué ocupan los recursos
+cargo run --release -p gm8exe --example dumpgml   -- "juego.exe" gml.txt    # vuelca todo el GML a texto
+```
+
+Además, `tools/generate-layout.py` regenera el diseño por defecto de los controles táctiles
+(`android/app/src/main/assets/controls-layout.json`).
+
+## Historial de versiones
+
+| Versión | Novedades |
+| --- | --- |
+| **0.5.0** | Paquete propio **`com.ahjin.pr`** y firma de release propia. Tema **«Obsidiana y oro»** con ajuste de apariencia (oscuro, claro, sistema), botón Jugar dorado, barra y listas con filete fino, icono nuevo. Corregido el autofrenado del **avance rápido**. Nuevo ejemplo `roomspeed`. README reescrito. |
+| **0.4.0** | Guardado rápido (3 ranuras), avance rápido x2/x3/x4, botones propios y diseños guardados, escala de píxeles perfectos, rejilla LCD y CRT, indicador de FPS/memoria, ahorro de batería, vibración y atajos de mando, soporte armeabi-v7a, actualizador apuntando a este repositorio. |
+| **0.3.1-mejorado.4** | Joystick de 8 direcciones en todo el juego. |
+| **0.3.1-mejorado.3** | Joystick de 8 direcciones en combate. |
+| **0.3.1-mejorado.2** | Controles con aspecto nativo, editor de posiciones y tamaños, ajustes de audio. |
+| **0.3.1-mejorado.1** | Audio reescrito (sin cortes), mejoras de memoria y rendimiento, primeras mejoras de controles. |
+| **0.3.1** | Versión de partida: port original de [@Klisee](https://github.com/Klisee/pokemon-reloaded-android). |
+
+Cada versión, con su APK, está en [Releases](../../releases).
+
+## Estado y problemas conocidos
+
+- Desarrollado y probado en un **RedMagic 8S Pro** (Snapdragon 8 Gen 2, Android 13, arm64).
+- El motor de **32 bits (armeabi-v7a)** se compila y empaqueta, pero no se ha probado en ningún móvil de 32 bits.
+- El **guardado rápido** es una función experimental. Si algo falla, el log lo registrará.
+- La app sigue en desarrollo y puede fallar. Si ocurre, guarda un log desde **Ajustes → Logs** y
+  abre un [issue](../../issues) con él.
+
+Problemas ya resueltos en el camino:
+
+- Pantalla negra en móviles con GPU PowerVR (MediaTek Helio y similares), gracias al arreglo de
+  Alexpix0 (ver créditos).
+- Escalado de cámara en combate, el movimiento Vuelo, la XP infinita al abrir la mochila tras
+  debilitar a un Pokémon y el cierre en combates dobles al cambiar de Pokémon.
+- Cortes de audio al mezclar música y efectos.
+
+Ideas para más adelante:
+
+- Imágenes propias (pixel art) para más botones táctiles.
+- Más ajustes de rendimiento para móviles modestos.
 - Revisar la compatibilidad con mandos de todo tipo.
 
-## Compilar
+## Licencia y créditos
 
-```
-# El motor (Rust) y su .so para Android
-cd src/OpenGMK
-cargo ndk -t arm64-v8a --platform 29 build -p gm8emulator --release
+Este proyecto se distribuye bajo la licencia **GNU GPL v2** (consulta [`LICENSE`](LICENSE)), la misma
+que OpenGMK, de la que deriva.
 
-# La app (con android/keystore.properties apunta a tu clave; sin él se firma con la de depuración)
-cd ../../android
-./build.sh :app:assembleRelease
-```
+- **Pokémon Reloaded** es obra de **F3R Productions**: [blog del juego](https://pokemon-reloaded.blogspot.com/).
+- **[OpenGMK](https://github.com/OpenGMK/OpenGMK)**: la reimplementación del motor de Game Maker 8 sin la que este proyecto no existiría.
+- **[@Klisee](https://github.com/Klisee)**: autor del port original a Android
+  ([pokemon-reloaded-android](https://github.com/Klisee/pokemon-reloaded-android)), base de este trabajo.
+- **Alexpix0 (Armando)**: arreglo del renderizado que resolvió la pantalla negra en GPU PowerVR (enlazar
+  VAO/VBO/programa en cada dibujo, no invalidar el búfer, corregir el `std140` del bloque de uniforms y subir
+  los atlases por lotes). [Su PR](https://github.com/Klisee/pokemon-reloaded-android/pull/2).
+- **Google Sans Flex**, la tipografía de la aplicación, bajo licencia OFL.
 
-## Créditos
-
-- **Pokémon Reloaded** es obra de **F3R Productions**: [el blog del juego](https://pokemon-reloaded.blogspot.com/)
-- **OpenGMK**, la reimplementación del motor sin la que esto no existiría: [github.com/OpenGMK/OpenGMK](https://github.com/OpenGMK/OpenGMK)
-- **Alexpix0 (Armando)**: por el arreglo del renderizado que resolvió la **pantalla negra en móviles con GPU PowerVR** (enlazar VAO/VBO/programa en cada dibujo, quitar la invalidación del búfer que rompía en GPUs diferidas, corregir el `std140` del bloque de uniforms y subir los atlases por lotes, que además dejó el arranque muchísimo más rápido). [Su PR](https://github.com/Klisee/pokemon-reloaded-android/pull/2)
-- **Google Sans Flex**, la tipografía de la app
-
-Pokémon es una marca de Nintendo, Game Freak y Creatures. Este proyecto no está afiliado ni
-respaldado por ellos.
+Pokémon es una marca de Nintendo, Game Freak y Creatures. Este proyecto es un trabajo de fans, sin
+ánimo de lucro, y no está afiliado ni respaldado por ellos.
