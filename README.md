@@ -108,7 +108,7 @@ Cambios de esta rama (`pokemon-reloaded-android-mejorado`, sin probar aún en to
   (`tools/generate-layout.py` regenera las posiciones de origen).
 - **Controles táctiles más nativos**: vibración al tocar (apagada / ligera / fuerte), deslizar el dedo de
   un botón a otro sin levantarlo, joystick flotante opcional que sigue al pulgar, zona muerta ajustable,
-  un solo eje a la vez en el joystick fuera de combate (el mapa es de cuadrícula) y 8 direcciones en combate, tamaño de los botones ajustable y
+  joystick de 8 direcciones (diagonales con histéresis), tamaño de los botones ajustable y
   los bordes de la pantalla excluidos del gesto «atrás» del sistema.
 - **Rendimiento**: aviso de 30 fps al compositor (`ANativeWindow_setFrameRate`), sesión de
   `PerformanceHintManager` (ADPF) con la duración de cada frame con un objetivo del 70 % del frame.
