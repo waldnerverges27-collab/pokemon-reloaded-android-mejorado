@@ -89,7 +89,7 @@ object Diagnostics {
         line("Zona segura") { prefs.safeArea }
         line("Ahorro de bateria") { prefs.batteryMode }
         line("Indicador de FPS") { prefs.showStats }
-        line("Controles tactiles") { "estilo nativo=${prefs.nativeStyle}, escala=${prefs.touchScale}, opacidad=${prefs.touchOpacity}, joystick=${prefs.stickEnabled}, flotante=${prefs.floatingStick}, zona muerta=${prefs.stickDeadzone}" }
+        line("Controles tactiles") { "estilo nativo=${prefs.nativeStyle}, iconos=${prefs.functionIcons}, escala=${prefs.touchScale}, opacidad=${prefs.touchOpacity}, joystick=${prefs.stickEnabled}, flotante=${prefs.floatingStick}, zona muerta=${prefs.stickDeadzone}" }
         line("Vibracion") { "tactil=${prefs.hapticLevel}, mando=${prefs.padRumble}" }
         line("Ocultar controles") { "${prefs.autoHideSeconds} s" }
         line("Guardado rapido") { "ranura=${prefs.quickSlot}" }

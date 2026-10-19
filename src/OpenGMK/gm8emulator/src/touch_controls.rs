@@ -600,6 +600,29 @@ pub enum Icon {
     Plus,
     Menu,
     Check,
+    /// An exclamation mark: act, interact.
+    Act,
+    /// A runner.
+    Run,
+    /// A fishing hook.
+    Hook,
+    Bike,
+    /// Three Pokémon: the party.
+    Team,
+    Bag,
+    Map,
+    /// An arrow leaving a doorway: run away.
+    Exit,
+    Smile,
+    Chat,
+    Clock,
+    Magnifier,
+    Person,
+    Bolt,
+    /// A wrapped box: the assigned item.
+    Box,
+    /// Two opposite arrows: switch.
+    Swap,
 }
 
 /// The pictures a custom button can wear, by the names the editor writes after a `~`.
@@ -620,6 +643,22 @@ pub fn icon_named(name: &str) -> Option<Icon> {
         "plus" => Some(Icon::Plus),
         "menu" => Some(Icon::Menu),
         "check" => Some(Icon::Check),
+        "act" => Some(Icon::Act),
+        "run" => Some(Icon::Run),
+        "hook" => Some(Icon::Hook),
+        "bike" => Some(Icon::Bike),
+        "team" => Some(Icon::Team),
+        "bag" => Some(Icon::Bag),
+        "map" => Some(Icon::Map),
+        "exit" => Some(Icon::Exit),
+        "smile" => Some(Icon::Smile),
+        "chat" => Some(Icon::Chat),
+        "clock" => Some(Icon::Clock),
+        "magnifier" => Some(Icon::Magnifier),
+        "person" => Some(Icon::Person),
+        "bolt" => Some(Icon::Bolt),
+        "box" => Some(Icon::Box),
+        "swap" => Some(Icon::Swap),
         _ => None,
     }
 }
@@ -628,14 +667,54 @@ pub fn icon_named(name: &str) -> Option<Icon> {
 pub fn icon_at(index: usize) -> Option<Icon> {
     match custom_def(index) {
         Some(def) => def.icon,
-        None => icon_of(CONTROLS[index].name),
+        None => icon_for(CONTROLS[index].name, current_context()),
+    }
+}
+
+static FUNCTION_ICONS: AtomicBool = AtomicBool::new(true);
+
+/// Whether the game's own buttons wear a picture of what they do (otherwise, their letter).
+pub fn set_function_icons(value: bool) {
+    FUNCTION_ICONS.store(value, Ordering::Relaxed);
+}
+
+/// The picture a button of the game wears in a given state of the game, if its job has one.
+///
+/// The same key does different things in different places (`M` is the map out of battle and the
+/// mega evolution in it), so the picture follows the state. In battle `Z X C V` are the four
+/// attacks, whose slot is what matters there, so they keep their letters.
+pub fn icon_for(name: &str, context: u8) -> Option<Icon> {
+    if let Some(icon) = icon_of(name) {
+        return Some(icon)
+    }
+    if !FUNCTION_ICONS.load(Ordering::Relaxed) {
+        return None
+    }
+    let fight = context & (BATTLE | SAFARI) != 0;
+    let world = context & WORLD != 0;
+    match name {
+        "z" if world => Some(Icon::Act),
+        "x" if world => Some(Icon::Run),
+        "c" if world => Some(Icon::Hook),
+        "v" if world => Some(Icon::Bike),
+        "space" => Some(Icon::Team),
+        "o" => Some(Icon::Bag),
+        "m" => Some(if context & BATTLE != 0 { Icon::Star } else { Icon::Map }),
+        "e" => Some(if fight { Icon::Exit } else { Icon::Smile }),
+        "t" => Some(if context & BATTLE != 0 { Icon::Clock } else { Icon::Chat }),
+        "l" => Some(Icon::Magnifier),
+        "p" => Some(Icon::Person),
+        "n" => Some(Icon::Bolt),
+        "a" => Some(Icon::Box),
+        "s" => Some(Icon::Swap),
+        _ => None,
     }
 }
 
 /// The icon a button wears instead of its letter, if it has one.
 pub fn icon_of(name: &str) -> Option<Icon> {
     match name {
-        "return" => Some(Icon::Pause),
+        "return" => Some(Icon::Menu),
         "escape" => Some(Icon::Back),
         "b" => Some(Icon::Ball),
         SYS_QSAVE => Some(Icon::Save),
@@ -1459,5 +1538,26 @@ mod tests {
     fn system_actions_are_found_by_name() {
         assert_eq!(sys_action_named(SYS_QSAVE), Some(SysAction::QuickSave));
         assert_eq!(sys_action_named("z"), None);
+    }
+
+    #[test]
+    fn buttons_wear_the_picture_of_their_job_in_each_state() {
+        set_function_icons(true);
+        // The main four are actions out of battle and attacks in it, where they keep their letters.
+        assert!(matches!(icon_for("v", WORLD), Some(Icon::Bike)));
+        assert!(icon_for("v", BATTLE).is_none());
+        assert!(matches!(icon_for("m", WORLD), Some(Icon::Map)));
+        assert!(matches!(icon_for("m", BATTLE), Some(Icon::Star)));
+        assert!(matches!(icon_for("e", WORLD), Some(Icon::Smile)));
+        assert!(matches!(icon_for("e", SAFARI), Some(Icon::Exit)));
+        assert!(matches!(icon_for("t", BATTLE), Some(Icon::Clock)));
+        assert!(matches!(icon_for("o", WORLD), Some(Icon::Bag)));
+        assert!(icon_for("alpha1", WORLD).is_none(), "numbers stay numbers");
+        // Switched off, only the icons the buttons always had remain.
+        set_function_icons(false);
+        assert!(icon_for("o", WORLD).is_none());
+        assert!(matches!(icon_for("return", WORLD), Some(Icon::Menu)));
+        assert!(matches!(icon_for("b", BATTLE), Some(Icon::Ball)));
+        set_function_icons(true);
     }
 }

@@ -109,6 +109,8 @@ data class TouchSettings(
     val deadzone: Float = 0.35f,
     /** Native-looking buttons, or the pixel-art sprites. */
     val nativeStyle: Boolean = true,
+    /** The game's own buttons show a picture of what they do instead of a letter. */
+    val functionIcons: Boolean = true,
 )
 
 fun writeControlsFile(
@@ -134,6 +136,7 @@ fun writeControlsFile(
         appendLine("floating=${if (touch.floatingStick) 1 else 0}")
         appendLine("deadzone=${touch.deadzone}")
         appendLine("style=${if (touch.nativeStyle) "native" else "pixel"}")
+        appendLine("icons=${if (touch.functionIcons) 1 else 0}")
     }
     runCatching { File(filesDir, "controls.conf").writeText(text) }
 }

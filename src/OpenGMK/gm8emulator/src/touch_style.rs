@@ -268,7 +268,129 @@ fn icon(c: &mut Canvas, kind: Icon, cx: f32, cy: f32, size: f32, col: Color) {
             c.line(cx - 0.5 * size, cy, cx + 0.5 * size, cy, width * 0.8, col);
             c.smooth_disc(cx, cy, size * 0.17, col, col);
         },
+        _ => function_icon(c, kind, cx, cy, size * 1.25, col),
     }
+}
+
+/// The pictures of what the game's buttons do. Drawn in a box of about `size` either side of the
+/// centre, with strokes a little thinner than the plain symbols above because they have more in them.
+fn function_icon(c: &mut Canvas, kind: Icon, cx: f32, cy: f32, size: f32, col: Color) {
+    let w = (size * 0.15).max(1.6);
+    let p = |x: f32, y: f32| (cx + x * size, cy + y * size);
+    let path = |c: &mut Canvas, pts: &[(f32, f32)], width: f32| {
+        let pts: Vec<(f32, f32)> = pts.iter().map(|&(x, y)| p(x, y)).collect();
+        c.polyline(&pts, width, col);
+    };
+    let closed = |c: &mut Canvas, pts: &[(f32, f32)], width: f32| {
+        let mut pts: Vec<(f32, f32)> = pts.iter().map(|&(x, y)| p(x, y)).collect();
+        pts.push(pts[0]);
+        c.polyline(&pts, width, col);
+    };
+    // An arc of a circle, from one angle to another (radians, 0 = right, y down).
+    let arc = |c: &mut Canvas, x: f32, y: f32, r: f32, from: f32, to: f32, width: f32| {
+        let pts: Vec<(f32, f32)> = (0..=16)
+            .map(|i| {
+                let a = from + (to - from) * i as f32 / 16.0;
+                p(x + r * a.cos(), y + r * a.sin())
+            })
+            .collect();
+        c.polyline(&pts, width, col);
+    };
+    use std::f32::consts::{PI, TAU};
+    match kind {
+        // An exclamation mark: "something to do here".
+        Icon::Act => {
+            path(c, &[(0.0, -0.42), (0.0, 0.10)], w * 1.5);
+            c.smooth_disc(p(0.0, 0.38).0, p(0.0, 0.38).1, size * 0.10, col, col);
+        },
+        Icon::Run => {
+            c.smooth_disc(p(0.14, -0.34).0, p(0.14, -0.34).1, size * 0.11, col, col);
+            path(c, &[(0.08, -0.18), (-0.04, 0.10)], w * 1.2);
+            path(c, &[(-0.34, -0.12), (-0.02, -0.18), (0.30, 0.02)], w);
+            path(c, &[(-0.04, 0.10), (0.22, 0.20), (0.14, 0.44)], w);
+            path(c, &[(-0.04, 0.10), (-0.24, 0.30), (-0.42, 0.22)], w);
+        },
+        // A rod, its line and the hook at the end of it.
+        Icon::Hook => {
+            path(c, &[(0.40, -0.44), (-0.08, -0.34)], w);
+            path(c, &[(-0.08, -0.34), (-0.08, 0.14)], w * 0.8);
+            arc(c, 0.10, 0.14, 0.18, PI, 0.0, w);
+            path(c, &[(0.28, 0.14), (0.22, 0.0)], w);
+        },
+        Icon::Bike => {
+            c.ring(p(-0.30, 0.18).0, p(-0.30, 0.18).1, size * 0.19, w * 0.9, col);
+            c.ring(p(0.30, 0.18).0, p(0.30, 0.18).1, size * 0.19, w * 0.9, col);
+            path(c, &[(-0.30, 0.18), (-0.06, -0.12), (0.18, -0.12), (0.30, 0.18)], w * 0.9);
+            path(c, &[(-0.06, -0.12), (0.04, 0.18), (-0.30, 0.18)], w * 0.9);
+            path(c, &[(0.18, -0.12), (0.12, -0.32), (0.26, -0.32)], w * 0.9);
+            path(c, &[(-0.18, -0.24), (0.0, -0.24)], w * 0.9);
+        },
+        // Three rings in a triangle: the party.
+        Icon::Team => {
+            for (x, y) in [(0.0, -0.20), (-0.22, 0.20), (0.22, 0.20)] {
+                c.ring(p(x, y).0, p(x, y).1, size * 0.20, w * 0.9, col);
+            }
+        },
+        Icon::Bag => {
+            arc(c, 0.0, -0.06, 0.18, PI, TAU, w);
+            closed(c, &[(-0.38, 0.44), (-0.32, -0.06), (0.32, -0.06), (0.38, 0.44)], w);
+            path(c, &[(-0.35, 0.16), (0.35, 0.16)], w * 0.8);
+            c.smooth_disc(p(0.0, 0.16).0, p(0.0, 0.16).1, size * 0.07, col, col);
+        },
+        Icon::Map => {
+            closed(c, &[(-0.40, -0.30), (-0.13, -0.40), (0.13, -0.30), (0.40, -0.40), (0.40, 0.30), (0.13, 0.40), (-0.13, 0.30), (-0.40, 0.40)], w * 0.9);
+            path(c, &[(-0.13, -0.40), (-0.13, 0.30)], w * 0.8);
+            path(c, &[(0.13, -0.30), (0.13, 0.40)], w * 0.8);
+        },
+        Icon::Exit => {
+            path(c, &[(0.0, -0.40), (-0.34, -0.40), (-0.34, 0.40), (0.0, 0.40)], w);
+            path(c, &[(-0.14, 0.0), (0.40, 0.0)], w);
+            path(c, &[(0.20, -0.20), (0.40, 0.0), (0.20, 0.20)], w);
+        },
+        Icon::Smile => {
+            c.ring(cx, cy, size * 0.44, w * 0.7, col);
+            for x in [-0.15, 0.15] {
+                c.smooth_disc(p(x, -0.12).0, p(x, -0.12).1, size * 0.05, col, col);
+            }
+            arc(c, 0.0, -0.04, 0.26, 0.2 * PI, 0.8 * PI, w * 0.7);
+        },
+        Icon::Chat => {
+            closed(c, &[(-0.42, -0.20), (-0.30, -0.32), (0.30, -0.32), (0.42, -0.20), (0.42, 0.06), (0.30, 0.18), (-0.02, 0.18), (-0.22, 0.40), (-0.20, 0.18), (-0.30, 0.18), (-0.42, 0.06)], w * 0.9);
+            for x in [-0.16, 0.0, 0.16] {
+                c.smooth_disc(p(x, -0.07).0, p(x, -0.07).1, size * 0.04, col, col);
+            }
+        },
+        Icon::Clock => {
+            c.ring(cx, cy, size * 0.44, w * 0.7, col);
+            path(c, &[(0.0, 0.0), (0.0, -0.26)], w * 0.7);
+            path(c, &[(0.0, 0.0), (0.18, 0.09)], w * 0.7);
+        },
+        Icon::Magnifier => {
+            c.ring(p(-0.08, -0.08).0, p(-0.08, -0.08).1, size * 0.30, w * 0.9, col);
+            path(c, &[(0.14, 0.14), (0.42, 0.42)], w * 1.3);
+        },
+        Icon::Person => {
+            c.ring(p(0.0, -0.22).0, p(0.0, -0.22).1, size * 0.17, w * 0.9, col);
+            path(c, &[(-0.36, 0.44), (-0.32, 0.20), (-0.16, 0.08), (0.16, 0.08), (0.32, 0.20), (0.36, 0.44)], w);
+        },
+        Icon::Bolt => {
+            closed(c, &[(0.10, -0.46), (-0.26, 0.06), (-0.02, 0.06), (-0.10, 0.46), (0.26, -0.10), (0.02, -0.10)], w * 0.8);
+        },
+        Icon::Box => {
+            closed(c, &[(-0.32, -0.06), (0.32, -0.06), (0.32, 0.42), (-0.32, 0.42)], w * 0.9);
+            closed(c, &[(-0.40, -0.26), (0.40, -0.26), (0.40, -0.06), (-0.40, -0.06)], w * 0.9);
+            path(c, &[(0.0, -0.26), (0.0, 0.42)], w * 0.8);
+            path(c, &[(0.0, -0.26), (-0.14, -0.44), (-0.22, -0.34), (0.0, -0.26), (0.22, -0.34), (0.14, -0.44), (0.0, -0.26)], w * 0.8);
+        },
+        Icon::Swap => {
+            path(c, &[(-0.38, -0.15), (0.38, -0.15)], w);
+            path(c, &[(0.18, -0.34), (0.38, -0.15), (0.18, 0.04)], w);
+            path(c, &[(0.38, 0.17), (-0.38, 0.17)], w);
+            path(c, &[(-0.18, -0.02), (-0.38, 0.17), (-0.18, 0.36)], w);
+        },
+        _ => {},
+    }
+    let _ = TAU;
 }
 
 /// What a button looks like.

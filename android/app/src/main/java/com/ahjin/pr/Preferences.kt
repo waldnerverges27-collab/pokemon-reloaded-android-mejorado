@@ -127,7 +127,14 @@ class Preferences(context: Context) {
             prefs.edit().putBoolean("nativeStyle", value).apply()
         }
 
-    fun touchSettings() = TouchSettings(touchOpacity, touchScale, hapticLevel, floatingStick, stickDeadzone, nativeStyle)
+    /** Pictures of what each button does, instead of letters, on the game's own buttons. On by default. */
+    var functionIcons: Boolean
+        get() = prefs.getBoolean("functionIcons", true)
+        set(value) {
+            prefs.edit().putBoolean("functionIcons", value).apply()
+        }
+
+    fun touchSettings() = TouchSettings(touchOpacity, touchScale, hapticLevel, floatingStick, stickDeadzone, nativeStyle, functionIcons)
 
     /** Mirrors the current controls into the file the emulator reads at startup. */
     fun writeControls(filesDir: File, padConnected: Boolean) =

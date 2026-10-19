@@ -70,6 +70,11 @@ import com.ahjin.pr.LayoutProfiles
 import com.ahjin.pr.JOYSTICK
 import com.ahjin.pr.Layout
 import com.ahjin.pr.Placement
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import com.ahjin.pr.Preferences
 import java.io.File
 import kotlin.math.hypot
 import kotlin.math.max
@@ -113,8 +118,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
 
     fun save() = Layout.write(filesDir, LayoutFile(placements.toMap(), customs.toMap()))
     // The buttons the player made start in the middle of the screen, with the size the engine uses.
-    fun customSpec(c: CustomButton) =
-        ControlSpec(c.name, c.icon?.let(Layout::iconGlyph) ?: c.label, 0.5f, 0.5f, Layout.CUSTOM_RADIUS, c.contexts)
+    fun customSpec(c: CustomButton) = ControlSpec(c.name, c.label, 0.5f, 0.5f, Layout.CUSTOM_RADIUS, c.contexts)
     val allControls = defaults.controls + customs.values.sortedBy { it.slot }.map(::customSpec)
     fun specOf(name: String): ControlSpec? =
         if (name == JOYSTICK) defaults.joystick else allControls.firstOrNull { it.name == name }
@@ -128,6 +132,8 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
     val config = LocalConfiguration.current
     val ratio = max(config.screenWidthDp, config.screenHeightDp).toFloat() / min(config.screenWidthDp, config.screenHeightDp)
     val measurer = rememberTextMeasurer()
+    val iconsOn = remember { Preferences(context.applicationContext).functionIcons }
+    val iconPainters = Layout.ICONS.associateWith { rememberVectorPainter(iconVector(it)) }
     val accent = MaterialTheme.colorScheme.primary
     val onSurface = MaterialTheme.colorScheme.onSurface
 
@@ -278,8 +284,16 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                             (if (isSelected) accent else Color.White).copy(alpha = (if (isSelected) 1f else 0.5f) * alpha),
                             r, center, style = Stroke(width = if (isSelected) 5f else 2.5f),
                         )
-                        val label = if (isStick) "" else spec.label
-                        if (label.isNotEmpty()) {
+                        val icon = if (isStick) null else Layout.iconOf(spec.label)
+                            ?: if (spec.name.startsWith("custom")) null else Layout.builtinIcon(spec.name, screen.mask, iconsOn)
+                        val painter = icon?.let { iconPainters[it] }
+                        val label = if (isStick || spec.label.startsWith("~")) "" else spec.label
+                        if (painter != null) {
+                            val side = r * 1.15f
+                            translate(center.x - side / 2f, center.y - side / 2f) {
+                                with(painter) { draw(Size(side, side), colorFilter = ColorFilter.tint(Color.White.copy(alpha = alpha))) }
+                            }
+                        } else if (label.isNotEmpty()) {
                             val layout = measurer.measure(
                                 label,
                                 TextStyle(color = Color.White.copy(alpha = alpha), fontSize = (min(r * 0.5f, r * 1.5f / label.length.coerceAtLeast(1)) / density).sp, fontWeight = FontWeight.Bold),
@@ -300,7 +314,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
             } else {
                 val p = placementOf(spec)
                 val rows = if (spec.name == JOYSTICK) 2 else 3
-                SettingsGroup(if (spec.name == JOYSTICK) "Joystick" else "Boton ${spec.label}") {
+                SettingsGroup(if (spec.name == JOYSTICK) "Joystick" else "Boton ${Layout.iconOf(spec.label)?.let { Layout.ICON_TITLES[it] } ?: spec.label}") {
                     SliderRow(
                         icon = Icons.Filled.ZoomOutMap,
                         title = "Tamano",
@@ -467,12 +481,6 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
     }
 }
 
-private val ICON_TITLES = mapOf(
-    "pause" to "Pausa", "back" to "Atras", "ball" to "Bola", "save" to "Guardar", "load" to "Cargar",
-    "forward" to "Rapido", "up" to "Arriba", "down" to "Abajo", "left" to "Izquierda", "right" to "Derecha",
-    "star" to "Estrella", "heart" to "Corazon", "plus" to "Mas", "menu" to "Menu", "check" to "Ok",
-)
-
 /** Key, label and screens of a button the player made. */
 @Composable
 private fun CustomButtonEditor(custom: CustomButton, onChange: (CustomButton) -> Unit) {
@@ -512,7 +520,8 @@ private fun CustomButtonEditor(custom: CustomButton, onChange: (CustomButton) ->
                     FilterChip(
                         selected = custom.icon == icon,
                         onClick = { onChange(custom.copy(label = Layout.iconLabel(icon))) },
-                        label = { Text("${Layout.iconGlyph(icon)}  ${ICON_TITLES[icon] ?: icon}", maxLines = 1) },
+                        label = { Text(Layout.ICON_TITLES[icon] ?: icon, maxLines = 1) },
+                        leadingIcon = { Icon(iconVector(icon), contentDescription = null, modifier = Modifier.size(18.dp)) },
                     )
                 }
             }

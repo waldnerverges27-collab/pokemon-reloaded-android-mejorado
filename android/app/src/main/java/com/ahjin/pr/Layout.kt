@@ -85,7 +85,19 @@ object Layout {
 
     /** The pictures a custom button can wear. The engine draws them (`Icon` in `touch_controls.rs`). */
     val ICONS: List<String> = listOf(
-        "pause", "back", "ball", "save", "load", "forward", "up", "down", "left", "right", "star", "heart", "plus", "menu", "check",
+        "act", "run", "hook", "bike", "ball", "team", "bag", "map", "star", "exit", "swap", "bolt", "box",
+        "person", "magnifier", "chat", "smile", "clock", "heart", "check", "plus", "menu", "pause", "back",
+        "save", "load", "forward", "up", "down", "left", "right",
+    )
+
+    /** What each picture is called in the editor. */
+    val ICON_TITLES: Map<String, String> = mapOf(
+        "act" to "Accion", "run" to "Correr", "hook" to "Cana", "bike" to "Bici", "ball" to "Bola", "team" to "Equipo",
+        "bag" to "Mochila", "map" to "Mapa", "star" to "Estrella", "exit" to "Huir", "swap" to "Cambiar", "bolt" to "Rayo",
+        "box" to "Objeto", "person" to "Entrenador", "magnifier" to "Buscar", "chat" to "Hablar", "smile" to "Emoji",
+        "clock" to "Reloj", "heart" to "Corazon", "check" to "Ok", "plus" to "Mas", "menu" to "Menu", "pause" to "Pausa",
+        "back" to "Atras", "save" to "Guardar", "load" to "Cargar", "forward" to "Rapido", "up" to "Arriba",
+        "down" to "Abajo", "left" to "Izquierda", "right" to "Derecha",
     )
 
     /** A picture's name in the label field: `~star`. */
@@ -100,21 +112,40 @@ object Layout {
         return raw.filter { it != ',' && it != '=' && it != '~' && !it.isWhitespace() }.take(3).uppercase()
     }
 
-    /** A character close enough to an icon to stand for it in the editor's preview. */
-    fun iconGlyph(icon: String): String = when (icon) {
-        "pause" -> "II"
-        "back", "left" -> "\u2190"
-        "ball" -> "\u25CE"
-        "save", "down" -> "\u2193"
-        "load", "up" -> "\u2191"
-        "forward" -> "\u00BB"
-        "right" -> "\u2192"
-        "star" -> "\u2605"
-        "heart" -> "\u2665"
-        "plus" -> "+"
-        "menu" -> "\u2261"
-        "check" -> "\u2713"
-        else -> "?"
+    /**
+     * The picture a button of the game wears in a given screen, mirroring `icon_for` in
+     * `touch_controls.rs` so the editor shows what the game will. Null means the button shows its letter.
+     */
+    fun builtinIcon(name: String, context: Int, functionIcons: Boolean): String? {
+        when (name) {
+            "return" -> return "menu"
+            "escape" -> return "back"
+            "b" -> return "ball"
+            "sys_qsave" -> return "save"
+            "sys_qload" -> return "load"
+            "sys_ffwd" -> return "forward"
+        }
+        if (!functionIcons) return null
+        val battle = context and BATTLE != 0
+        val fight = context and (BATTLE or SAFARI) != 0
+        val world = context and WORLD != 0
+        return when (name) {
+            "z" -> "act".takeIf { world }
+            "x" -> "run".takeIf { world }
+            "c" -> "hook".takeIf { world }
+            "v" -> "bike".takeIf { world }
+            "space" -> "team"
+            "o" -> "bag"
+            "m" -> if (battle) "star" else "map"
+            "e" -> if (fight) "exit" else "smile"
+            "t" -> if (battle) "clock" else "chat"
+            "l" -> "magnifier"
+            "p" -> "person"
+            "n" -> "bolt"
+            "a" -> "box"
+            "s" -> "swap"
+            else -> null
+        }
     }
 
     /** A short name for the key, which is also what a new button says on its face. */

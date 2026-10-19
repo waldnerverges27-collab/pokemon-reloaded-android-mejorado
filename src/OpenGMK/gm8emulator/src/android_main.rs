@@ -164,6 +164,8 @@ fn load_controls() {
                 crate::touch_controls::set_pad_active(value.trim() != "0");
             } else if name.trim() == "style" {
                 crate::touch_controls::set_native_style(value.trim() != "pixel");
+            } else if name.trim() == "icons" {
+                crate::touch_controls::set_function_icons(value.trim() != "0");
             } else if name.trim() == "scale" {
                 if let Ok(scale) = value.trim().parse::<f32>() {
                     crate::touch_controls::set_button_scale(scale);

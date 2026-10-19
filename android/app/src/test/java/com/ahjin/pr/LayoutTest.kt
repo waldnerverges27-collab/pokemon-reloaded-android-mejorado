@@ -42,8 +42,9 @@ class LayoutTest {
     }
 
     @Test
-    fun `every icon the editor offers has a glyph`() {
-        for (icon in Layout.ICONS) assertFalse(icon, Layout.iconGlyph(icon) == "?")
+    fun `every icon the editor offers has a name and none repeats`() {
+        for (icon in Layout.ICONS) assertTrue(icon, Layout.ICON_TITLES[icon]?.isNotEmpty() == true)
+        assertEquals(Layout.ICONS.toSet(), Layout.ICON_TITLES.keys)
         assertEquals(Layout.ICONS.size, Layout.ICONS.toSet().size)
     }
 
@@ -88,5 +89,29 @@ class LayoutTest {
     fun `the standard preset is the engine's no changes`() {
         val standard = LayoutPresets.placements(defaults(), LayoutPresets.ALL.first { it.title == "Estandar" }, emptyMap())
         assertTrue(standard.isEmpty())
+    }
+
+    @Test
+    fun `buttons of the game show the picture of what they do in each screen`() {
+        // Out of battle the main four are the actions; in battle they are the four attacks, so letters.
+        assertEquals("bike", Layout.builtinIcon("v", Layout.WORLD, true))
+        assertNull(Layout.builtinIcon("v", Layout.BATTLE, true))
+        assertEquals("map", Layout.builtinIcon("m", Layout.WORLD, true))
+        assertEquals("star", Layout.builtinIcon("m", Layout.BATTLE, true))
+        assertEquals("smile", Layout.builtinIcon("e", Layout.WORLD, true))
+        assertEquals("exit", Layout.builtinIcon("e", Layout.SAFARI, true))
+        assertEquals("chat", Layout.builtinIcon("t", Layout.WORLD, true))
+        assertEquals("clock", Layout.builtinIcon("t", Layout.BATTLE, true))
+        assertEquals("bag", Layout.builtinIcon("o", Layout.WORLD, true))
+        // Turning the setting off leaves only the icons the game's buttons always had.
+        assertNull(Layout.builtinIcon("o", Layout.WORLD, false))
+        assertEquals("menu", Layout.builtinIcon("return", Layout.WORLD, false))
+        assertEquals("ball", Layout.builtinIcon("b", Layout.BATTLE, false))
+        // Every picture used exists in the list the editor and the engine share.
+        for (name in listOf("z", "x", "c", "v", "space", "o", "m", "e", "t", "l", "p", "n", "a", "s", "return", "escape", "b", "sys_qsave", "sys_qload", "sys_ffwd")) {
+            for (context in listOf(Layout.WORLD, Layout.BATTLE, Layout.SAFARI)) {
+                Layout.builtinIcon(name, context, true)?.let { assertTrue("$name -> $it", it in Layout.ICONS) }
+            }
+        }
     }
 }

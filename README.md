@@ -110,12 +110,17 @@ Si ya jugabas en PC, tu partida entra desde **Ajustes → Partidas → Importar*
   que hacen falta.
 - **Aspecto nativo.** Botones translúcidos con borde suave, iconos y letras vectoriales,
   animación al pulsar y brillo del color de cada botón. Se puede volver al pixel art clásico del juego.
+- **Iconos según la función.** Cada botón del juego muestra lo que hace en vez de su letra:
+  mochila, mapa, bici, caña de pescar, correr, huir, entrenador, objeto asignado, equipo…
+  El icono sigue a la situación (la tecla `M` es el mapa fuera de combate y la megaevolución en combate) y en
+  combate `Z X C V` conservan su letra, porque ahí son los cuatro ataques. Se puede volver a las letras en
+  **Ajustes → Aspecto de los controles → Iconos en los botones**.
 - **Joystick de 8 direcciones** en todo el juego, con diagonales con histéresis, zona muerta
   ajustable y modo flotante que sigue al pulgar.
 - **Editor de posiciones y tamaños.** Arrastra, redimensiona u oculta cada botón por pantalla del
   juego. Admite **diseños guardados** con nombre.
-- **Botones propios:** hasta 8, con la tecla, el texto de 3 letras **o un icono** (flechas, estrella,
-  corazón, pausa, bola…) y las pantallas que elijas.
+- **Botones propios:** hasta 8, con la tecla, el texto de 3 letras **o uno de 31 iconos** (los de arriba,
+  flechas, estrella, corazón, pausa…) y las pantallas que elijas.
 - **Preajustes de disposición:** Estándar, Zurdo, Compacto, Grande y Zurdo compacto, con
   confirmación antes de aplicarlos. No tocan los botones propios ni los que hayas ocultado.
 - **Respuesta táctil cuidada:** deslizar de un botón a otro sin levantar el dedo, vibración
@@ -381,6 +386,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.6.1** | Los botones del juego muestran un **icono de su función** (mochila, mapa, bici, caña, huir…) en lugar de la letra, con opción para volver a las letras. 16 iconos nuevos, también disponibles para los botones propios. |
 | **0.6.0** | **Copias de seguridad** automáticas y manuales de las partidas (restaurar, compartir, borrar), **informe de diagnóstico** de un toque, **guía de uso** en la app, cinco **colores de acento** y **negro puro AMOLED**, **iconos** para botones propios y **preajustes** de disposición (zurdo, compacto, grande), y nuevos atajos de mando (FPS y cambio de ranura). Pruebas automáticas nuevas. |
 | **0.5.0** | Paquete propio **`com.ahjin.pr`** y firma de release propia. Tema **«Obsidiana y oro»** con ajuste de apariencia (oscuro, claro, sistema), botón Jugar dorado, barra y listas con filete fino, icono nuevo. Corregido el autofrenado del **avance rápido**. Nuevo ejemplo `roomspeed`. README reescrito. |
 | **0.4.0** | Guardado rápido (3 ranuras), avance rápido x2/x3/x4, botones propios y diseños guardados, escala de píxeles perfectos, rejilla LCD y CRT, indicador de FPS/memoria, ahorro de batería, vibración y atajos de mando, soporte armeabi-v7a, actualizador apuntando a este repositorio. |

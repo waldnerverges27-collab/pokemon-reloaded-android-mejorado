@@ -92,6 +92,7 @@ fun SettingsScreen(
     var videoMode by remember { mutableStateOf(prefs.videoMode) }
     var touchOpacity by remember { mutableStateOf(prefs.touchOpacity) }
     var nativeStyle by remember { mutableStateOf(prefs.nativeStyle) }
+    var functionIcons by remember { mutableStateOf(prefs.functionIcons) }
     var touchScale by remember { mutableStateOf(prefs.touchScale) }
     var hapticLevel by remember { mutableStateOf(prefs.hapticLevel) }
     var floatingStick by remember { mutableStateOf(prefs.floatingStick) }
@@ -200,7 +201,7 @@ fun SettingsScreen(
                     title = "Nativo",
                     subtitle = "Botones translucidos y suaves, como un juego de Android",
                     selected = nativeStyle,
-                    items = 3,
+                    items = 4,
                     index = 0,
                     onSelect = {
                         nativeStyle = true
@@ -212,19 +213,31 @@ fun SettingsScreen(
                     title = "Pixel art clasico",
                     subtitle = "Los botones dibujados a mano que trae el juego",
                     selected = !nativeStyle,
-                    items = 3,
+                    items = 4,
                     index = 1,
                     onSelect = {
                         nativeStyle = false
                         prefs.nativeStyle = false
                     },
                 )
+                SwitchRow(
+                    icon = Icons.Filled.TouchApp,
+                    title = "Iconos en los botones",
+                    subtitle = "Cada boton muestra lo que hace (mochila, mapa, bici...) en vez de su letra. En combate, Z X C V siguen con letra",
+                    checked = functionIcons,
+                    items = 4,
+                    index = 2,
+                    onCheckedChange = {
+                        functionIcons = it
+                        prefs.functionIcons = it
+                    },
+                )
                 NavRow(
                     icon = Icons.Filled.ZoomOutMap,
                     title = "Posicion y tamano de los botones",
                     subtitle = "Arrastra cada boton donde te venga mejor, o escondelo",
-                    items = 3,
-                    index = 2,
+                    items = 4,
+                    index = 3,
                     onClick = onLayout,
                 )
             }
