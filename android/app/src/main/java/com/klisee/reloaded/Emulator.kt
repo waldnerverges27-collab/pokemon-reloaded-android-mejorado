@@ -13,6 +13,7 @@ object Emulator {
         val prefs = Preferences(context)
         prefs.writeControls(context.filesDir, connectedPads(context).isNotEmpty())
         prefs.writeVideo(context.filesDir)
+        prefs.writeExtras(context.filesDir)
         context.startActivity(Intent().setClassName(context.packageName, GAME_ACTIVITY))
     }
 }

@@ -41,6 +41,34 @@ ajustes, gestión de partidas y logs. El juego en sí no se toca.
 - **Logs.** Si algo va mal, la app escribe un log y lo puedes compartir como archivo de texto desde
   Ajustes → Logs, sin perderlo al reiniciar el móvil.
 
+## Extras de la 0.4.0
+
+Todo esto se configura en Ajustes → Extras (y la escala, en Ajustes → Resolución). **No he podido
+probarlo en un móvil de verdad**: está compilado y las partes que se pueden comprobar sin móvil están
+comprobadas, pero si algo falla, el log (Ajustes → Logs) lo dirá.
+
+- **Guardado rápido** (experimental): tres ranuras. Un botón guarda toda la partida y otro la
+  devuelve (hay que pulsarlo dos veces seguidas, para no perder el progreso por un toque sin querer).
+  Es independiente del guardado del propio juego. No guarda los sonidos (son datos fijos): la música
+  en bucle vuelve a empezar al cargar. El archivo se escribe aparte y se renombra, así que un fallo
+  nunca estropea la ranura anterior.
+- **Avance rápido** x2, x3 o x4, con el sonido silenciado si quieres. Solo acorta la espera entre
+  fotogramas: la lógica del juego no cambia. Se desactiva solo si el móvil se calienta mucho.
+- **Botones propios**: hasta 8, con la tecla, el texto (3 letras) y las pantallas que elijas, y
+  **diseños guardados** con nombre en el editor de posiciones.
+- **Botones que se difuminan** cuando no tocas la pantalla (siguen funcionando).
+- **Imagen**: escala de **píxeles perfectos** (múltiplos enteros), filtro suave opcional, rejilla LCD o
+  líneas CRT, y respeto de la cámara/muesca.
+- **FPS, tiempo por fotograma y memoria** en una esquina, y **ahorro de batería** (manual, o
+  automático con el ahorro del sistema o el móvil caliente).
+- **Mando**: vibración al pulsar y atajos propios (guardado rápido, cargar, avance rápido).
+- **armeabi-v7a**: el APK lleva también el motor de 32 bits (sin probar en ningún móvil de 32 bits).
+
+Probado a medias: el análisis del formato de `extras.conf` y de los botones propios se probó en el
+ordenador; el resto, no. Una **caché de sprites** se descartó tras medir: leer y decodificar todo el
+`.exe` del juego tarda menos de un segundo en un PC, y el atlas ya montado ocupa 256 MB, así que
+guardarlo en disco sería más lento que volver a generarlo.
+
 ## Cómo está montado
 
 ```mermaid

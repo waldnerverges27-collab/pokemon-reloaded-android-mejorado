@@ -12,22 +12,37 @@ val keystoreProperties = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
-// The emulator is a Rust cdylib produced by cargo-ndk:
-//   cd src/OpenGMK && cargo ndk -t arm64-v8a --platform 29 build -p gm8emulator --release
-// Copy it into jniLibs before packaging, refusing a missing or zeroed-out (unclean shutdown) .so.
-val emulatorSo = rootProject.file("../src/OpenGMK/target/aarch64-linux-android/release/libgm8emulator.so")
-val jniLibDir = layout.projectDirectory.dir("src/main/jniLibs/arm64-v8a")
+// The emulator is a Rust cdylib, one per CPU family:
+//   cd src/OpenGMK
+//   cargo ndk -t arm64-v8a -t armeabi-v7a --platform 29 build -p gm8emulator --release
+// arm64 is required. The 32-bit one is packed too when it was built, for the phones that still run
+// 32-bit Android; a phone that can run arm64 always prefers it.
+// Each is copied into jniLibs before packaging, refusing a missing or zeroed-out (unclean shutdown) .so.
+val emulatorLibs = listOf(
+    Triple("arm64-v8a", "aarch64-linux-android", true),
+    Triple("armeabi-v7a", "armv7-linux-androideabi", false),
+)
+fun emulatorSoOf(triple: String) = rootProject.file("../src/OpenGMK/target/$triple/release/libgm8emulator.so")
 val copyEmulatorSo by tasks.registering {
-    inputs.file(emulatorSo).withPropertyName("emulatorSo").optional()
-    outputs.dir(jniLibDir)
+    for ((_, triple, _) in emulatorLibs) inputs.file(emulatorSoOf(triple)).withPropertyName("so-$triple").optional()
+    outputs.dir(layout.projectDirectory.dir("src/main/jniLibs"))
     doLast {
-        if (!emulatorSo.isFile) error("falta ${emulatorSo}; compila con: cargo ndk -t arm64-v8a --platform 29 build -p gm8emulator --release")
-        val magic = emulatorSo.inputStream().use { it.readNBytes(4) }
-        if (magic.size < 4 || magic[0] != 0x7F.toByte() || magic[1] != 'E'.code.toByte() || magic[2] != 'L'.code.toByte() || magic[3] != 'F'.code.toByte()) {
-            error("${emulatorSo} no es un ELF valido (¿quedó a cero tras un corte?)")
+        for ((abi, triple, required) in emulatorLibs) {
+            val emulatorSo = emulatorSoOf(triple)
+            val out = layout.projectDirectory.dir("src/main/jniLibs/$abi").asFile
+            if (!emulatorSo.isFile) {
+                if (required) error("falta ${emulatorSo}; compila con: cargo ndk -t $abi --platform 29 build -p gm8emulator --release")
+                // Not built: make sure an old copy does not ride along in the package.
+                out.resolve("libgm8emulator.so").delete()
+                continue
+            }
+            val magic = emulatorSo.inputStream().use { it.readNBytes(4) }
+            if (magic.size < 4 || magic[0] != 0x7F.toByte() || magic[1] != 'E'.code.toByte() || magic[2] != 'L'.code.toByte() || magic[3] != 'F'.code.toByte()) {
+                error("${emulatorSo} no es un ELF valido (¿quedó a cero tras un corte?)")
+            }
+            out.mkdirs()
+            emulatorSo.copyTo(out.resolve("libgm8emulator.so"), overwrite = true)
         }
-        val out = jniLibDir.asFile.apply { mkdirs() }.resolve("libgm8emulator.so")
-        emulatorSo.copyTo(out, overwrite = true)
     }
 }
 
@@ -39,9 +54,9 @@ android {
         applicationId = "com.klisee.reloaded"
         minSdk = 29
         targetSdk = 36
-        versionCode = 13
-        versionName = "0.3.1"
-        ndk { abiFilters += "arm64-v8a" }
+        versionCode = 14
+        versionName = "0.4.0"
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     signingConfigs {

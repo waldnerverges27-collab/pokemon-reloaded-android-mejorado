@@ -226,7 +226,23 @@ fn run_sys_action(action: crate::touch_controls::SysAction) {
     use crate::touch_controls::SysAction;
     match action {
         SysAction::QuickSave => crate::extras::request_quick(true),
-        SysAction::QuickLoad => crate::extras::request_quick(false),
+        SysAction::QuickLoad => {
+            // Loading throws away whatever was played since the save, so one stray tap must not do
+            // it: the first asks, a second one within two seconds goes ahead.
+            static ASKED: Mutex<Option<Instant>> = Mutex::new(None);
+            let confirmed = {
+                let mut asked = ASKED.lock().unwrap();
+                let now = Instant::now();
+                let confirmed = asked.map(|at| now.duration_since(at) < Duration::from_secs(2)).unwrap_or(false);
+                *asked = if confirmed { None } else { Some(now) };
+                confirmed
+            };
+            if confirmed {
+                crate::extras::request_quick(false);
+            } else {
+                toast("Toca otra vez para cargar el guardado rapido");
+            }
+        },
         SysAction::FastForward => {
             if crate::extras::toggle_ffwd() {
                 toast(&format!("Avance rapido x{}", crate::extras::ffwd_factor()));
@@ -1516,7 +1532,7 @@ fn free_bytes_on(path: &Path) -> Option<u64> {
         if libc::statvfs(path_c.as_ptr(), &mut stats) != 0 {
             return None
         }
-        Some(stats.f_bavail * u64::from(stats.f_frsize))
+        Some((stats.f_bavail as u64) * (stats.f_frsize as u64))
     }
 }
 

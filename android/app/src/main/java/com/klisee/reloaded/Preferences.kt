@@ -99,6 +99,100 @@ class Preferences(context: Context) {
             prefs.edit().putBoolean("keepAspect", value).apply()
         }
 
+    /**
+     * How the picture fills the screen: `full`, `aspect` or `integer` (whole multiples of the game's
+     * own size, so every pixel is the same size). Until the player picks one, the old on/off setting
+     * decides.
+     */
+    var videoMode: String
+        get() = prefs.getString("videoMode", null)?.takeIf { it in VIDEO_MODES } ?: if (keepAspect) "aspect" else "full"
+        set(value) {
+            prefs.edit().putString("videoMode", value).apply()
+            keepAspect = value != "full"
+        }
+
     /** Mirrors the video mode into the file the emulator reads at startup. */
-    fun writeVideo(filesDir: File) = writeVideoFile(filesDir, keepAspect)
+    fun writeVideo(filesDir: File) = writeVideoFile(filesDir, videoMode)
+
+    // ------------------------------------------------------------------------------------------
+    // Extras: quick save, fast-forward, picture, battery, pad. See `Extras.kt`.
+
+    /** Which of the quick-save slots the buttons use (1 to 3). */
+    var quickSlot: Int
+        get() = prefs.getInt("quickSlot", 1).coerceIn(1, QUICK_SLOTS)
+        set(value) {
+            prefs.edit().putInt("quickSlot", value.coerceIn(1, QUICK_SLOTS)).apply()
+        }
+
+    /** How many times faster the game runs while fast-forwarding (2 to 4). */
+    var ffwdSpeed: Int
+        get() = prefs.getInt("ffwdSpeed", 2).coerceIn(2, 4)
+        set(value) {
+            prefs.edit().putInt("ffwdSpeed", value.coerceIn(2, 4)).apply()
+        }
+
+    /** Silence while fast-forwarding. */
+    var ffwdMute: Boolean
+        get() = prefs.getBoolean("ffwdMute", true)
+        set(value) {
+            prefs.edit().putBoolean("ffwdMute", value).apply()
+        }
+
+    /** Seconds without touching the screen before the buttons fade; 0 = never. */
+    var autoHideSeconds: Int
+        get() = prefs.getInt("autoHideSeconds", 0).coerceIn(0, 30)
+        set(value) {
+            prefs.edit().putInt("autoHideSeconds", value.coerceIn(0, 30)).apply()
+        }
+
+    /** Smooth scaling instead of hard pixels. */
+    var smoothFilter: Boolean
+        get() = prefs.getBoolean("smoothFilter", false)
+        set(value) {
+            prefs.edit().putBoolean("smoothFilter", value).apply()
+        }
+
+    /** 0 = none, 1 = LCD grid, 2 = CRT scanlines. */
+    var screenEffect: Int
+        get() = prefs.getInt("screenEffect", 0).coerceIn(0, 2)
+        set(value) {
+            prefs.edit().putInt("screenEffect", value.coerceIn(0, 2)).apply()
+        }
+
+    /** Keep the picture clear of the camera cutout. */
+    var safeArea: Boolean
+        get() = prefs.getBoolean("safeArea", true)
+        set(value) {
+            prefs.edit().putBoolean("safeArea", value).apply()
+        }
+
+    /** Show frames per second, time per frame and memory over the game. */
+    var showStats: Boolean
+        get() = prefs.getBoolean("showStats", false)
+        set(value) {
+            prefs.edit().putBoolean("showStats", value).apply()
+        }
+
+    /** 0 = off, 1 = always, 2 = automatic (system battery saver on, or the phone running warm). */
+    var batteryMode: Int
+        get() = prefs.getInt("batteryMode", 0).coerceIn(0, 2)
+        set(value) {
+            prefs.edit().putInt("batteryMode", value.coerceIn(0, 2)).apply()
+        }
+
+    /** Buzz in the pad when one of its buttons is pressed: 0 off, 1 light, 2 strong. */
+    var padRumble: Int
+        get() = prefs.getInt("padRumble", 1).coerceIn(0, 2)
+        set(value) {
+            prefs.edit().putInt("padRumble", value.coerceIn(0, 2)).apply()
+        }
+
+    /** Mirrors the extras into the file the emulator reads at startup. */
+    fun writeExtras(filesDir: File) = writeExtrasFile(
+        filesDir,
+        ExtraSettings(
+            quickSlot, ffwdSpeed, ffwdMute, autoHideSeconds, smoothFilter, screenEffect, safeArea,
+            showStats, batteryMode, padRumble,
+        ),
+    )
 }

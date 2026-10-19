@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import com.klisee.reloaded.Update
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
@@ -71,6 +72,18 @@ fun AboutScreen(onBack: () -> Unit) {
                     value = "Pokemon es de Nintendo, Game Freak y Creatures. Este proyecto no esta afiliado ni respaldado por ellos.",
                     items = 2,
                     index = 1,
+                )
+            }
+
+            SettingsGroup("Codigo y versiones") {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                NavRow(
+                    icon = Icons.Filled.Memory,
+                    title = "Repositorio en GitHub",
+                    subtitle = "Codigo abierto (GPL-2.0), versiones nuevas y avisos de errores",
+                    items = 1,
+                    index = 0,
+                    onClick = { openInBrowser(context, Update.RELEASES_PAGE) },
                 )
             }
 

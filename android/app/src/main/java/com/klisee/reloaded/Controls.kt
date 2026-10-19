@@ -37,7 +37,21 @@ enum class ControlAction(val key: String, val defaultCode: Int) {
     O("O", 105), // R2, RT, ZR
     S("S", 104), // L2, LT, ZL
     E("E", 106), // pulsar cualquier stick
+
+    // Acciones de la app, no teclas del juego. Sin boton asignado de fabrica: el mando elige.
+    QSAVE("QSAVE", -1),
+    QLOAD("QLOAD", -1),
+    FFWD("FFWD", -1),
 }
+
+/** What the row says in the controls screen: a key of the game, or one of the app's own actions. */
+val ControlAction.title: String
+    get() = when (this) {
+        ControlAction.QSAVE -> "Guardado rapido"
+        ControlAction.QLOAD -> "Cargar guardado rapido"
+        ControlAction.FFWD -> "Avance rapido"
+        else -> "Tecla $key"
+    }
 
 /** What the key does in the game, for the ones that are known. */
 val ControlAction.hint: String
@@ -46,11 +60,15 @@ val ControlAction.hint: String
         ControlAction.X -> "Cancelar y correr"
         ControlAction.O -> "Mochila"
         ControlAction.E -> "Escapar de un Pokemon salvaje"
+        ControlAction.QSAVE -> "Guarda la partida entera en la ranura elegida en Extras"
+        ControlAction.QLOAD -> "La vuelve a cargar; hay que pulsarlo dos veces seguidas"
+        ControlAction.FFWD -> "Activa o desactiva el avance rapido"
         else -> ""
     }
 
 /** The name of a pad button, for showing it on screen. */
 fun buttonName(code: Int): String = when (code) {
+    -1 -> "Sin asignar"
     96 -> "A"
     97 -> "B"
     99 -> "X"
@@ -97,7 +115,7 @@ fun writeControlsFile(
     val text = buildString {
         appendLine("# Escrito por la pantalla de Controles. El emulador lo lee al arrancar.")
         for (action in ControlAction.entries) {
-            bindings[action]?.let { appendLine("$it=${action.key}") }
+            bindings[action]?.takeIf { it >= 0 }?.let { appendLine("$it=${action.key}") }
         }
         appendLine("stick=${if (stick) 1 else 0}")
         // With a pad connected the game starts with the touch controls hidden; touching the screen

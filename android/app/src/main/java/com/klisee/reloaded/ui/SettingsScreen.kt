@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material.icons.filled.Storage
@@ -67,6 +68,7 @@ fun SettingsScreen(
     onAbout: () -> Unit,
     onControls: () -> Unit,
     onLayout: () -> Unit,
+    onExtras: () -> Unit,
     onMySaves: () -> Unit,
     onUpdateFound: (Update.Release) -> Unit,
     bottomBar: @Composable () -> Unit = {},
@@ -76,7 +78,7 @@ fun SettingsScreen(
     val snackbar = remember { SnackbarHostState() }
     var status by remember(revision) { mutableStateOf(repo.status()) }
     var keepScreenOn by remember { mutableStateOf(prefs.keepScreenOn) }
-    var keepAspect by remember { mutableStateOf(prefs.keepAspect) }
+    var videoMode by remember { mutableStateOf(prefs.videoMode) }
     var touchOpacity by remember { mutableStateOf(prefs.touchOpacity) }
     var nativeStyle by remember { mutableStateOf(prefs.nativeStyle) }
     var touchScale by remember { mutableStateOf(prefs.touchScale) }
@@ -282,31 +284,36 @@ fun SettingsScreen(
             }
 
             SettingsGroup("Resolucion") {
-                ChoiceRow(
-                    icon = Icons.Filled.Fullscreen,
-                    title = "Rellenar la pantalla",
-                    subtitle = "La imagen ocupa todo el movil, aunque se deforme un poco",
-                    selected = !keepAspect,
-                    items = 2,
+                listOf(
+                    Triple("full", "Rellenar la pantalla", "La imagen ocupa todo el movil, aunque se deforme un poco") to Icons.Filled.Fullscreen,
+                    Triple("aspect", "Mantener la proporcion", "El aspecto clasico del PC, con bandas oscuras a los lados") to Icons.Filled.AspectRatio,
+                    Triple("integer", "Pixeles perfectos", "Solo multiplos enteros del tamano del juego: todos los pixeles iguales, con bandas") to Icons.Filled.ZoomOutMap,
+                ).forEachIndexed { position, (option, icon) ->
+                    val (mode, title, subtitle) = option
+                    ChoiceRow(
+                        icon = icon,
+                        title = title,
+                        subtitle = subtitle,
+                        selected = videoMode == mode,
+                        items = 3,
+                        index = position,
+                        onSelect = {
+                            videoMode = mode
+                            prefs.videoMode = mode
+                            prefs.writeVideo(context.filesDir)
+                        },
+                    )
+                }
+            }
+
+            SettingsGroup("Extras") {
+                NavRow(
+                    icon = Icons.Filled.Speed,
+                    title = "Guardado rapido, avance rapido y mas",
+                    subtitle = "Guardar y cargar al instante, acelerar el juego, filtros, bateria y mando",
+                    items = 1,
                     index = 0,
-                    onSelect = {
-                        keepAspect = false
-                        prefs.keepAspect = false
-                        prefs.writeVideo(context.filesDir)
-                    },
-                )
-                ChoiceRow(
-                    icon = Icons.Filled.AspectRatio,
-                    title = "Mantener la proporcion",
-                    subtitle = "El aspecto clasico del PC, con bandas oscuras a los lados",
-                    selected = keepAspect,
-                    items = 2,
-                    index = 1,
-                    onSelect = {
-                        keepAspect = true
-                        prefs.keepAspect = true
-                        prefs.writeVideo(context.filesDir)
-                    },
+                    onClick = onExtras,
                 )
             }
 

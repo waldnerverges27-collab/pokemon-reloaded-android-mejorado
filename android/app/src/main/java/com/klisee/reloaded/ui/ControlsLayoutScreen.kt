@@ -17,6 +17,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material.icons.Icons
@@ -27,6 +30,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -37,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.runtime.mutableStateMapOf
@@ -56,6 +61,9 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.klisee.reloaded.ControlSpec
+import com.klisee.reloaded.CustomButton
+import com.klisee.reloaded.LayoutFile
+import com.klisee.reloaded.LayoutProfiles
 import com.klisee.reloaded.JOYSTICK
 import com.klisee.reloaded.Layout
 import com.klisee.reloaded.Placement
@@ -68,6 +76,7 @@ private class Screen(val title: String, val mask: Int)
 
 private val screens = listOf(
     Screen("Mundo", Layout.WORLD),
+    Screen("Menus", Layout.MENU or Layout.MENU_NAV),
     Screen("Combate", Layout.BATTLE),
     Screen("Safari", Layout.SAFARI),
     Screen("Elegir personaje", Layout.CHARACTER),
@@ -85,19 +94,31 @@ private val screens = listOf(
 fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
     val context = LocalContext.current
     val defaults = remember { Layout.defaults(context) }
+    val initial = remember { Layout.read(filesDir) }
     val placements: SnapshotStateMap<String, Placement> = remember {
-        mutableStateMapOf<String, Placement>().apply { putAll(Layout.read(filesDir)) }
+        mutableStateMapOf<String, Placement>().apply { putAll(initial.placements) }
+    }
+    val customs: SnapshotStateMap<Int, CustomButton> = remember {
+        mutableStateMapOf<Int, CustomButton>().apply { putAll(initial.customs) }
     }
     var screen by remember { mutableStateOf(screens[0]) }
     var selected by remember { mutableStateOf<String?>(null) }
+    var profiles by remember { mutableStateOf(LayoutProfiles.list(filesDir)) }
+    var profileName by remember { mutableStateOf("") }
+    var profileMessage by remember { mutableStateOf<String?>(null) }
 
-    fun save() = Layout.write(filesDir, placements.toMap())
+    fun save() = Layout.write(filesDir, LayoutFile(placements.toMap(), customs.toMap()))
+    // The buttons the player made start in the middle of the screen, with the size the engine uses.
+    fun customSpec(c: CustomButton) = ControlSpec(c.name, c.label, 0.5f, 0.5f, Layout.CUSTOM_RADIUS, c.contexts)
+    val allControls = defaults.controls + customs.values.sortedBy { it.slot }.map(::customSpec)
     fun specOf(name: String): ControlSpec? =
-        if (name == JOYSTICK) defaults.joystick else defaults.controls.firstOrNull { it.name == name }
+        if (name == JOYSTICK) defaults.joystick else allControls.firstOrNull { it.name == name }
     fun placementOf(spec: ControlSpec) = placements[spec.name] ?: Placement(spec.cx, spec.cy)
 
-    val shown = defaults.controls.filter { it.contexts and screen.mask != 0 } +
+    val shown = allControls.filter { it.contexts and screen.mask != 0 } +
         (if (screen.mask and (Layout.WORLD or Layout.BATTLE or Layout.CHOICE) != 0) listOf(defaults.joystick) else emptyList())
+    // The touch handlers outlive a single composition; they read the current list through this.
+    val shownNow by rememberUpdatedState(shown)
 
     val config = LocalConfiguration.current
     val ratio = max(config.screenWidthDp, config.screenHeightDp).toFloat() / min(config.screenWidthDp, config.screenHeightDp)
@@ -115,6 +136,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                 actions = {
                     TextButton(onClick = {
                         placements.clear()
+                        customs.clear()
                         selected = null
                         save()
                     }) {
@@ -168,7 +190,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                             fun radiusPx(spec: ControlSpec, p: Placement) =
                                 if (spec.name == JOYSTICK) spec.r * h * p.scale else spec.r * w * p.scale
                             fun pick(at: Offset): String? =
-                                shown.map { spec ->
+                                shownNow.map { spec ->
                                     val p = placementOf(spec)
                                     spec to hypot(at.x - p.cx * w, at.y - p.cy * h) - radiusPx(spec, p)
                                 }.filter { it.second <= 12f }.minByOrNull { it.second }?.first?.name
@@ -180,7 +202,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                             var dragging: String? = null
                             detectDragGestures(
                                 onDragStart = { at ->
-                                    dragging = shown.map { spec ->
+                                    dragging = shownNow.map { spec ->
                                         val p = placements[spec.name] ?: Placement(spec.cx, spec.cy)
                                         val radius = if (spec.name == JOYSTICK) spec.r * h * p.scale else spec.r * w * p.scale
                                         spec to hypot(at.x - p.cx * w, at.y - p.cy * h) - radius
@@ -227,7 +249,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                         if (label.isNotEmpty()) {
                             val layout = measurer.measure(
                                 label,
-                                TextStyle(color = Color.White.copy(alpha = alpha), fontSize = (r * 0.5f / density).sp, fontWeight = FontWeight.Bold),
+                                TextStyle(color = Color.White.copy(alpha = alpha), fontSize = (min(r * 0.5f, r * 1.5f / label.length.coerceAtLeast(1)) / density).sp, fontWeight = FontWeight.Bold),
                             )
                             drawText(layout, topLeft = center - Offset(layout.size.width / 2f, layout.size.height / 2f))
                         } else {
@@ -239,10 +261,12 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
 
             val name = selected
             val spec = name?.let { specOf(it) }
+            val custom = spec?.let { sp -> customs.values.firstOrNull { it.name == sp.name } }
             if (spec == null) {
                 Text("Toca un boton para ajustarlo.", style = MaterialTheme.typography.bodyMedium, color = onSurface.copy(alpha = 0.7f))
             } else {
                 val p = placementOf(spec)
+                val rows = if (spec.name == JOYSTICK) 2 else 3
                 SettingsGroup(if (spec.name == JOYSTICK) "Joystick" else "Boton ${spec.label}") {
                     SliderRow(
                         icon = Icons.Filled.ZoomOutMap,
@@ -250,7 +274,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                         subtitle = "${"%.0f".format(p.scale * 100)}%",
                         value = p.scale,
                         valueRange = 0.5f..2f,
-                        items = if (spec.name == JOYSTICK) 2 else 3,
+                        items = rows,
                         index = 0,
                         onValueChange = {
                             placements[spec.name] = p.copy(scale = it)
@@ -263,7 +287,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                             title = "Mostrar",
                             subtitle = "Un boton oculto no se dibuja ni se puede tocar",
                             checked = p.visible,
-                            items = 3,
+                            items = rows,
                             index = 1,
                             onCheckedChange = {
                                 placements[spec.name] = p.copy(visible = it)
@@ -271,16 +295,182 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                             },
                         )
                     }
-                    NavRow(
-                        icon = Icons.Filled.RestartAlt,
-                        title = "Restaurar este boton",
-                        subtitle = "Vuelve a su sitio y tamano de origen",
-                        items = if (spec.name == JOYSTICK) 2 else 3,
-                        index = if (spec.name == JOYSTICK) 1 else 2,
-                        onClick = {
-                            placements.remove(spec.name)
+                    if (custom == null) {
+                        NavRow(
+                            icon = Icons.Filled.RestartAlt,
+                            title = "Restaurar este boton",
+                            subtitle = "Vuelve a su sitio y tamano de origen",
+                            items = rows,
+                            index = rows - 1,
+                            onClick = {
+                                placements.remove(spec.name)
+                                save()
+                            },
+                        )
+                    } else {
+                        NavRow(
+                            icon = Icons.Filled.Delete,
+                            title = "Eliminar este boton",
+                            subtitle = "Lo quita del todo; puedes crear otro cuando quieras",
+                            items = rows,
+                            index = rows - 1,
+                            onClick = {
+                                placements.remove(spec.name)
+                                customs.remove(custom.slot)
+                                selected = null
+                                save()
+                            },
+                        )
+                    }
+                }
+                if (custom != null) {
+                    CustomButtonEditor(
+                        custom = custom,
+                        onChange = {
+                            customs[it.slot] = it
                             save()
                         },
+                    )
+                }
+            }
+
+            SettingsGroup("Botones propios") {
+                val free = (1..Layout.CUSTOM_SLOTS).firstOrNull { it !in customs }
+                NavRow(
+                    icon = Icons.Filled.Add,
+                    title = "Anadir un boton",
+                    subtitle = if (free == null) "Ya hay ${Layout.CUSTOM_SLOTS}, el maximo" else
+                        "Elige que tecla pulsa, que dice y en que pantallas sale (${customs.size} de ${Layout.CUSTOM_SLOTS})",
+                    items = 1,
+                    index = 0,
+                    enabled = free != null,
+                    onClick = {
+                        val slot = free ?: return@NavRow
+                        // Starts out pressing Z (the confirm key), on the screen being looked at.
+                        val button = CustomButton(slot, "Z", Layout.defaultLabel("Z"), screen.mask)
+                        customs[slot] = button
+                        placements[button.name] = Placement(0.5f, 0.5f)
+                        selected = button.name
+                        save()
+                    },
+                )
+            }
+
+            SettingsGroup("Disenos guardados") {
+                val saved = profiles
+                if (saved.isEmpty()) {
+                    InfoRow(
+                        icon = Icons.Filled.Folder,
+                        title = "Ninguno todavia",
+                        value = "Guarda la disposicion actual con un nombre para volver a ella cuando quieras",
+                        items = 1,
+                        index = 0,
+                    )
+                }
+                saved.forEachIndexed { index, name ->
+                    GroupListItem(
+                        headlineContent = { Text(name, style = MaterialTheme.typography.titleMedium) },
+                        leadingContent = { Icon(Icons.Filled.Folder, contentDescription = null) },
+                        trailingContent = {
+                            Row {
+                                TextButton(onClick = {
+                                    val loaded = LayoutProfiles.load(filesDir, name)
+                                    if (loaded == null) {
+                                        profileMessage = "No pude leer \"$name\""
+                                    } else {
+                                        placements.clear()
+                                        placements.putAll(loaded.placements)
+                                        customs.clear()
+                                        customs.putAll(loaded.customs)
+                                        selected = null
+                                        save()
+                                        profileMessage = "Cargado \"$name\""
+                                    }
+                                }) { Text("Usar") }
+                                IconButton(onClick = {
+                                    LayoutProfiles.delete(filesDir, name)
+                                    profiles = LayoutProfiles.list(filesDir)
+                                }) { Icon(Icons.Filled.Delete, contentDescription = "Borrar $name") }
+                            }
+                        },
+                        items = saved.size,
+                        index = index,
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = profileName,
+                onValueChange = { text -> profileName = text.filter { it.isLetterOrDigit() || it == ' ' || it == '-' || it == '_' }.take(24) },
+                label = { Text("Nombre del diseno") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TextButton(
+                enabled = LayoutProfiles.clean(profileName).isNotEmpty(),
+                onClick = {
+                    val ok = LayoutProfiles.save(filesDir, profileName, LayoutFile(placements.toMap(), customs.toMap()))
+                    profiles = LayoutProfiles.list(filesDir)
+                    profileMessage = if (ok) "Guardado \"${LayoutProfiles.clean(profileName)}\"" else "No se pudo guardar"
+                    if (ok) profileName = ""
+                },
+            ) { Text("Guardar la disposicion actual") }
+            profileMessage?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+/** Key, label and screens of a button the player made. */
+@Composable
+private fun CustomButtonEditor(custom: CustomButton, onChange: (CustomButton) -> Unit) {
+    SettingsGroup("Que hace este boton") {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Tecla que pulsa", style = MaterialTheme.typography.titleSmall)
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Layout.CUSTOM_KEYS.forEach { key ->
+                    FilterChip(
+                        selected = custom.key == key,
+                        onClick = {
+                            // The label follows the key while it still says what the old key did.
+                            val follows = custom.label == Layout.defaultLabel(custom.key)
+                            onChange(custom.copy(key = key, label = if (follows) Layout.defaultLabel(key) else custom.label))
+                        },
+                        label = { Text(key, maxLines = 1) },
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = custom.label,
+                onValueChange = { text ->
+                    val clean = text.filter { it != ',' && it != '=' && !it.isWhitespace() }.take(3).uppercase()
+                    onChange(custom.copy(label = clean))
+                },
+                label = { Text("Texto del boton (hasta 3 letras)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text("Pantallas donde aparece", style = MaterialTheme.typography.titleSmall)
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                screens.forEach { s ->
+                    val on = custom.contexts and s.mask != 0
+                    FilterChip(
+                        selected = on,
+                        onClick = {
+                            val next = if (on) custom.contexts and s.mask.inv() else custom.contexts or s.mask
+                            // A button that shows nowhere could not be found again, so one stays on.
+                            if (next != 0) onChange(custom.copy(contexts = next))
+                        },
+                        label = { Text(s.title, maxLines = 1) },
                     )
                 }
             }

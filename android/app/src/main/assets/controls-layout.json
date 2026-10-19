@@ -212,6 +212,30 @@
    "cy": 0.06,
    "r": 0.018,
    "contexts": 16
+  },
+  {
+   "name": "sys_qsave",
+   "label": "Guardar",
+   "cx": 0.045,
+   "cy": 0.11,
+   "r": 0.022,
+   "contexts": 70
+  },
+  {
+   "name": "sys_qload",
+   "label": "Cargar",
+   "cx": 0.045,
+   "cy": 0.215,
+   "r": 0.022,
+   "contexts": 70
+  },
+  {
+   "name": "sys_ffwd",
+   "label": "Rápido",
+   "cx": 0.045,
+   "cy": 0.32,
+   "r": 0.022,
+   "contexts": 70
   }
  ]
 }

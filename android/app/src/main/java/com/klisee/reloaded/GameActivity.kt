@@ -1,8 +1,14 @@
 package com.klisee.reloaded
 
 import android.app.NativeActivity
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
+import android.os.PowerManager
+import android.view.InputDevice
+import android.widget.Toast
 import android.graphics.Rect
 import android.os.Bundle
 import android.os.PerformanceHintManager
@@ -63,12 +69,14 @@ class GameActivity : NativeActivity() {
         hideSystemBars()
         setUpVibrator()
         excludeSystemGestures()
+        watchDeviceState()
         // Sustained-performance mode used to be requested here. It caps the clocks at a level the
         // phone can hold forever, which on gaming phones is well under what the game and its audio
         // thread need during a busy scene, so it is left off; the ADPF hint session does the job.
     }
 
     override fun onDestroy() {
+        stopWatchingDeviceState()
         perfStop()
         if (instance === this) instance = null
         super.onDestroy()
@@ -159,6 +167,70 @@ class GameActivity : NativeActivity() {
     }
 
     // ------------------------------------------------------------------------------------------
+    // Temperature and the system's battery saver. The engine uses them to refuse fast-forward when
+    // the phone is hot and to switch its own saver on when the system's is.
+
+    private var thermalListener: PowerManager.OnThermalStatusChangedListener? = null
+    private var powerSaveReceiver: BroadcastReceiver? = null
+
+    private fun watchDeviceState() {
+        val power = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
+        fun push() {
+            val thermal = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) power.currentThermalStatus else 0
+            nativeDeviceState(thermal, power.isPowerSaveMode)
+        }
+        runCatching { push() }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val listener = PowerManager.OnThermalStatusChangedListener { runCatching { push() } }
+            runCatching {
+                power.addThermalStatusListener(mainExecutor, listener)
+                thermalListener = listener
+            }
+        }
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                runCatching { push() }
+            }
+        }
+        runCatching {
+            registerReceiver(receiver, IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED))
+            powerSaveReceiver = receiver
+        }
+    }
+
+    private fun stopWatchingDeviceState() {
+        val power = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            thermalListener?.let { listener -> runCatching { power?.removeThermalStatusListener(listener) } }
+        }
+        thermalListener = null
+        powerSaveReceiver?.let { runCatching { unregisterReceiver(it) } }
+        powerSaveReceiver = null
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // The pad's own motor: a short buzz when one of its buttons goes down.
+
+    private fun rumblePad(deviceId: Int, level: Int) {
+        runCatching {
+            val device = InputDevice.getDevice(deviceId) ?: return
+            val motor: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                device.vibratorManager.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                device.vibrator
+            }
+            if (!motor.hasVibrator()) return
+            val effect = if (level >= 2) {
+                VibrationEffect.createOneShot(35, VibrationEffect.DEFAULT_AMPLITUDE)
+            } else {
+                VibrationEffect.createOneShot(14, 90)
+            }
+            motor.vibrate(effect)
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------
     // System keyboard. The game only asks for text through its own modal and has no Android view of
     // its own, so this tiny transparent view exists only to be the target the keyboard attaches to.
     // Nothing typed is kept in it: a custom InputConnection forwards each character to the engine,
@@ -222,6 +294,9 @@ class GameActivity : NativeActivity() {
     private fun watchImeHeight() {
         ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { _, insets ->
             reportImeHeight(insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
+            // The camera hole: with the "respect the cutout" option the picture stays clear of it.
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            nativeInsets(cutout.left, cutout.top, cutout.right, cutout.bottom)
             insets
         }
     }
@@ -259,6 +334,8 @@ class GameActivity : NativeActivity() {
     external fun nativeBackspace()
     external fun nativeEnter()
     external fun nativeImeInset(height: Int)
+    external fun nativeDeviceState(thermal: Int, powerSave: Boolean)
+    external fun nativeInsets(left: Int, top: Int, right: Int, bottom: Int)
 
     companion object {
         init {
@@ -280,6 +357,32 @@ class GameActivity : NativeActivity() {
         @JvmStatic
         fun perfStart(tid: Int, targetNanos: Long) {
             instance?.perfBegin(tid, targetNanos)
+        }
+
+        /** Changes the frame length the hint session aims for. */
+        @JvmStatic
+        fun perfTarget(nanos: Long) {
+            val session = instance?.hintSession ?: return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                runCatching { session.updateTargetWorkDuration(nanos) }
+            }
+        }
+
+        /** A short message from the engine (quick save done, fast-forward on...). */
+        @JvmStatic
+        fun toast(message: String) {
+            val activity = instance ?: return
+            activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        /** Buzzes the pad that was just played with. `level`: 1 light, 2 strong. */
+        @JvmStatic
+        fun padRumble(deviceId: Int, level: Int) {
+            instance?.rumblePad(deviceId, level)
         }
 
         /** Reports how long the last frame's work took. */

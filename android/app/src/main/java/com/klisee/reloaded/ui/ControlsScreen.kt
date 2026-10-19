@@ -41,6 +41,7 @@ import com.klisee.reloaded.Preferences
 import com.klisee.reloaded.buttonName
 import com.klisee.reloaded.connectedPads
 import com.klisee.reloaded.hint
+import com.klisee.reloaded.title
 import com.klisee.reloaded.writeControlsFile
 import java.io.File
 
@@ -142,13 +143,13 @@ fun ControlsScreen(prefs: Preferences, filesDir: File, onBack: () -> Unit) {
             SettingsGroup("Probar", modifier = Modifier.padding(horizontal = 16.dp)) {
                 InfoRow(
                     icon = Icons.Filled.SportsEsports,
-                    title = capturing?.let { "Pulsa el boton para la tecla ${it.key}" } ?: "Ultimo boton pulsado",
+                    title = capturing?.let { "Pulsa el boton para ${it.title}" } ?: "Ultimo boton pulsado",
                     value = when {
                         lastCode == null -> "Pulsa algo en el mando; aqui dira que tecla dispara"
                         else -> {
                             val action = actionFor(bindings, lastCode!!)
                             val name = buttonName(lastCode!!)
-                            if (action == null) "$name - sin asignar" else "$name -> tecla ${action.key}"
+                            if (action == null) "$name - sin asignar" else "$name -> ${action.title}"
                         }
                     },
                     items = 1,
@@ -187,7 +188,7 @@ fun ControlsScreen(prefs: Preferences, filesDir: File, onBack: () -> Unit) {
                     val code = bindings[action] ?: action.defaultCode
                     NavRow(
                         icon = Icons.Filled.SportsEsports,
-                        title = "Tecla ${action.key}",
+                        title = action.title,
                         subtitle = listOfNotNull(
                             buttonName(code),
                             action.hint.takeIf { it.isNotEmpty() },
