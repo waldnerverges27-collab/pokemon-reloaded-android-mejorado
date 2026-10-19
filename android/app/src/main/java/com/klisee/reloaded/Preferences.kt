@@ -51,9 +51,39 @@ class Preferences(context: Context) {
             prefs.edit().putFloat("touchOpacity", value).apply()
         }
 
+    /** Size of the on-screen buttons, 1 = as designed. */
+    var touchScale: Float
+        get() = prefs.getFloat("touchScale", 1f)
+        set(value) {
+            prefs.edit().putFloat("touchScale", value).apply()
+        }
+
+    /** Haptic feedback on the on-screen buttons: 0 off, 1 light, 2 strong. */
+    var hapticLevel: Int
+        get() = prefs.getInt("hapticLevel", 1)
+        set(value) {
+            prefs.edit().putInt("hapticLevel", value).apply()
+        }
+
+    /** The stick appears wherever the thumb lands, instead of being fixed in one place. */
+    var floatingStick: Boolean
+        get() = prefs.getBoolean("floatingStick", false)
+        set(value) {
+            prefs.edit().putBoolean("floatingStick", value).apply()
+        }
+
+    /** How far the stick has to be pushed before it moves the player (fraction of its radius). */
+    var stickDeadzone: Float
+        get() = prefs.getFloat("stickDeadzone", 0.35f)
+        set(value) {
+            prefs.edit().putFloat("stickDeadzone", value).apply()
+        }
+
+    fun touchSettings() = TouchSettings(touchOpacity, touchScale, hapticLevel, floatingStick, stickDeadzone)
+
     /** Mirrors the current controls into the file the emulator reads at startup. */
     fun writeControls(filesDir: File, padConnected: Boolean) =
-        writeControlsFile(filesDir, controlBindings, stickEnabled, padConnected, touchOpacity)
+        writeControlsFile(filesDir, controlBindings, stickEnabled, padConnected, touchSettings())
 
     /** Keep the shape the game was drawn for, with bands at the sides, instead of filling the screen. */
     var keepAspect: Boolean

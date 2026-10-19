@@ -28,6 +28,10 @@ import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.VideogameAsset
+import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.filled.ZoomOutMap
+import androidx.compose.material.icons.filled.Gamepad
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -73,6 +77,10 @@ fun SettingsScreen(
     var keepScreenOn by remember { mutableStateOf(prefs.keepScreenOn) }
     var keepAspect by remember { mutableStateOf(prefs.keepAspect) }
     var touchOpacity by remember { mutableStateOf(prefs.touchOpacity) }
+    var touchScale by remember { mutableStateOf(prefs.touchScale) }
+    var hapticLevel by remember { mutableStateOf(prefs.hapticLevel) }
+    var floatingStick by remember { mutableStateOf(prefs.floatingStick) }
+    var stickDeadzone by remember { mutableStateOf(prefs.stickDeadzone) }
     var checking by remember { mutableStateOf(false) }
     val appVersion = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty()
@@ -168,13 +176,72 @@ fun SettingsScreen(
                     title = "Opacidad de los botones",
                     subtitle = "Bajala para que los botones con sprite tapen menos el juego",
                     value = touchOpacity,
-                    items = 1,
+                    items = 4,
                     index = 0,
                     onValueChange = {
                         touchOpacity = it
                         prefs.touchOpacity = it
                     },
                 )
+                SliderRow(
+                    icon = Icons.Filled.ZoomOutMap,
+                    title = "Tamano de los botones",
+                    subtitle = "De ${"%.0f".format(touchScale * 100)}%: ajustalo a tus dedos",
+                    value = touchScale,
+                    valueRange = 0.7f..1.4f,
+                    items = 4,
+                    index = 1,
+                    onValueChange = {
+                        touchScale = it
+                        prefs.touchScale = it
+                    },
+                )
+                SwitchRow(
+                    icon = Icons.Filled.TouchApp,
+                    title = "Joystick flotante",
+                    subtitle = "El joystick aparece donde pongas el pulgar, en la parte izquierda de la pantalla",
+                    checked = floatingStick,
+                    items = 4,
+                    index = 2,
+                    onCheckedChange = {
+                        floatingStick = it
+                        prefs.floatingStick = it
+                    },
+                )
+                SliderRow(
+                    icon = Icons.Filled.Gamepad,
+                    title = "Zona muerta del joystick",
+                    subtitle = "Cuanto hay que mover el joystick para que el personaje camine (${"%.0f".format(stickDeadzone * 100)}%)",
+                    value = stickDeadzone,
+                    valueRange = 0.1f..0.6f,
+                    items = 4,
+                    index = 3,
+                    onValueChange = {
+                        stickDeadzone = it
+                        prefs.stickDeadzone = it
+                    },
+                )
+            }
+
+            SettingsGroup("Vibracion al tocar") {
+                listOf(
+                    Triple(0, "Desactivada", "Sin vibracion"),
+                    Triple(1, "Ligera", "Un toque suave en cada boton"),
+                    Triple(2, "Fuerte", "Un clic marcado en cada boton"),
+                ).forEachIndexed { position, (level, title, subtitle) ->
+                    ChoiceRow(
+                        icon = Icons.Filled.Vibration,
+                        title = title,
+                        subtitle = subtitle,
+                        selected = hapticLevel == level,
+                        items = 3,
+                        index = position,
+                        onSelect = {
+                            hapticLevel = level
+                            prefs.hapticLevel = level
+                        },
+                    )
+                }
             }
 
             SettingsGroup("Resolucion") {

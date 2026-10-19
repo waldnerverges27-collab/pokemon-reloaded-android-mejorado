@@ -95,9 +95,22 @@ Ya resuelto:
 - **La XP infinita** al abrir la mochila tras debilitar a un Pokémon.
 - **El cierre en combates dobles** al cambiar de Pokémon.
 
-Lo que ahora mismo da problemas, y resolveré después:
+Cambios de esta rama (`pokemon-reloaded-android-mejorado`, sin probar aún en todos los móviles):
 
-- **El audio se corta** en algunos móviles al mezclar música y efectos.
+- **Audio**: la mezcla va en su propio hilo y el callback de AAudio solo copia desde un buffer circular
+  de ~40 ms, así que ya no se corta al mezclar música y efectos. Si hay huecos, se cuentan en el log
+  (`[aaudio] N huecos de audio`).
+- **Controles táctiles más nativos**: vibración al tocar (apagada / ligera / fuerte), deslizar el dedo de
+  un botón a otro sin levantarlo, joystick flotante opcional que sigue al pulgar, zona muerta ajustable,
+  un solo eje a la vez en el joystick (el juego es de cuadrícula), tamaño de los botones ajustable y
+  los bordes de la pantalla excluidos del gesto «atrás» del sistema.
+- **Rendimiento**: aviso de 30 fps al compositor (`ANativeWindow_setFrameRate`), sesión de
+  `PerformanceHintManager` (ADPF) con la duración de cada frame y modo de rendimiento sostenido.
+- **Memoria**: tras cargar el juego y al pasar a segundo plano se devuelve al sistema lo que el
+  asignador retiene (`mallopt` M_PURGE); el log muestra `[mem] ... MB -> ... MB`. Con
+  `gm8exe/examples/memstats.rs` se mide qué ocupan los recursos del juego.
+
+Lo que ahora mismo da problemas, y resolveré después:
 
 Y por ir haciendo, sin orden:
 

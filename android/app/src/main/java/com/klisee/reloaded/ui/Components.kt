@@ -228,6 +228,7 @@ fun SliderRow(
     items: Int,
     index: Int,
     modifier: Modifier = Modifier,
+    valueRange: ClosedFloatingPointRange<Float> = 0.15f..1f,
     onValueChange: (Float) -> Unit,
 ) {
     GroupListItem(
@@ -235,7 +236,7 @@ fun SliderRow(
         supportingContent = {
             Column {
                 Text(subtitle, style = MaterialTheme.typography.bodyMedium)
-                Slider(value = value, onValueChange = onValueChange, valueRange = 0.15f..1f)
+                Slider(value = value, onValueChange = onValueChange, valueRange = valueRange)
             }
         },
         leadingContent = { Icon(icon, contentDescription = null) },

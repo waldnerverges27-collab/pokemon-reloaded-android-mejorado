@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Haptic feedback on the on-screen buttons. A normal permission: nothing is asked of the user. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Installing a downloaded update; Android asks the user to allow it the first time. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 

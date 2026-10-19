@@ -100,7 +100,7 @@ fun ControlsScreen(prefs: Preferences, filesDir: File, onBack: () -> Unit) {
         stick = newStick
         prefs.controlBindings = newBindings
         prefs.stickEnabled = newStick
-        writeControlsFile(filesDir, newBindings, newStick, connectedPads(context).isNotEmpty())
+        writeControlsFile(filesDir, newBindings, newStick, connectedPads(context).isNotEmpty(), prefs.touchSettings())
     }
 
     // Pads come and go while this screen is open, so the list is kept current.

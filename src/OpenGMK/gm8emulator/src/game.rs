@@ -2490,11 +2490,23 @@ impl Game {
         self.init()?;
         handle_scene_change!(self);
 
+        // Loading is over: give back what it only needed while it ran, and tell Android how long a
+        // frame is meant to take so it can size the CPU clock for it.
+        #[cfg(target_os = "android")]
+        {
+            crate::android_main::purge_memory("tras cargar");
+            crate::android_main::perf_start(Duration::from_nanos(1_000_000_000 / self.room.speed.max(1) as u64));
+        }
+
         let mut time_now = Instant::now();
         let mut time_last = time_now;
         let mut current_frame_time: u32 = 0;
+        #[cfg(target_os = "android")]
+        let mut mem_frames: u32 = 0;
         loop {
             self.process_window_events();
+            #[cfg(target_os = "android")]
+            let work_started = Instant::now();
 
             // The room goes with the error: the error alone names a function, not where it was
             // called from, and with 34388 files and hundreds of scripts that is not enough to find
@@ -2502,6 +2514,16 @@ impl Game {
             if let Err(e) = self.frame() {
                 println!("Runtime error: {} (room {})", e, self.room.id);
                 return Err(e.into())
+            }
+
+            #[cfg(target_os = "android")]
+            {
+                crate::android_main::perf_report(work_started.elapsed());
+                // Every two minutes, so a leak shows up in the log without anyone having to look.
+                mem_frames += 1;
+                if mem_frames % (120 * 30) == 0 {
+                    eprintln!("[mem] {} MB residentes", crate::android_main::rss_mb());
+                }
             }
 
             self.capture_recording_frame(&mut current_frame_time, self.room.speed);

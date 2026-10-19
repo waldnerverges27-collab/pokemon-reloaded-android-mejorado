@@ -3,7 +3,12 @@ package com.klisee.reloaded
 import android.app.NativeActivity
 import android.content.Context
 import android.os.Build
+import android.graphics.Rect
 import android.os.Bundle
+import android.os.PerformanceHintManager
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.text.InputType
 import android.util.Log
 import android.view.KeyEvent
@@ -36,6 +41,9 @@ class GameActivity : NativeActivity() {
     /** The 1x1 view the system keyboard types into. What it receives goes straight to the engine. */
     private var imeAnchor: EditText? = null
 
+    private var vibrator: Vibrator? = null
+    private var hintSession: PerformanceHintManager.Session? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Draw behind the notch/camera hole. Without this the system insets the window on the short
         // edge and the game is left with a black band beside it instead of filling the screen.
@@ -53,9 +61,18 @@ class GameActivity : NativeActivity() {
         installImeAnchor()
         watchImeHeight()
         hideSystemBars()
+        setUpVibrator()
+        excludeSystemGestures()
+        // Tells the system this is a long, steady load, so it picks a clock speed it can hold
+        // instead of boosting and then throttling when the phone heats up. Devices that do not
+        // support it ignore it.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            runCatching { window.setSustainedPerformanceMode(true) }
+        }
     }
 
     override fun onDestroy() {
+        perfStop()
         if (instance === this) instance = null
         super.onDestroy()
     }
@@ -72,6 +89,76 @@ class GameActivity : NativeActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Gestures. The buttons sit at the left and right edges, which is exactly where gesture
+    // navigation takes a swipe as "back", so a thumb that slid a little too far used to close the
+    // game. Those strips are handed back to the game; the swipe from the bottom (home) and the one
+    // from the top (notifications) keep working.
+
+    private fun excludeSystemGestures() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val decor = window.decorView
+        decor.addOnLayoutChangeListener { v, left, top, right, bottom, _, _, _, _ ->
+            val width = right - left
+            val height = bottom - top
+            if (width <= 0 || height <= 0) return@addOnLayoutChangeListener
+            val strip = (resources.displayMetrics.density * 56f).toInt()
+            v.systemGestureExclusionRects = listOf(
+                Rect(0, 0, strip, height),
+                Rect(width - strip, 0, width, height),
+            )
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Haptics. The engine calls `haptic` over JNI when a button goes down or the stick engages a
+    // direction. The system's predefined effects are used because the phone's own motor tunes them
+    // (on a phone with a linear motor they are a crisp tick rather than a buzz).
+
+    private fun setUpVibrator() {
+        vibrator = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+        }.getOrNull()?.takeIf { it.hasVibrator() }
+    }
+
+    private fun playHaptic(level: Int, effect: Int) {
+        val v = vibrator ?: return
+        runCatching {
+            val wanted = when {
+                // Stick tick, light: the shortest pulse the motor can do.
+                effect == 1 && level < 2 && v.hasAmplitudeControl() -> VibrationEffect.createOneShot(6, 60)
+                effect == 1 -> VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK)
+                level >= 2 -> VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
+                else -> VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK)
+            }
+            v.vibrate(wanted)
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Performance hint (ADPF). The engine opens a session for its game thread with the length of a
+    // frame as the target and reports how long each frame's work took. Android uses that to raise
+    // the CPU clock before a heavy frame needs it and to let it fall in light ones.
+
+    private fun perfBegin(tid: Int, targetNanos: Long) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        runCatching {
+            hintSession?.close()
+            val manager = getSystemService(PerformanceHintManager::class.java) ?: return
+            hintSession = manager.createHintSession(intArrayOf(tid), targetNanos)
+        }
+    }
+
+    private fun perfStop() {
+        runCatching { hintSession?.close() }
+        hintSession = null
     }
 
     // ------------------------------------------------------------------------------------------
@@ -185,6 +272,25 @@ class GameActivity : NativeActivity() {
         }
 
         private var instance: GameActivity? = null
+
+        /** Called from the engine over JNI. `effect`: 0 = a button went down, 1 = stick tick. */
+        @JvmStatic
+        fun haptic(level: Int, effect: Int) {
+            instance?.playHaptic(level, effect)
+        }
+
+        /** Opens the performance hint session for the engine's game thread. */
+        @JvmStatic
+        fun perfStart(tid: Int, targetNanos: Long) {
+            instance?.perfBegin(tid, targetNanos)
+        }
+
+        /** Reports how long the last frame's work took. */
+        @JvmStatic
+        fun perfReport(nanos: Long) {
+            val session = instance?.hintSession ?: return
+            runCatching { session.reportActualWorkDuration(nanos) }
+        }
 
         /**
          * Called from the engine over JNI (it only holds the Application context, so it goes through

@@ -161,6 +161,18 @@ fn load_controls() {
                 // A pad was connected when the game started, so start with the controls out of the
                 // way; touching the screen brings them back.
                 crate::touch_controls::set_pad_active(value.trim() != "0");
+            } else if name.trim() == "scale" {
+                if let Ok(scale) = value.trim().parse::<f32>() {
+                    crate::touch_controls::set_button_scale(scale);
+                }
+            } else if name.trim() == "deadzone" {
+                if let Ok(dead) = value.trim().parse::<f32>() {
+                    crate::touch_controls::set_joystick_dead(dead);
+                }
+            } else if name.trim() == "floating" {
+                crate::touch_controls::set_joystick_floating(value.trim() != "0");
+            } else if name.trim() == "haptics" {
+                HAPTICS.store(value.trim().parse::<u8>().unwrap_or(1).min(2), std::sync::atomic::Ordering::Relaxed);
             } else if name.trim() == "opacity" {
                 if let Ok(opacity) = value.trim().parse::<f32>() {
                     crate::touch_controls::set_sprite_opacity(opacity);
@@ -202,8 +214,8 @@ fn parse_key(name: &str) -> Option<Key> {
 /// Holds and releases the arrow keys the physical stick asks for, so pushing it feels exactly like
 /// the on-screen joystick.
 fn stick_update(x: f32, y: f32) {
-    let dirs = crate::touch_controls::stick_dirs(x, y);
     let mut state = STICK_STATE.load(std::sync::atomic::Ordering::Relaxed);
+    let dirs = crate::touch_controls::stick_dirs_held(x, y, state);
     let before = state;
     for (index, held) in dirs.iter().enumerate() {
         let bit = 1u32 << index;
@@ -267,6 +279,7 @@ fn tap_key(key: ramen::input::Key) {
 
 fn control_key_down(index: usize) {
     crate::touch_controls::set_pressed(index, true);
+    haptic(HapticKind::Press);
     // TEMP: the trick combination needs both keys held at once, so it is not one key like the rest.
     if crate::touch_controls::CONTROLS[index].name == crate::touch_controls::COMBO_BUTTON_NAME {
         for key in [Key::LeftControl, Key::P] {
@@ -314,7 +327,18 @@ fn pointer_down(id: i32, x: f32, y: f32) {
         SWALLOWED_INPUTS.lock().unwrap().get_or_insert_with(std::collections::HashSet::new).insert(id);
         return
     }
-    let on_joystick = wf > 0.0 && hf > 0.0 && crate::touch_controls::joystick_hit(x / wf, y / hf, wf, hf);
+    let mut on_joystick = wf > 0.0 && hf > 0.0 && crate::touch_controls::joystick_hit(x / wf, y / hf, wf, hf);
+    // A floating stick takes any free touch in its zone, so a button that happens to be there wins.
+    if on_joystick && crate::touch_controls::joystick_floating() && crate::touch_controls::hit(x / wf, y / hf, wf, hf).is_some() {
+        on_joystick = false;
+    }
+    if on_joystick && crate::touch_controls::joystick_floating() {
+        // Anchor the ring under the thumb, kept inside the screen so it is never half off it.
+        let r = crate::touch_controls::joystick_radius() * hf;
+        let cx = x.clamp(r, (wf - r).max(r)) / wf;
+        let cy = y.clamp(r, (hf - r).max(r)) / hf;
+        crate::touch_controls::set_joystick_center(cx, cy);
+    }
     // Any *other* touch while the party wheel is up cancels it - but not the movement stick: while
     // walking the player keeps touching and lifting it, and that must not close the wheel.
     if crate::touch_controls::wheel_open() && *WHEEL_PTR.lock().unwrap() != Some(id) && !on_joystick {
@@ -336,6 +360,7 @@ fn pointer_down(id: i32, x: f32, y: f32) {
             } else {
                 control_key_down(index);
                 POINTER_CONTROLS.lock().unwrap().get_or_insert_with(HashMap::new).insert(id, index);
+                ROLLING.lock().unwrap().get_or_insert_with(std::collections::HashSet::new).insert(id);
             }
         },
         None => {
@@ -369,8 +394,12 @@ fn pointer_up(id: i32, x: f32, y: f32) {
         return
     }
     let index = POINTER_CONTROLS.lock().unwrap().get_or_insert_with(HashMap::new).remove(&id);
+    let was_rolling = ROLLING.lock().unwrap().get_or_insert_with(std::collections::HashSet::new).remove(&id);
     match index {
         Some(index) => control_key_up(index),
+        // A finger that started on a button and slid off it has nothing to release, and must not
+        // turn into a click on the game underneath.
+        None if was_rolling => {},
         None => mouse_up(id, x, y),
     }
 }
@@ -446,8 +475,49 @@ fn flush_delayed_mouse() {
     }
 }
 
+/// Pointers that started on a button. They keep belonging to the buttons even when they slide off
+/// one, so the finger can roll from one button to the next the way it does on a real gamepad.
+static ROLLING: Mutex<Option<std::collections::HashSet<i32>>> = Mutex::new(None);
+
 fn pointer_is_control(id: i32) -> bool {
-    POINTER_CONTROLS.lock().unwrap().as_ref().map(|m| m.contains_key(&id)).unwrap_or(false)
+    ROLLING.lock().unwrap().as_ref().map(|m| m.contains(&id)).unwrap_or(false)
+}
+
+/// A finger that began on a button has moved: release the button it left and press the one it is
+/// over now. Leaving a button needs the finger to go a little past its edge (the test is made
+/// against a button 12% larger than the drawn one), so a thumb that jitters on the border does not
+/// flicker between pressed and released.
+fn pointer_roll(id: i32, x: f32, y: f32) {
+    let (w, h) = android::window_size();
+    let (wf, hf) = (w as f32, h as f32);
+    if wf <= 0.0 || hf <= 0.0 {
+        return
+    }
+    let (nx, ny) = (x / wf, y / hf);
+    let current = POINTER_CONTROLS.lock().unwrap().as_ref().and_then(|m| m.get(&id).copied());
+    if let Some(index) = current {
+        if crate::touch_controls::is_active(index) && crate::touch_controls::hit_with_margin(index, nx, ny, wf, hf, 1.12) {
+            return
+        }
+    }
+    let target = crate::touch_controls::hit(nx, ny, wf, hf)
+        .filter(|&i| {
+            // These two do something heavy on press (open the wheel, fire the trick combo), so a
+            // finger only gets them by touching them on purpose, never by sliding across.
+            let name = crate::touch_controls::CONTROLS[i].name;
+            name != crate::touch_controls::PARTY_NAME && name != crate::touch_controls::COMBO_BUTTON_NAME
+        });
+    if target == current {
+        return
+    }
+    if let Some(index) = current {
+        POINTER_CONTROLS.lock().unwrap().get_or_insert_with(HashMap::new).remove(&id);
+        control_key_up(index);
+    }
+    if let Some(index) = target {
+        control_key_down(index);
+        POINTER_CONTROLS.lock().unwrap().get_or_insert_with(HashMap::new).insert(id, index);
+    }
 }
 
 // --- Movement joystick -------------------------------------------------------------------
@@ -471,8 +541,23 @@ fn joystick_update(x: f32, y: f32) {
     if wf <= 0.0 || hf <= 0.0 {
         return
     }
-    let dirs = crate::touch_controls::joystick_dirs(x / wf, y / hf, wf, hf);
+    // A floating stick follows the thumb: pushed past the ring, it drags the ring along so the
+    // thumb ends up on its edge. This is what lets the thumb wander without the stick being lost.
+    if crate::touch_controls::joystick_floating() {
+        let (jcx, jcy) = crate::touch_controls::joystick_center();
+        let r = crate::touch_controls::joystick_radius() * hf;
+        let (dx, dy) = (x - jcx * wf, y - jcy * hf);
+        let len = (dx * dx + dy * dy).sqrt();
+        if len > r && r > 0.0 {
+            let (ux, uy) = (dx / len, dy / len);
+            let cx = (x - ux * r).clamp(r, (wf - r).max(r)) / wf;
+            let cy = (y - uy * r).clamp(r, (hf - r).max(r)) / hf;
+            crate::touch_controls::set_joystick_center(cx, cy);
+        }
+    }
     let mut state = JOYSTICK_STATE.load(Ordering::Relaxed);
+    let before = state;
+    let dirs = crate::touch_controls::joystick_dirs(x / wf, y / hf, wf, hf, state);
     for (i, &on) in dirs.iter().enumerate() {
         let bit = 1u32 << i;
         if on != (state & bit != 0) {
@@ -486,6 +571,10 @@ fn joystick_update(x: f32, y: f32) {
         }
     }
     JOYSTICK_STATE.store(state, Ordering::Relaxed);
+    // A tick each time the stick engages a new direction, like a d-pad clicking.
+    if state & !before != 0 {
+        haptic(HapticKind::Tick);
+    }
 
     // Clamp the drawn knob to the ring.
     let (jcx, jcy) = crate::touch_controls::joystick_center();
@@ -509,6 +598,7 @@ fn joystick_release() {
         }
     }
     crate::touch_controls::set_joystick_offset(0.0, 0.0);
+    crate::touch_controls::reset_joystick_center();
     *JOYSTICK_PTR.lock().unwrap() = None;
 }
 
@@ -598,7 +688,9 @@ fn translate(event: &InputEvent) {
                             }
                         } else if is_joystick_pointer(p.pointer_id()) {
                             joystick_update(p.x(), p.y());
-                        } else if !pointer_is_control(p.pointer_id()) {
+                        } else if pointer_is_control(p.pointer_id()) {
+                            pointer_roll(p.pointer_id(), p.x(), p.y());
+                        } else {
                             android::push_input(ramen::platform::android::InputEvent::PointerMoved { x: p.x(), y: p.y() });
                         }
                     }
@@ -610,6 +702,7 @@ fn translate(event: &InputEvent) {
                         WHEEL_PTR.lock().unwrap().take();
                     }
                     joystick_release();
+                    ROLLING.lock().unwrap().take();
                     let ids: Vec<i32> =
                         POINTER_CONTROLS.lock().unwrap().as_ref().map(|m| m.keys().copied().collect()).unwrap_or_default();
                     for id in ids {
@@ -622,6 +715,118 @@ fn translate(event: &InputEvent) {
             }
         },
         _ => {},
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Haptics and other calls into `GameActivity`.
+
+/// 0 = off, 1 = light, 2 = strong. Written from `controls.conf`.
+static HAPTICS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(1);
+
+#[derive(Clone, Copy)]
+enum HapticKind {
+    /// A button went down.
+    Press,
+    /// The stick engaged a new direction: lighter than a press.
+    Tick,
+}
+
+/// Vibrates the way the player asked in the settings. The last tick is remembered so a burst of
+/// events (several fingers, a stick scrubbing the dead zone) does not turn into a buzz.
+fn haptic(kind: HapticKind) {
+    use std::sync::atomic::Ordering;
+    let level = HAPTICS.load(Ordering::Relaxed);
+    if level == 0 {
+        return
+    }
+    static LAST: Mutex<Option<Instant>> = Mutex::new(None);
+    {
+        let mut last = LAST.lock().unwrap();
+        let now = Instant::now();
+        if last.map(|at| now.duration_since(at) < Duration::from_millis(30)).unwrap_or(false) {
+            return
+        }
+        *last = Some(now);
+    }
+    let effect = match kind {
+        HapticKind::Press => 0,
+        HapticKind::Tick => 1,
+    };
+    jni_activity_call("haptic", "(II)V", &[jni::objects::JValue::Int(level as i32), jni::objects::JValue::Int(effect)]);
+}
+
+/// Calls a static `void` method of `GameActivity` from any thread. Failures (no activity, a pending
+/// exception) are swallowed: none of what goes through here is worth stopping the game for.
+fn jni_activity_call(method: &str, signature: &str, args: &[jni::objects::JValue]) {
+    with_activity(|env, class| {
+        env.call_static_method(class, method, signature, args)?;
+        Ok(())
+    });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Performance: Android's performance hint session (ADPF) and the frame-rate hint.
+
+/// Opens a hint session for the calling thread, which should be the one that runs the game. With a
+/// target of one frame, Android raises the CPU clock ahead of a heavy frame instead of after it,
+/// and lets it drop in light ones. Does nothing where it is not supported (before Android 12).
+pub fn perf_start(target_frame: Duration) {
+    // SAFETY: gettid has no preconditions.
+    let tid = unsafe { libc::gettid() };
+    jni_activity_call(
+        "perfStart",
+        "(IJ)V",
+        &[jni::objects::JValue::Int(tid), jni::objects::JValue::Long(target_frame.as_nanos() as i64)],
+    );
+}
+
+/// Tells the hint session how long the last frame's work took.
+pub fn perf_report(work: Duration) {
+    jni_activity_call("perfReport", "(J)V", &[jni::objects::JValue::Long(work.as_nanos() as i64)]);
+}
+
+/// Hands memory the allocator is holding back to the system. Loading the game builds and then frees
+/// hundreds of MB of temporary buffers (decoded sprites before they go into the atlas, the parsed
+/// executable) that Android's allocator would otherwise keep around for reuse that never comes.
+pub fn purge_memory(why: &str) {
+    extern "C" {
+        fn mallopt(param: i32, value: i32) -> i32;
+    }
+    let before = rss_mb();
+    // SAFETY: mallopt only takes integers. M_PURGE (-101) releases what scudo can; M_PURGE_ALL
+    // (-104, Android 14+) also empties its caches. Either returns 0 where unsupported.
+    unsafe {
+        mallopt(-101, 0);
+        mallopt(-104, 0);
+    }
+    eprintln!("[mem] {}: {} MB -> {} MB", why, before, rss_mb());
+}
+
+/// Resident memory of the process, in MB (0 if it cannot be read).
+pub fn rss_mb() -> u64 {
+    fs::read_to_string("/proc/self/statm")
+        .ok()
+        .and_then(|text| text.split_whitespace().nth(1).and_then(|pages| pages.parse::<u64>().ok()))
+        .map(|pages| pages * 4096 / (1024 * 1024))
+        .unwrap_or(0)
+}
+
+/// Tells the system the game produces 30 frames a second. The display then runs at a rate that
+/// divides evenly (60 or 120 Hz, never 90) and the compositor stops guessing, which is what makes
+/// a 30 fps game on a high-refresh phone look steady. `ANativeWindow_setFrameRate` is Android 11+,
+/// so it is looked up at run time; older versions just do without.
+fn set_frame_rate_hint(window: *mut std::ffi::c_void, fps: f32) {
+    type SetFrameRate = unsafe extern "C" fn(*mut std::ffi::c_void, f32, i8) -> i32;
+    // SAFETY: dlsym with RTLD_DEFAULT only reads the symbol table; the function is called with the
+    // signature the NDK documents for it.
+    unsafe {
+        let symbol = libc::dlsym(libc::RTLD_DEFAULT, b"ANativeWindow_setFrameRate\0".as_ptr().cast());
+        if !symbol.is_null() {
+            let set: SetFrameRate = std::mem::transmute(symbol);
+            // 1 = ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_FIXED_SOURCE
+            set(window, fps, 1);
+        }
     }
 }
 
@@ -874,7 +1079,9 @@ fn with_activity(f: impl FnOnce(&mut jni::JNIEnv, &jni::objects::JClass) -> jni:
     }
     let Some(global) = ACTIVITY_CLASS.get() else { return };
     let class = unsafe { jni::objects::JClass::from_raw(global.as_obj().as_raw()) };
-    let _ = f(&mut env, &class);
+    if f(&mut env, &class).is_err() {
+        let _ = env.exception_clear();
+    }
 }
 
 fn publish_window(app: &AndroidApp) {
@@ -889,6 +1096,7 @@ fn publish_window(app: &AndroidApp) {
         let width = window.width() as u32;
         let height = window.height() as u32;
         android::set_native_window(ptr, width, height);
+        set_frame_rate_hint(ptr, 30.0);
     }
 }
 
@@ -1103,6 +1311,9 @@ pub fn android_entry(app: AndroidApp) {
                     ramen::platform::android::set_paused(true);
                     crate::game::audio::set_output_paused(true);
                     unsafe { crate::render::opengl::egl::detach_surface() };
+                    // Out of sight: hand back what the allocator is holding, so the system has less
+                    // reason to kill a game that is sitting in the background.
+                    purge_memory("segundo plano");
                 },
                 android_activity::MainEvent::InputAvailable => {
                     if let Ok(mut iter) = game_app.input_events_iter() {

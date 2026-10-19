@@ -72,12 +72,25 @@ fun buttonName(code: Int): String = when (code) {
  * Only the buttons the player actually changed are written, so everything they did not touch keeps
  * the built-in layout (which, for instance, accepts either stick press for `E`).
  */
+/** What the player can tune about the on-screen controls. */
+data class TouchSettings(
+    val opacity: Float = 1f,
+    /** Size of the buttons, 1 = as designed. */
+    val scale: Float = 1f,
+    /** 0 = off, 1 = light, 2 = strong. */
+    val haptics: Int = 1,
+    /** The stick appears under the thumb instead of staying in one place. */
+    val floatingStick: Boolean = false,
+    /** How far the stick has to be pushed (fraction of its radius) before it moves the player. */
+    val deadzone: Float = 0.35f,
+)
+
 fun writeControlsFile(
     filesDir: File,
     bindings: Map<ControlAction, Int>,
     stick: Boolean,
     padConnected: Boolean,
-    opacity: Float = 1f,
+    touch: TouchSettings = TouchSettings(),
 ) {
     val text = buildString {
         appendLine("# Escrito por la pantalla de Controles. El emulador lo lee al arrancar.")
@@ -89,7 +102,11 @@ fun writeControlsFile(
         // brings them back.
         appendLine("pad=${if (padConnected) 1 else 0}")
         // How opaque the buttons that have their own artwork are drawn.
-        appendLine("opacity=$opacity")
+        appendLine("opacity=${touch.opacity}")
+        appendLine("scale=${touch.scale}")
+        appendLine("haptics=${touch.haptics}")
+        appendLine("floating=${if (touch.floatingStick) 1 else 0}")
+        appendLine("deadzone=${touch.deadzone}")
     }
     runCatching { File(filesDir, "controls.conf").writeText(text) }
 }

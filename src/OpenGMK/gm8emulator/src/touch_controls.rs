@@ -326,6 +326,18 @@ pub fn picker_reset() {
 /// The control's shape. Positions and sizes are built in and not customisable, so this is the table's
 /// own shape; the indirection stays because the renderer and the hit test share it.
 pub fn effective_shape(index: usize) -> Shape {
+    let shape = base_shape(index);
+    let scale = button_scale();
+    if (scale - 1.0).abs() < 0.001 {
+        return shape
+    }
+    match shape {
+        Shape::Circle { cx, cy, r } => Shape::Circle { cx, cy, r: r * scale },
+        Shape::Rect { cx, cy, w, h } => Shape::Rect { cx, cy, w: w * scale, h: h * scale },
+    }
+}
+
+fn base_shape(index: usize) -> Shape {
     let control = &CONTROLS[index];
     // The picker's arrows sit beside the character, placed from where the game drew it: that way they
     // follow the sprite, on the player's screen and on the rival's, where the two characters are a
@@ -673,6 +685,22 @@ pub fn hit(nx: f32, ny: f32, ww: f32, wh: f32) -> Option<usize> {
         .position(|(index, control)| is_active(index) && control_contains(index, control.name, nx, ny, ww, wh))
 }
 
+/// Like the test `hit` makes for one control, but against a copy of it scaled by `margin`.
+pub fn hit_with_margin(index: usize, nx: f32, ny: f32, ww: f32, wh: f32, margin: f32) -> bool {
+    let shape = match window_shape(index) {
+        Shape::Circle { cx, cy, r } => Shape::Circle { cx, cy, r: r * margin },
+        Shape::Rect { cx, cy, w, h } => Shape::Rect { cx, cy, w: w * margin, h: h * margin },
+    };
+    if let Some(aspect) = art_aspect(CONTROLS[index].name) {
+        let (cx, cy, half) = match shape {
+            Shape::Circle { cx, cy, r } => (cx, cy, r * ww),
+            Shape::Rect { cx, cy, w, h } => (cx, cy, (w * ww + h * wh) / 4.0),
+        };
+        return (nx - cx).abs() * ww <= half * aspect && (ny - cy).abs() * wh <= half
+    }
+    contains(shape, nx, ny, ww, wh)
+}
+
 /// Whether a point is inside a control. A control with artwork is tested against the rectangle its
 /// picture was actually drawn into, so a wide label is as touchable as it is painted instead of only
 /// inside the little circle its key is defined with. The rest keep their own shape's test.
@@ -744,26 +772,83 @@ pub const JOYSTICK_CX: f32 = 0.135;
 pub const JOYSTICK_CY: f32 = 0.700;
 /// Radius as a fraction of the window *height*, so the base stays round on screen.
 pub const JOYSTICK_R: f32 = 0.200;
-/// Dead zone, as a fraction of the radius, before a direction registers.
+/// Default dead zone, as a fraction of the radius, before a direction registers.
 pub const JOYSTICK_DEAD: f32 = 0.35;
+
+// Settings written by the launcher into `controls.conf`. Stored as f32 bit patterns in atomics so
+// the input thread and the renderer can read them without taking a lock on every touch.
+static SCALE_BITS: AtomicU32 = AtomicU32::new(0x3f80_0000); // 1.0
+static DEAD_BITS: AtomicU32 = AtomicU32::new(0x3eb3_3333); // 0.35
+static FLOATING: AtomicBool = AtomicBool::new(false);
+/// Where a floating stick is anchored while a finger is on it (normalised); `None` = at rest.
+static FLOAT_CENTER: Mutex<Option<(f32, f32)>> = Mutex::new(None);
+
+/// Scale of the on-screen buttons (1 = as designed).
+pub fn button_scale() -> f32 {
+    f32::from_bits(SCALE_BITS.load(Ordering::Relaxed))
+}
+
+pub fn set_button_scale(value: f32) {
+    SCALE_BITS.store(value.clamp(0.6, 1.6).to_bits(), Ordering::Relaxed);
+}
+
+/// Dead zone of the stick, as a fraction of its radius.
+pub fn joystick_dead() -> f32 {
+    f32::from_bits(DEAD_BITS.load(Ordering::Relaxed))
+}
+
+pub fn set_joystick_dead(value: f32) {
+    DEAD_BITS.store(value.clamp(0.05, 0.8).to_bits(), Ordering::Relaxed);
+}
+
+/// A floating stick appears wherever the thumb lands in the lower-left of the screen, instead of
+/// being fixed in one place.
+pub fn joystick_floating() -> bool {
+    FLOATING.load(Ordering::Relaxed)
+}
+
+pub fn set_joystick_floating(value: bool) {
+    FLOATING.store(value, Ordering::Relaxed);
+    if !value {
+        *FLOAT_CENTER.lock().unwrap() = None;
+    }
+}
 
 /// The joystick's centre, in normalised coordinates.
 pub fn joystick_center() -> (f32, f32) {
+    if let Some(center) = *FLOAT_CENTER.lock().unwrap() {
+        return center
+    }
     (JOYSTICK_CX, JOYSTICK_CY)
+}
+
+/// Moves the floating stick's anchor (normalised coordinates).
+pub fn set_joystick_center(cx: f32, cy: f32) {
+    *FLOAT_CENTER.lock().unwrap() = Some((cx, cy));
+}
+
+/// Puts a floating stick back at rest.
+pub fn reset_joystick_center() {
+    *FLOAT_CENTER.lock().unwrap() = None;
 }
 
 /// Radius as a fraction of the window height.
 pub fn joystick_radius() -> f32 {
-    JOYSTICK_R
+    JOYSTICK_R * button_scale().clamp(0.8, 1.3)
 }
 
 pub fn joystick_visible() -> bool {
     true
 }
 
+/// Whether a touch at the point starts the stick. A fixed stick is the ring itself; a floating
+/// one takes any free touch in the lower-left, which is where the left thumb rests.
 pub fn joystick_hit(nx: f32, ny: f32, ww: f32, wh: f32) -> bool {
     if !joystick_active() {
         return false
+    }
+    if joystick_floating() {
+        return nx <= 0.42 && ny >= 0.30
     }
     let (cx, cy) = joystick_center();
     let r = joystick_radius() * wh;
@@ -772,25 +857,50 @@ pub fn joystick_hit(nx: f32, ny: f32, ww: f32, wh: f32) -> bool {
     dx * dx + dy * dy <= r * r
 }
 
-/// `[up, down, left, right]` to hold for a stick at (nx, ny).
-pub fn joystick_dirs(nx: f32, ny: f32, ww: f32, wh: f32) -> [bool; 4] {
+/// `[up, down, left, right]` to hold for a stick at (nx, ny), given the bits already held.
+pub fn joystick_dirs(nx: f32, ny: f32, ww: f32, wh: f32, held: u32) -> [bool; 4] {
     let (cx, cy) = joystick_center();
     let r = joystick_radius() * wh;
     let dx = (nx - cx) * ww;
     let dy = (ny - cy) * wh;
-    stick_dirs(dx / r, dy / r)
+    stick_dirs_held(dx / r, dy / r, held)
 }
 
-/// Which directions a stick pushed by (dx, dy) is asking for: up, down, left, right. Both are in
-/// the range -1..1, and this is the same dead zone the on-screen joystick uses - a physical pad's
-/// stick goes through here too, so both feel identical.
+/// Which directions a stick pushed by (dx, dy) is asking for: up, down, left, right.
 pub fn stick_dirs(dx: f32, dy: f32) -> [bool; 4] {
-    [
-        dy < -JOYSTICK_DEAD,
-        dy > JOYSTICK_DEAD,
-        dx < -JOYSTICK_DEAD,
-        dx > JOYSTICK_DEAD,
-    ]
+    stick_dirs_held(dx, dy, 0)
+}
+
+/// Same, knowing which directions are already held (bit 0 up, 1 down, 2 left, 3 right).
+///
+/// The game is a tile-based grid with four directions, so the stick picks one axis at a time: when
+/// both are past the dead zone the stronger one wins, and the axis already held keeps priority
+/// until the other is clearly stronger. That stops a thumb drifting across a diagonal from
+/// zig-zagging the character. A direction that is held stays on until the thumb comes back well
+/// inside the dead zone, so a stick resting near the edge of it does not flicker. A physical pad's
+/// stick goes through here too, so both feel the same.
+pub fn stick_dirs_held(dx: f32, dy: f32, held: u32) -> [bool; 4] {
+    let dead = joystick_dead();
+    let release = dead * 0.7;
+    let limit = |bit: u32| if held & bit != 0 { release } else { dead };
+    let up = dy < -limit(1);
+    let down = dy > limit(2);
+    let left = dx < -limit(4);
+    let right = dx > limit(8);
+    let vertical = up || down;
+    let horizontal = left || right;
+    if vertical && horizontal {
+        let held_vertical = held & 0b0011 != 0;
+        let held_horizontal = held & 0b1100 != 0;
+        // The axis that was already held gets a 25% head start.
+        let v = dy.abs() * if held_vertical && !held_horizontal { 1.25 } else { 1.0 };
+        let h = dx.abs() * if held_horizontal && !held_vertical { 1.25 } else { 1.0 };
+        if v >= h {
+            return [up, down, false, false]
+        }
+        return [false, false, left, right]
+    }
+    [up, down, left, right]
 }
 
 /// The stick's offset from its centre, in units of its radius (for drawing the knob).
