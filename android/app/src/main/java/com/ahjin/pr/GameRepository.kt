@@ -62,8 +62,27 @@ class GameRepository(private val context: Context) {
     private fun versionFromName(name: String): String? =
         Regex("""\d+\.\d+(?:\.\d+){1,2}""").find(name)?.value
 
+    /**
+     * The safety copies of the saves. They live in `files/backups`, outside the game folder, so
+     * deleting or reinstalling the game does not take them along.
+     */
+    val backups: SaveBackups get() = SaveBackups(File(gameDir, "data"), File(files, "backups"))
+
+    suspend fun backup(reason: String, force: Boolean = false): Result<SaveBackups.Backup?> =
+        withContext(Dispatchers.IO) { backups.create(reason, force) }
+
+    /**
+     * A copy made right before something that can lose saves. It never blocks the operation: if the
+     * copy itself fails (a full disk, say) that is written to the log and the player's request goes
+     * ahead, because they have already confirmed it.
+     */
+    private fun safetyCopy(reason: String) {
+        backups.create(reason).onFailure { trace("copia de seguridad ($reason): ${it.message}") }
+    }
+
     /** Frees the extracted game, leaving the launcher ready for another import or download. */
     suspend fun deleteGame() = withContext(Dispatchers.IO) {
+        safetyCopy(SaveBackups.Reason.BEFORE_DELETE)
         gameDir.deleteRecursively()
         metaFile.delete()
         Unit
@@ -134,6 +153,7 @@ class GameRepository(private val context: Context) {
         runCatching {
             val folder = File(gameDir, "data/partidas")
             if (!folder.isDirectory) error("Primero instala el juego.")
+            safetyCopy(SaveBackups.Reason.BEFORE_IMPORT)
             val numbered = Regex("^reloaded\\d+(\\.|_)(.*)$", RegexOption.IGNORE_CASE)
             var written = 0
             context.contentResolver.openInputStream(uri)?.use { input ->
@@ -171,6 +191,7 @@ class GameRepository(private val context: Context) {
             val files = folder.listFiles().orEmpty()
                 .filter { it.name.startsWith("reloaded$index.") || it.name.startsWith("reloaded${index}_") }
             if (files.isEmpty()) error("Esa partida ya no esta.")
+            safetyCopy(SaveBackups.Reason.BEFORE_DELETE)
             files.forEach { it.delete() }
         }
     }
@@ -224,6 +245,7 @@ class GameRepository(private val context: Context) {
         runCatching {
             val data = File(gameDir, "data")
             if (!data.isDirectory) error("Primero instala el juego.")
+            safetyCopy(SaveBackups.Reason.BEFORE_IMPORT)
             var files = 0
             // A save is a .savc file; the .data and .nfo beside it only describe it. Counting every
             // file in the zip said "51 partidas" when there was really one.
@@ -461,6 +483,8 @@ class GameRepository(private val context: Context) {
             error("El zip no trae el .exe y la carpeta data/.")
         }
 
+        // Replacing the game replaces its data folder, saves included.
+        safetyCopy(SaveBackups.Reason.BEFORE_INSTALL)
         gameDir.deleteRecursively()
         if (!staging.renameTo(gameDir)) {
             staging.deleteRecursively()

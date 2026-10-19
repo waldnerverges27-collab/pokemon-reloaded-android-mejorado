@@ -41,9 +41,11 @@ import com.ahjin.pr.Preferences
 import com.ahjin.pr.Update
 import com.ahjin.pr.installUpdate
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import com.ahjin.pr.SaveBackups
 
 /** Screens reached from a tab rather than being tabs themselves. */
-private enum class Pushed { About, Controls, Layout, MySaves, Extras }
+private enum class Pushed { About, Controls, Layout, MySaves, Extras, Backups, Help }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -140,7 +142,12 @@ fun App(repo: GameRepository, prefs: Preferences) {
                             // like nothing happening. Now it says so.
                             problem = "No pude descargar la actualizacion: ${result.exceptionOrNull()?.message}"
                         } else {
-                            problem = Update.verify(context, file, release) ?: installUpdate(context, file)
+                            problem = Update.verify(context, file, release)
+                            if (problem == null) {
+                                // The installer replaces the app; the saves are copied first, just in case.
+                                runCatching { repo.backup(SaveBackups.Reason.BEFORE_UPDATE) }
+                                problem = installUpdate(context, file)
+                            }
                             if (problem == null) {
                                 update = null
                             } else if (problem!!.startsWith("La descarga") || problem!!.startsWith("El archivo")) {
@@ -182,6 +189,8 @@ fun App(repo: GameRepository, prefs: Preferences) {
         Pushed.Layout -> ControlsLayoutScreen(filesDir = context.filesDir, onBack = { pushed = null })
         Pushed.MySaves -> MySavesScreen(repo = repo, onBack = { pushed = null })
         Pushed.Extras -> ExtrasScreen(prefs = prefs, filesDir = context.filesDir, onBack = { pushed = null })
+        Pushed.Backups -> BackupsScreen(repo = repo, prefs = prefs, onBack = { pushed = null })
+        Pushed.Help -> HelpScreen(onBack = { pushed = null })
         null -> Box(modifier = Modifier.fillMaxSize()) {
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                 when (Tab.entries[page]) {
@@ -194,7 +203,14 @@ fun App(repo: GameRepository, prefs: Preferences) {
                         onAbout = { pushed = Pushed.About },
                         onLaunch = {
                             launching = true
-                            Emulator.start(context)
+                            scope.launch {
+                                // The copy is quick (the saves are small) and is only made when they
+                                // changed. Whatever happens to it, the game starts.
+                                if (prefs.autoBackup) {
+                                    runCatching { withTimeoutOrNull(4_000) { repo.backup(SaveBackups.Reason.PLAY) } }
+                                }
+                                Emulator.start(context)
+                            }
                         },
                         launching = launching,
                         onSettings = { scope.launch { pagerState.animateScrollToPage(Tab.Settings.ordinal) } },
@@ -210,6 +226,8 @@ fun App(repo: GameRepository, prefs: Preferences) {
                         onLayout = { pushed = Pushed.Layout },
                         onExtras = { pushed = Pushed.Extras },
                         onMySaves = { pushed = Pushed.MySaves },
+                        onBackups = { pushed = Pushed.Backups },
+                        onHelp = { pushed = Pushed.Help },
                         onUpdateFound = { update = it },
                     )
                 }

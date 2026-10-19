@@ -212,6 +212,8 @@ fn pad_action_named(name: &str) -> Option<crate::touch_controls::SysAction> {
         "QSAVE" => Some(SysAction::QuickSave),
         "QLOAD" => Some(SysAction::QuickLoad),
         "FFWD" => Some(SysAction::FastForward),
+        "STATS" => Some(SysAction::Stats),
+        "QSLOT" => Some(SysAction::NextSlot),
         _ => None,
     }
 }
@@ -251,6 +253,12 @@ fn run_sys_action(action: crate::touch_controls::SysAction) {
             } else {
                 toast("Velocidad normal");
             }
+        },
+        SysAction::Stats => {
+            toast(if crate::extras::toggle_stats() { "Indicador de FPS activado" } else { "Indicador de FPS oculto" });
+        },
+        SysAction::NextSlot => {
+            toast(&format!("Ranura de guardado rapido: {}", crate::extras::next_quick_slot()));
         },
     }
 }

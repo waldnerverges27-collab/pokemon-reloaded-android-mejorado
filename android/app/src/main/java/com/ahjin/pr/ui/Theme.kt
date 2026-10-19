@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -53,7 +54,7 @@ private val ExpressiveShapes = Shapes(
  * The wallpaper-driven dynamic colour that used to be here is gone on purpose: it made the app look
  * different on every phone, and a premium look is one that does not depend on the wallpaper.
  */
-private val ObsidianScheme = darkColorScheme(
+internal val ObsidianScheme = darkColorScheme(
     primary = Color(0xFFE3C07B),
     onPrimary = Color(0xFF2E2100),
     primaryContainer = Color(0xFF4A3910),
@@ -93,7 +94,7 @@ private val ObsidianScheme = darkColorScheme(
 )
 
 /** The same idea on ivory: ink text, bronze instead of champagne so the accent keeps its contrast. */
-private val IvoryScheme = lightColorScheme(
+internal val IvoryScheme = lightColorScheme(
     primary = Color(0xFF7D5C0E),
     onPrimary = Color(0xFFFFFFFF),
     primaryContainer = Color(0xFFFFDF9C),
@@ -132,6 +133,79 @@ private val IvoryScheme = lightColorScheme(
     surfaceContainerHighest = Color(0xFFE4E1D7),
 )
 
+/** The accent colours the player can pick. [GOLD] is the original look and the default. */
+object Accent {
+    const val GOLD = 0
+    const val SAPPHIRE = 1
+    const val EMERALD = 2
+    const val RUBY = 3
+    const val AMETHYST = 4
+    val ALL = listOf(GOLD, SAPPHIRE, EMERALD, RUBY, AMETHYST)
+
+    fun label(accent: Int): String = when (accent) {
+        SAPPHIRE -> "Zafiro"
+        EMERALD -> "Esmeralda"
+        RUBY -> "Rubi"
+        AMETHYST -> "Amatista"
+        else -> "Oro"
+    }
+}
+
+/** The four colours that change with the accent; everything else of the scheme stays as it is. */
+private class AccentColors(val primary: Long, val onPrimary: Long, val container: Long, val onContainer: Long, val inverse: Long)
+
+private fun accentColors(accent: Int, dark: Boolean): AccentColors? = when (accent) {
+    Accent.SAPPHIRE -> if (dark) AccentColors(0xFF8CB4FF, 0xFF002F68, 0xFF0F4590, 0xFFD7E4FF, 0xFF2F5FAF)
+    else AccentColors(0xFF2F5FAF, 0xFFFFFFFF, 0xFFD7E4FF, 0xFF001B3F, 0xFF8CB4FF)
+    Accent.EMERALD -> if (dark) AccentColors(0xFF7BD9A4, 0xFF003920, 0xFF005230, 0xFF97F6BF, 0xFF1B6C45)
+    else AccentColors(0xFF1B6C45, 0xFFFFFFFF, 0xFF9DF6BF, 0xFF002111, 0xFF7BD9A4)
+    Accent.RUBY -> if (dark) AccentColors(0xFFFFB2B9, 0xFF670019, 0xFF8E0A2D, 0xFFFFDADC, 0xFFB3283F)
+    else AccentColors(0xFFB3283F, 0xFFFFFFFF, 0xFFFFDADC, 0xFF40000C, 0xFFFFB2B9)
+    Accent.AMETHYST -> if (dark) AccentColors(0xFFD3B9FF, 0xFF3C1C73, 0xFF543B8A, 0xFFEBDCFF, 0xFF6B4FA3)
+    else AccentColors(0xFF6B4FA3, 0xFFFFFFFF, 0xFFEBDCFF, 0xFF260B5C, 0xFFD3B9FF)
+    else -> null
+}
+
+/** The colour shown next to an accent's name in the picker. */
+fun accentSwatch(accent: Int, dark: Boolean): Color =
+    Color(accentColors(accent, dark)?.primary ?: if (dark) 0xFFE3C07B else 0xFF7D5C0E)
+
+/**
+ * The colours for a given choice of mode, accent and black level.
+ *
+ * Gold without AMOLED is exactly the original scheme. AMOLED only exists in dark mode: it takes the
+ * page to pure black (a lit pixel costs battery on an OLED screen, an unlit one costs nothing) and
+ * keeps the cards a hair above it so they still read as cards.
+ */
+fun scheme(dark: Boolean, accent: Int = Accent.GOLD, amoled: Boolean = false): ColorScheme {
+    var scheme = if (dark) ObsidianScheme else IvoryScheme
+    accentColors(accent, dark)?.let {
+        scheme = scheme.copy(
+            primary = Color(it.primary),
+            onPrimary = Color(it.onPrimary),
+            primaryContainer = Color(it.container),
+            onPrimaryContainer = Color(it.onContainer),
+            inversePrimary = Color(it.inverse),
+            surfaceTint = Color(it.primary),
+        )
+    }
+    if (dark && amoled) {
+        scheme = scheme.copy(
+            background = Color(0xFF000000),
+            surface = Color(0xFF000000),
+            surfaceDim = Color(0xFF000000),
+            surfaceContainerLowest = Color(0xFF000000),
+            surfaceContainerLow = Color(0xFF08090B),
+            surfaceContainer = Color(0xFF0D0E11),
+            surfaceContainerHigh = Color(0xFF131419),
+            surfaceContainerHighest = Color(0xFF1A1C21),
+            surfaceVariant = Color(0xFF1A1C21),
+            outlineVariant = Color(0xFF2A2B31),
+        )
+    }
+    return scheme
+}
+
 /** Appearance setting: follow the system, always dark, or always light. Dark is the default. */
 object ThemeMode {
     const val SYSTEM = 0
@@ -158,8 +232,9 @@ private fun TextStyle.tracked(spacing: Double): TextStyle = copy(fontFamily = Sa
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ReloadedTheme(mode: Int = ThemeMode.DARK, content: @Composable () -> Unit) {
-    val scheme = if (isDarkTheme(mode)) ObsidianScheme else IvoryScheme
+fun ReloadedTheme(mode: Int = ThemeMode.DARK, accent: Int = Accent.GOLD, amoled: Boolean = false, content: @Composable () -> Unit) {
+    val dark = isDarkTheme(mode)
+    val scheme = remember(dark, accent, amoled) { scheme(dark, accent, amoled) }
 
     val typography = remember {
         val base = Typography()

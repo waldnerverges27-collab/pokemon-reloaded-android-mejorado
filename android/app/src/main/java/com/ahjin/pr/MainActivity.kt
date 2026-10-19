@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                 onDispose {}
             }
-            ReloadedTheme(mode) { App(repo, prefs) }
+            ReloadedTheme(mode, prefs.accent, prefs.amoled) { App(repo, prefs) }
         }
     }
 }

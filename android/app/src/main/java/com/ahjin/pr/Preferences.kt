@@ -2,6 +2,7 @@ package com.ahjin.pr
 
 import android.content.Context
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import java.io.File
@@ -28,6 +29,33 @@ class Preferences(context: Context) {
         set(value) {
             themeModeState = value
             prefs.edit().putInt("themeMode", value).apply()
+        }
+
+    private var accentState by mutableIntStateOf(prefs.getInt("accent", 0))
+
+    /** Accent colour of the app (see `Accent`). 0 is the original gold. Backed by Compose state so the UI follows it live. */
+    var accent: Int
+        get() = accentState
+        set(value) {
+            accentState = value
+            prefs.edit().putInt("accent", value).apply()
+        }
+
+    private var amoledState by mutableStateOf(prefs.getBoolean("amoled", false))
+
+    /** Pure black background in dark mode, for OLED screens. Off by default. */
+    var amoled: Boolean
+        get() = amoledState
+        set(value) {
+            amoledState = value
+            prefs.edit().putBoolean("amoled", value).apply()
+        }
+
+    /** A copy of the saves each time the game is opened (only if they changed). Safety copies before risky actions are always made. */
+    var autoBackup: Boolean
+        get() = prefs.getBoolean("autoBackup", true)
+        set(value) {
+            prefs.edit().putBoolean("autoBackup", value).apply()
         }
 
     /** Whether the first-run setup has been completed. */

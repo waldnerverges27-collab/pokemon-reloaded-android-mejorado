@@ -198,6 +198,10 @@ pub enum SysAction {
     QuickSave,
     QuickLoad,
     FastForward,
+    /// Shows or hides the readout of frames per second.
+    Stats,
+    /// Moves on to the next quick-save slot.
+    NextSlot,
 }
 
 pub fn sys_action_named(name: &str) -> Option<SysAction> {
@@ -218,6 +222,8 @@ pub fn sys_action(index: usize) -> Option<SysAction> {
 pub struct CustomDef {
     pub key: Key,
     pub label: &'static str,
+    /// A picture instead of the label: the label is written `~name` (see `icon_named`).
+    pub icon: Option<Icon>,
     pub contexts: u8,
 }
 
@@ -540,8 +546,10 @@ pub fn load_layout(text: &str) {
                 continue
             };
             // Kept for the rest of the run: eight short labels at most, once per start of the game.
-            let label: &'static str = Box::leak(label.chars().take(3).collect::<String>().to_ascii_uppercase().into_boxed_str());
-            defs[slot] = Some(CustomDef { key, label, contexts });
+            let icon = label.strip_prefix('~').and_then(icon_named);
+            let text = if icon.is_some() { "" } else { label.trim_start_matches('~') };
+            let label: &'static str = Box::leak(text.chars().take(3).collect::<String>().to_ascii_uppercase().into_boxed_str());
+            defs[slot] = Some(CustomDef { key, label, icon, contexts });
         }
         entries.push((name.to_string(), Placement { moved: true, cx, cy, scale: scale.clamp(0.4, 2.5), visible }));
     }
@@ -583,6 +591,45 @@ pub enum Icon {
     Save,
     Load,
     Forward,
+    Up,
+    Down,
+    Left,
+    Right,
+    Star,
+    Heart,
+    Plus,
+    Menu,
+    Check,
+}
+
+/// The pictures a custom button can wear, by the names the editor writes after a `~`.
+pub fn icon_named(name: &str) -> Option<Icon> {
+    match name.trim().to_ascii_lowercase().as_str() {
+        "pause" => Some(Icon::Pause),
+        "back" => Some(Icon::Back),
+        "ball" => Some(Icon::Ball),
+        "save" => Some(Icon::Save),
+        "load" => Some(Icon::Load),
+        "forward" => Some(Icon::Forward),
+        "up" => Some(Icon::Up),
+        "down" => Some(Icon::Down),
+        "left" => Some(Icon::Left),
+        "right" => Some(Icon::Right),
+        "star" => Some(Icon::Star),
+        "heart" => Some(Icon::Heart),
+        "plus" => Some(Icon::Plus),
+        "menu" => Some(Icon::Menu),
+        "check" => Some(Icon::Check),
+        _ => None,
+    }
+}
+
+/// The icon a control wears: the one the player gave a custom button, or its own.
+pub fn icon_at(index: usize) -> Option<Icon> {
+    match custom_def(index) {
+        Some(def) => def.icon,
+        None => icon_of(CONTROLS[index].name),
+    }
 }
 
 /// The icon a button wears instead of its letter, if it has one.
@@ -1367,4 +1414,50 @@ pub fn wheel_item_at(nx: f32, ny: f32, ww: f32, wh: f32) -> Option<usize> {
         }
     }
     best
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// One test, because the layout is global state shared by every test of the process.
+    #[test]
+    fn custom_buttons_can_wear_an_icon() {
+        for name in [
+            "pause", "back", "ball", "save", "load", "forward", "up", "down", "left", "right", "star", "heart", "plus", "menu", "check",
+        ] {
+            assert!(icon_named(name).is_some(), "{name}");
+        }
+        assert!(icon_named("nope").is_none());
+        assert!(icon_named(" Star ").is_some(), "names are trimmed and not case sensitive");
+
+        load_layout(
+            "custom1=0.5,0.5,1,1,Z,~star,2\ncustom2=0.2,0.2,1,1,X,ab,2\ncustom3=0.3,0.3,1,1,C,~nope,2\ncustom4=0.4,0.4,1,1,V,abcdef,2\n",
+        );
+        let (one, two, three, four) = (
+            index_of("custom1").unwrap(),
+            index_of("custom2").unwrap(),
+            index_of("custom3").unwrap(),
+            index_of("custom4").unwrap(),
+        );
+        assert!(matches!(icon_at(one), Some(Icon::Star)));
+        assert!(matches!(label_of(one), Label::Text("")), "an icon button has no text on top of its picture");
+        assert!(icon_at(two).is_none());
+        assert!(matches!(label_of(two), Label::Text("AB")));
+        assert!(icon_at(three).is_none(), "an unknown icon falls back to text");
+        assert!(matches!(label_of(three), Label::Text("NOP")));
+        assert!(matches!(label_of(four), Label::Text("ABC")), "text is cut to three letters");
+        // The game's own buttons keep the icons they always had.
+        assert!(matches!(icon_at(index_of("escape").unwrap()), Some(Icon::Back)));
+        assert!(icon_at(index_of("z").unwrap()).is_none());
+
+        load_layout("");
+        assert!(icon_at(one).is_none());
+    }
+
+    #[test]
+    fn system_actions_are_found_by_name() {
+        assert_eq!(sys_action_named(SYS_QSAVE), Some(SysAction::QuickSave));
+        assert_eq!(sys_action_named("z"), None);
+    }
 }

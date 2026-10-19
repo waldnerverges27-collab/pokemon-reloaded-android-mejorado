@@ -114,11 +114,15 @@ Si ya jugabas en PC, tu partida entra desde **Ajustes → Partidas → Importar*
   ajustable y modo flotante que sigue al pulgar.
 - **Editor de posiciones y tamaños.** Arrastra, redimensiona u oculta cada botón por pantalla del
   juego. Admite **diseños guardados** con nombre.
-- **Botones propios:** hasta 8, con la tecla, el texto de 3 letras y las pantallas que elijas.
+- **Botones propios:** hasta 8, con la tecla, el texto de 3 letras **o un icono** (flechas, estrella,
+  corazón, pausa, bola…) y las pantallas que elijas.
+- **Preajustes de disposición:** Estándar, Zurdo, Compacto, Grande y Zurdo compacto, con
+  confirmación antes de aplicarlos. No tocan los botones propios ni los que hayas ocultado.
 - **Respuesta táctil cuidada:** deslizar de un botón a otro sin levantar el dedo, vibración
   ajustable (apagada, ligera, fuerte), difuminado de los botones cuando no se usan y bordes de la
   pantalla excluidos del gesto «atrás» del sistema.
-- **Mandos físicos:** detección automática, reasignación de teclas, vibración y atajos propios.
+- **Mandos físicos:** detección automática, reasignación de teclas, vibración y atajos propios:
+  guardado rápido, cargar, avance rápido, mostrar u ocultar los FPS y cambiar de ranura de guardado rápido.
 
 ### Audio
 
@@ -152,6 +156,33 @@ Tema **«Obsidiana y oro»**: fondo casi negro, texto marfil y un único acento 
 modo claro, marfil con bronce. No usa el color dinámico del sistema, de modo que se ve igual en
 todos los móviles. Se elige en **Ajustes → Apariencia** (oscuro por defecto, claro o según el
 sistema). La tipografía es Google Sans Flex y la interfaz sigue Material 3 Expressive.
+
+En **Ajustes → Color y negro** se puede cambiar el acento (**Oro**, Zafiro, Esmeralda, Rubí o
+Amatista) y activar **Negro puro (AMOLED)** para el modo oscuro. Todas las combinaciones tienen
+el contraste de texto comprobado con pruebas automáticas. Nada de esto afecta al juego.
+
+### Copias de seguridad
+
+Las partidas viven en la carpeta del juego, y borrar o reinstalar el juego las borra con ella. Para
+que eso nunca sea una pérdida, la app guarda copias aparte, en su propia carpeta:
+
+- **Automáticas:** al abrir el juego (solo si las partidas han cambiado desde la última copia; se
+  conservan las 5 últimas) y **siempre** antes de importar partidas, borrar una partida o el juego,
+  reinstalarlo o actualizar la app (se conservan las 10 últimas).
+- **Manuales:** con *Hacer una copia ahora*. No se borran solas.
+- **Restaurar, compartir o borrar** desde **Ajustes → Copias de seguridad**. Restaurar pide
+  confirmación, guarda antes lo que hubiera y, si algo falla a medias, devuelve las partidas a como
+  estaban.
+- Cada copia es un `.zip` con la misma estructura que usa *Mis partidas → Importar*, así que también
+  se puede abrir en un PC.
+- Las escrituras van a un archivo temporal que se comprueba y se renombra, y se evita duplicar
+  copias idénticas.
+
+### Ayuda y diagnóstico
+
+- **Guía de uso** dentro de la app (Ajustes → Ayuda), con secciones desplegables y sin conexión.
+- **Informe de diagnóstico** de un toque: versión, dispositivo, memoria, estado del juego, ajustes y
+  el final del registro, listo para compartir como `.txt`. No incluye las partidas.
 
 ### Gestión de partidas, registros y actualizaciones
 
@@ -241,7 +272,8 @@ romper el motor, y viceversa.
 .
 ├── android/                 App Android (Kotlin / Compose)
 │   └── app/src/main/
-│       ├── java/com/ahjin/pr/   Lanzador, ajustes, editor de controles, actualizador
+│       ├── java/com/ahjin/pr/   Lanzador, ajustes, editor de controles, copias, diagnóstico, actualizador
+│       ├── (src/test)           Pruebas JVM: copias de seguridad, diseños y temas
 │       ├── assets/              Sprites de botones, SoundFont, diseño por defecto de los controles
 │       └── res/                 Tema, tipografía e iconos
 ├── docs/screenshots/        Capturas de pantalla del README
@@ -301,6 +333,11 @@ cd android
 ./build.sh :app:assembleRelease      # o `gradle :app:assembleRelease`
 ```
 
+Las pruebas de la parte Kotlin (copias de seguridad, diseños, temas) se lanzan con
+`gradle :app:testDebugUnitTest`. Las del motor que no dependen de la ventana (`touch_controls.rs`,
+`extras.rs`) se pueden ejecutar con `cargo test` en un crate de prueba que incluya esos dos módulos,
+porque el crate completo de `gm8emulator` solo compila para Android.
+
 El APK queda en `android/app/build/outputs/apk/release/`. Con Gradle se necesitan unos 2 GB de
 memoria para el proceso; en equipos justos conviene tener swap.
 
@@ -344,6 +381,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.6.0** | **Copias de seguridad** automáticas y manuales de las partidas (restaurar, compartir, borrar), **informe de diagnóstico** de un toque, **guía de uso** en la app, cinco **colores de acento** y **negro puro AMOLED**, **iconos** para botones propios y **preajustes** de disposición (zurdo, compacto, grande), y nuevos atajos de mando (FPS y cambio de ranura). Pruebas automáticas nuevas. |
 | **0.5.0** | Paquete propio **`com.ahjin.pr`** y firma de release propia. Tema **«Obsidiana y oro»** con ajuste de apariencia (oscuro, claro, sistema), botón Jugar dorado, barra y listas con filete fino, icono nuevo. Corregido el autofrenado del **avance rápido**. Nuevo ejemplo `roomspeed`. README reescrito. |
 | **0.4.0** | Guardado rápido (3 ranuras), avance rápido x2/x3/x4, botones propios y diseños guardados, escala de píxeles perfectos, rejilla LCD y CRT, indicador de FPS/memoria, ahorro de batería, vibración y atajos de mando, soporte armeabi-v7a, actualizador apuntando a este repositorio. |
 | **0.3.1-mejorado.4** | Joystick de 8 direcciones en todo el juego. |
@@ -359,6 +397,9 @@ Cada versión, con su APK, está en [Releases](../../releases).
 - Desarrollado y probado en un **RedMagic 8S Pro** (Snapdragon 8 Gen 2, Android 13, arm64).
 - El motor de **32 bits (armeabi-v7a)** se compila y empaqueta, pero no se ha probado en ningún móvil de 32 bits.
 - El **guardado rápido** es una función experimental. Si algo falla, el log lo registrará.
+- La versión **0.6.0** está verificada con pruebas automáticas y compilación, pero todavía no con
+  uso real en el móvil: las copias de seguridad, los iconos de botones y los atajos de mando son
+  nuevos. Si algo no va bien, comparte el informe de diagnóstico.
 - La app sigue en desarrollo y puede fallar. Si ocurre, guarda un log desde **Ajustes → Logs** y
   abre un [issue](../../issues) con él.
 

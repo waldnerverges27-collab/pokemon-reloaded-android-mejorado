@@ -1477,7 +1477,7 @@ impl RendererImpl {
                         press,
                         opacity,
                         label,
-                        icon: touch_controls::icon_of(c.name),
+                        icon: touch_controls::icon_at(i),
                     },
                 );
                 continue;

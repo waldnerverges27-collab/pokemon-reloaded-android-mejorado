@@ -218,6 +218,51 @@ fn icon(c: &mut Canvas, kind: Icon, cx: f32, cy: f32, size: f32, col: Color) {
                 c.polyline(&[(cx + (dx - 0.12) * size, cy - 0.34 * size), (cx + (dx + 0.16) * size, cy), (cx + (dx - 0.12) * size, cy + 0.34 * size)], width, col);
             }
         },
+        Icon::Up | Icon::Down => {
+            let d = if matches!(kind, Icon::Up) { -1.0 } else { 1.0 };
+            c.line(cx, cy - 0.4 * d * size, cx, cy + 0.4 * d * size, width, col);
+            c.polyline(&[(cx - 0.34 * size, cy - 0.06 * d * size), (cx, cy + 0.4 * d * size), (cx + 0.34 * size, cy - 0.06 * d * size)], width, col);
+        },
+        Icon::Left | Icon::Right => {
+            let d = if matches!(kind, Icon::Left) { -1.0 } else { 1.0 };
+            c.line(cx - 0.4 * d * size, cy, cx + 0.4 * d * size, cy, width, col);
+            c.polyline(&[(cx - 0.06 * d * size, cy - 0.34 * size), (cx + 0.4 * d * size, cy), (cx - 0.06 * d * size, cy + 0.34 * size)], width, col);
+        },
+        // Five points, outline only.
+        Icon::Star => {
+            let mut points = Vec::with_capacity(11);
+            for i in 0..=10 {
+                let angle = -std::f32::consts::FRAC_PI_2 + i as f32 * std::f32::consts::PI / 5.0;
+                let radius = if i % 2 == 0 { 0.52 } else { 0.22 } * size;
+                points.push((cx + radius * angle.cos(), cy + 0.04 * size + radius * angle.sin()));
+            }
+            c.polyline(&points, width * 0.8, col);
+        },
+        // The classic parametric heart, outline only.
+        Icon::Heart => {
+            let k = 0.52 * size / 16.0;
+            let points: Vec<(f32, f32)> = (0..=28)
+                .map(|i| {
+                    let t = i as f32 * std::f32::consts::TAU / 28.0;
+                    let x = 16.0 * t.sin().powi(3);
+                    let y = 13.0 * t.cos() - 5.0 * (2.0 * t).cos() - 2.0 * (3.0 * t).cos() - (4.0 * t).cos();
+                    (cx + x * k, cy - (y + 2.5) * k)
+                })
+                .collect();
+            c.polyline(&points, width * 0.8, col);
+        },
+        Icon::Plus => {
+            c.line(cx - 0.4 * size, cy, cx + 0.4 * size, cy, width, col);
+            c.line(cx, cy - 0.4 * size, cx, cy + 0.4 * size, width, col);
+        },
+        Icon::Menu => {
+            for dy in [-0.3, 0.0, 0.3] {
+                c.line(cx - 0.4 * size, cy + dy * size, cx + 0.4 * size, cy + dy * size, width, col);
+            }
+        },
+        Icon::Check => {
+            c.polyline(&[(cx - 0.4 * size, cy + 0.02 * size), (cx - 0.12 * size, cy + 0.3 * size), (cx + 0.42 * size, cy - 0.3 * size)], width, col);
+        },
         Icon::Ball => {
             c.ring(cx, cy, size * 0.5, width * 0.8, col);
             c.line(cx - 0.5 * size, cy, cx + 0.5 * size, cy, width * 0.8, col);

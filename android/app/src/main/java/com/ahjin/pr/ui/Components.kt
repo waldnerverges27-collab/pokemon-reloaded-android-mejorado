@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -186,12 +187,15 @@ fun ChoiceRow(
     items: Int,
     index: Int,
     modifier: Modifier = Modifier,
+    iconTint: Color? = null,
     onSelect: () -> Unit,
 ) {
     GroupListItem(
         headlineContent = { Text(title, style = MaterialTheme.typography.titleMedium) },
         supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodyMedium) },
-        leadingContent = { Icon(icon, contentDescription = null) },
+        leadingContent = {
+            if (iconTint != null) Icon(icon, contentDescription = null, tint = iconTint) else Icon(icon, contentDescription = null)
+        },
         trailingContent = { RadioButton(selected = selected, onClick = null) },
         items = items,
         index = index,

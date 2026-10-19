@@ -45,6 +45,13 @@ pub fn quick_slot() -> u8 {
     QUICK_SLOT.load(Ordering::Relaxed).clamp(1, QUICK_SLOTS)
 }
 
+/// The slot after the current one (1 -> 2 -> 3 -> 1), for this run of the game. Returns the new slot.
+pub fn next_quick_slot() -> u8 {
+    let next = quick_slot() % QUICK_SLOTS + 1;
+    QUICK_SLOT.store(next, Ordering::Relaxed);
+    next
+}
+
 // ---------------------------------------------------------------------------------------------
 // Fast-forward.
 
@@ -193,6 +200,11 @@ pub fn stats_on() -> bool {
     STATS_ON.load(Ordering::Relaxed)
 }
 
+/// Shows or hides the readout, for this run of the game. Returns whether it is shown now.
+pub fn toggle_stats() -> bool {
+    !STATS_ON.fetch_xor(true, Ordering::Relaxed)
+}
+
 pub fn set_stats_text(text: String) {
     *STATS_TEXT.lock().unwrap() = text;
 }
@@ -273,5 +285,29 @@ pub fn load(text: &str) {
             },
             _ => {},
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pad_shortcuts_cycle_the_slot_and_flip_the_readout() {
+        let start = quick_slot();
+        let mut seen = Vec::new();
+        for _ in 0..QUICK_SLOTS {
+            seen.push(next_quick_slot());
+        }
+        assert_eq!(quick_slot(), start, "a full turn comes back to the same slot");
+        seen.sort_unstable();
+        seen.dedup();
+        assert_eq!(seen.len(), usize::from(QUICK_SLOTS), "every slot comes up once");
+        assert!(seen.iter().all(|slot| (1..=QUICK_SLOTS).contains(slot)));
+
+        let before = stats_on();
+        assert_eq!(toggle_stats(), !before);
+        assert_eq!(stats_on(), !before);
+        assert_eq!(toggle_stats(), before);
     }
 }

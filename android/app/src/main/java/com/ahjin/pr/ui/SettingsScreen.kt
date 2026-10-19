@@ -14,6 +14,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Article
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Circle
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
@@ -56,9 +60,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.ahjin.pr.GameRepository
+import com.ahjin.pr.Diagnostics
 import com.ahjin.pr.Preferences
 import com.ahjin.pr.Update
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +79,8 @@ fun SettingsScreen(
     onLayout: () -> Unit,
     onExtras: () -> Unit,
     onMySaves: () -> Unit,
+    onBackups: () -> Unit,
+    onHelp: () -> Unit,
     onUpdateFound: (Update.Release) -> Unit,
     bottomBar: @Composable () -> Unit = {},
 ) {
@@ -88,6 +97,7 @@ fun SettingsScreen(
     var floatingStick by remember { mutableStateOf(prefs.floatingStick) }
     var stickDeadzone by remember { mutableStateOf(prefs.stickDeadzone) }
     var checking by remember { mutableStateOf(false) }
+    var preparingReport by remember { mutableStateOf(false) }
     val appVersion = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty()
     }
@@ -98,7 +108,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { confirmingDelete = false },
             title = { Text("Borrar el juego?") },
-            text = { Text("Se borra la copia extraida (${formatBytes(installed?.sizeBytes ?: 0)}). Podras volver a descargarlo o importarlo, pero tus partidas guardadas se pierden.") },
+            text = { Text("Se borra la copia extraida (${formatBytes(installed?.sizeBytes ?: 0)}). Podras volver a descargarlo o importarlo. Antes de borrar se guarda una copia de tus partidas en Copias de seguridad, para poder recuperarlas.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmingDelete = false
@@ -158,10 +168,18 @@ fun SettingsScreen(
                     } else {
                         "Ve cuales partidas tienes guardadas en el juego"
                     },
-                    items = 1,
+                    items = 2,
                     index = 0,
                     enabled = installed != null,
                     onClick = onMySaves,
+                )
+                NavRow(
+                    icon = Icons.Filled.Backup,
+                    title = "Copias de seguridad",
+                    subtitle = "Copias automaticas de tus partidas: hacer, restaurar o compartir",
+                    items = 2,
+                    index = 1,
+                    onClick = onBackups,
                 )
             }
 
@@ -349,6 +367,31 @@ fun SettingsScreen(
                 )
             }
 
+            val darkNow = isDarkTheme(prefs.themeMode)
+            SettingsGroup("Color y negro") {
+                SwitchRow(
+                    icon = Icons.Filled.DarkMode,
+                    title = "Negro puro (AMOLED)",
+                    subtitle = if (darkNow) "Fondo totalmente negro: ahorra bateria en pantallas OLED" else "Solo se nota en el modo oscuro",
+                    checked = prefs.amoled,
+                    items = Accent.ALL.size + 1,
+                    index = 0,
+                    onCheckedChange = { prefs.amoled = it },
+                )
+                Accent.ALL.forEachIndexed { i, accent ->
+                    ChoiceRow(
+                        icon = Icons.Filled.Circle,
+                        iconTint = accentSwatch(accent, darkNow),
+                        title = Accent.label(accent),
+                        subtitle = if (accent == Accent.GOLD) "El color original de la app" else "Color de acento",
+                        selected = prefs.accent == accent,
+                        items = Accent.ALL.size + 1,
+                        index = i + 1,
+                        onSelect = { prefs.accent = accent },
+                    )
+                }
+            }
+
             SettingsGroup("Pantalla") {
                 SwitchRow(
                     icon = Icons.Filled.LightMode,
@@ -389,19 +432,43 @@ fun SettingsScreen(
 
             SettingsGroup("Ayuda") {
                 NavRow(
+                    icon = Icons.AutoMirrored.Filled.HelpOutline,
+                    title = "Guia de uso",
+                    subtitle = "Como importar el juego, usar los controles, guardar y resolver problemas",
+                    items = 4,
+                    index = 0,
+                    onClick = onHelp,
+                )
+                NavRow(
+                    icon = Icons.Filled.BugReport,
+                    title = if (preparingReport) "Preparando informe..." else "Informe de diagnostico",
+                    subtitle = "Un toque: reune version, dispositivo, ajustes y logs para compartirlo",
+                    items = 4,
+                    index = 1,
+                    enabled = !preparingReport,
+                    onClick = {
+                        preparingReport = true
+                        scope.launch {
+                            val text = runCatching { withContext(Dispatchers.IO) { Diagnostics.report(context, repo, prefs) } }
+                            preparingReport = false
+                            text.onSuccess { runCatching { Diagnostics.share(context, it) } }
+                        }
+                    },
+                )
+                NavRow(
                     icon = Icons.Filled.Article,
                     title = "Logs",
                     subtitle = "En caso de un error, comparte los logs, me ayudarán a saber qué falló",
-                    items = 2,
-                    index = 0,
+                    items = 4,
+                    index = 2,
                     onClick = onLog,
                 )
                 NavRow(
                     icon = Icons.Filled.Info,
                     title = "Acerca de",
                     subtitle = "Version, creditos y aviso",
-                    items = 2,
-                    index = 1,
+                    items = 4,
+                    index = 3,
                     onClick = onAbout,
                 )
             }

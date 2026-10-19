@@ -36,6 +36,9 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Tune
+import com.ahjin.pr.LayoutPresets
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -106,10 +109,12 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
     var profiles by remember { mutableStateOf(LayoutProfiles.list(filesDir)) }
     var profileName by remember { mutableStateOf("") }
     var profileMessage by remember { mutableStateOf<String?>(null) }
+    var pendingPreset by remember { mutableStateOf<LayoutPresets.Preset?>(null) }
 
     fun save() = Layout.write(filesDir, LayoutFile(placements.toMap(), customs.toMap()))
     // The buttons the player made start in the middle of the screen, with the size the engine uses.
-    fun customSpec(c: CustomButton) = ControlSpec(c.name, c.label, 0.5f, 0.5f, Layout.CUSTOM_RADIUS, c.contexts)
+    fun customSpec(c: CustomButton) =
+        ControlSpec(c.name, c.icon?.let(Layout::iconGlyph) ?: c.label, 0.5f, 0.5f, Layout.CUSTOM_RADIUS, c.contexts)
     val allControls = defaults.controls + customs.values.sortedBy { it.slot }.map(::customSpec)
     fun specOf(name: String): ControlSpec? =
         if (name == JOYSTICK) defaults.joystick else allControls.firstOrNull { it.name == name }
@@ -125,6 +130,34 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
     val measurer = rememberTextMeasurer()
     val accent = MaterialTheme.colorScheme.primary
     val onSurface = MaterialTheme.colorScheme.onSurface
+
+    pendingPreset?.let { preset ->
+        AlertDialog(
+            onDismissRequest = { pendingPreset = null },
+            title = { Text("Aplicar \"${preset.title}\"?") },
+            text = {
+                Text(
+                    "Cambia la posicion y el tamano de los botones del juego. Tus botones propios no se tocan. " +
+                        "Si quieres poder volver a tu disposicion actual, guardala antes en Disenos guardados.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val next = LayoutPresets.placements(defaults, preset, placements.toMap())
+                    // Only the buttons of the game are replaced; the custom ones keep their own place.
+                    val keep = placements.filterKeys { it.startsWith("custom") }
+                    placements.clear()
+                    placements.putAll(next)
+                    placements.putAll(keep)
+                    selected = null
+                    save()
+                    profileMessage = "Aplicado \"${preset.title}\""
+                    pendingPreset = null
+                }) { Text("Aplicar") }
+            },
+            dismissButton = { TextButton(onClick = { pendingPreset = null }) { Text("Cancelar") } },
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -356,6 +389,19 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                 )
             }
 
+            SettingsGroup("Preajustes") {
+                LayoutPresets.ALL.forEachIndexed { index, preset ->
+                    NavRow(
+                        icon = Icons.Filled.Tune,
+                        title = preset.title,
+                        subtitle = preset.description,
+                        items = LayoutPresets.ALL.size,
+                        index = index,
+                        onClick = { pendingPreset = preset },
+                    )
+                }
+            }
+
             SettingsGroup("Disenos guardados") {
                 val saved = profiles
                 if (saved.isEmpty()) {
@@ -421,6 +467,12 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
     }
 }
 
+private val ICON_TITLES = mapOf(
+    "pause" to "Pausa", "back" to "Atras", "ball" to "Bola", "save" to "Guardar", "load" to "Cargar",
+    "forward" to "Rapido", "up" to "Arriba", "down" to "Abajo", "left" to "Izquierda", "right" to "Derecha",
+    "star" to "Estrella", "heart" to "Corazon", "plus" to "Mas", "menu" to "Menu", "check" to "Ok",
+)
+
 /** Key, label and screens of a button the player made. */
 @Composable
 private fun CustomButtonEditor(custom: CustomButton, onChange: (CustomButton) -> Unit) {
@@ -439,23 +491,40 @@ private fun CustomButtonEditor(custom: CustomButton, onChange: (CustomButton) ->
                         selected = custom.key == key,
                         onClick = {
                             // The label follows the key while it still says what the old key did.
-                            val follows = custom.label == Layout.defaultLabel(custom.key)
+                            val follows = custom.icon == null && custom.label == Layout.defaultLabel(custom.key)
                             onChange(custom.copy(key = key, label = if (follows) Layout.defaultLabel(key) else custom.label))
                         },
                         label = { Text(key, maxLines = 1) },
                     )
                 }
             }
-            OutlinedTextField(
-                value = custom.label,
-                onValueChange = { text ->
-                    val clean = text.filter { it != ',' && it != '=' && !it.isWhitespace() }.take(3).uppercase()
-                    onChange(custom.copy(label = clean))
-                },
-                label = { Text("Texto del boton (hasta 3 letras)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Text("Que muestra", style = MaterialTheme.typography.titleSmall)
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                FilterChip(
+                    selected = custom.icon == null,
+                    onClick = { if (custom.icon != null) onChange(custom.copy(label = Layout.defaultLabel(custom.key))) },
+                    label = { Text("Texto", maxLines = 1) },
+                )
+                Layout.ICONS.forEach { icon ->
+                    FilterChip(
+                        selected = custom.icon == icon,
+                        onClick = { onChange(custom.copy(label = Layout.iconLabel(icon))) },
+                        label = { Text("${Layout.iconGlyph(icon)}  ${ICON_TITLES[icon] ?: icon}", maxLines = 1) },
+                    )
+                }
+            }
+            if (custom.icon == null) {
+                OutlinedTextField(
+                    value = custom.label,
+                    onValueChange = { text -> onChange(custom.copy(label = Layout.cleanLabel(text))) },
+                    label = { Text("Texto del boton (hasta 3 letras)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Text("Pantallas donde aparece", style = MaterialTheme.typography.titleSmall)
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),

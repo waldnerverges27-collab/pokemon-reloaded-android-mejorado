@@ -89,7 +89,7 @@ fun LogScreen(repo: GameRepository, bottomBar: @Composable () -> Unit = {}) {
     }
 }
 
-private fun readLog(repo: GameRepository): String {
+internal fun readLog(repo: GameRepository): String {
     // `logcat -d` from an app only returns that app's own entries, which is exactly what we want.
     val logcat = runCatching {
         val process = ProcessBuilder("logcat", "-d", "-v", "brief", "-t", "1500")

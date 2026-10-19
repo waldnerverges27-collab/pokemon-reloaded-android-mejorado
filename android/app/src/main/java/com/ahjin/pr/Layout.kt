@@ -30,6 +30,9 @@ data class Placement(val cx: Float, val cy: Float, val scale: Float = 1f, val vi
  */
 data class CustomButton(val slot: Int, val key: String, val label: String, val contexts: Int) {
     val name: String get() = "custom$slot"
+
+    /** The picture the button wears instead of text (its label is then written `~name`), or null. */
+    val icon: String? get() = Layout.iconOf(label)
 }
 
 /** What `layout.conf` holds: where each button is, and the buttons the player made. */
@@ -80,6 +83,40 @@ object Layout {
             (1..12).map { "F$it" } +
             listOf("RETURN", "SPACE", "ESCAPE", "TAB", "BACKSPACE", "UP", "DOWN", "LEFT", "RIGHT", "SHIFT", "CONTROL")
 
+    /** The pictures a custom button can wear. The engine draws them (`Icon` in `touch_controls.rs`). */
+    val ICONS: List<String> = listOf(
+        "pause", "back", "ball", "save", "load", "forward", "up", "down", "left", "right", "star", "heart", "plus", "menu", "check",
+    )
+
+    /** A picture's name in the label field: `~star`. */
+    fun iconLabel(icon: String): String = "~$icon"
+
+    /** The icon a label asks for, or null when it is plain text (or names an icon that does not exist). */
+    fun iconOf(label: String): String? = label.takeIf { it.startsWith("~") }?.drop(1)?.lowercase()?.takeIf { it in ICONS }
+
+    /** What the button's label is once it has been cleaned: an icon keeps its name, text is at most three capitals. */
+    fun cleanLabel(raw: String): String {
+        iconOf(raw)?.let { return iconLabel(it) }
+        return raw.filter { it != ',' && it != '=' && it != '~' && !it.isWhitespace() }.take(3).uppercase()
+    }
+
+    /** A character close enough to an icon to stand for it in the editor's preview. */
+    fun iconGlyph(icon: String): String = when (icon) {
+        "pause" -> "II"
+        "back", "left" -> "\u2190"
+        "ball" -> "\u25CE"
+        "save", "down" -> "\u2193"
+        "load", "up" -> "\u2191"
+        "forward" -> "\u00BB"
+        "right" -> "\u2192"
+        "star" -> "\u2605"
+        "heart" -> "\u2665"
+        "plus" -> "+"
+        "menu" -> "\u2261"
+        "check" -> "\u2713"
+        else -> "?"
+    }
+
     /** A short name for the key, which is also what a new button says on its face. */
     fun defaultLabel(key: String): String = when (key) {
         "RETURN" -> "ENT"
@@ -117,7 +154,7 @@ object Layout {
                 val key = parts.getOrNull(4)?.uppercase()?.takeIf { it in CUSTOM_KEYS } ?: continue
                 val label = parts.getOrNull(5) ?: continue
                 val contexts = parts.getOrNull(6)?.toIntOrNull()?.takeIf { it in 1..255 } ?: continue
-                customs[slot] = CustomButton(slot, key, label.take(3).uppercase(), contexts)
+                customs[slot] = CustomButton(slot, key, cleanLabel(label).ifEmpty { defaultLabel(key) }, contexts)
             }
             placements[name] = Placement(cx, cy, scale, visible)
         }
@@ -147,7 +184,7 @@ object Layout {
                 // A custom button is only written together with its definition; a placement on its
                 // own would be ignored by the engine anyway.
                 val custom = layout.customs[slot] ?: continue
-                appendLine("$name=${p.cx},${p.cy},${p.scale},${if (p.visible) 1 else 0},${custom.key},${custom.label.filter { it != ',' && it != '=' }.ifEmpty { "?" }},${custom.contexts}")
+                appendLine("$name=${p.cx},${p.cy},${p.scale},${if (p.visible) 1 else 0},${custom.key},${cleanLabel(custom.label).ifEmpty { "?" }},${custom.contexts}")
             } else {
                 appendLine("$name=${p.cx},${p.cy},${p.scale},${if (p.visible) 1 else 0}")
             }
@@ -182,5 +219,46 @@ object LayoutProfiles {
 
     fun delete(filesDir: File, name: String) {
         File(dir(filesDir), "${clean(name)}.conf").delete()
+    }
+}
+
+/**
+ * Ready-made arrangements of the game's own buttons. They only move and resize those buttons: the
+ * buttons the player made are left where they are, and so is which of the game's buttons are hidden.
+ * A preset is worked out from the built-in layout, never from the current one, so applying it twice
+ * gives the same result instead of mirroring back.
+ */
+object LayoutPresets {
+    class Preset(val title: String, val description: String, val mirror: Boolean, val scale: Float)
+
+    val ALL: List<Preset> = listOf(
+        Preset("Estandar", "La disposicion original", mirror = false, scale = 1f),
+        Preset("Zurdo", "Joystick a la derecha y botones a la izquierda", mirror = true, scale = 1f),
+        Preset("Compacto", "Todos los botones un 15% mas pequenos", mirror = false, scale = 0.85f),
+        Preset("Grande", "Todos los botones un 15% mas grandes", mirror = false, scale = 1.15f),
+        Preset("Zurdo compacto", "Zurdo con los botones un 15% mas pequenos", mirror = true, scale = 0.85f),
+    )
+
+    /**
+     * The placements for [preset]. [current] only supplies which buttons are hidden. The plain
+     * original layout is an empty map, which is what the engine reads as "no changes".
+     */
+    fun placements(defaults: Layout.Defaults, preset: Preset, current: Map<String, Placement>): Map<String, Placement> {
+        if (!preset.mirror && preset.scale == 1f) {
+            // Back to the original positions, but a button the player hid stays hidden.
+            return current.filter { (name, p) -> !p.visible && !name.startsWith("custom") }
+                .mapValues { (name, p) ->
+                    val spec = (defaults.controls + defaults.joystick).firstOrNull { it.name == name } ?: return@mapValues p
+                    Placement(spec.cx, spec.cy, 1f, false)
+                }
+        }
+        return (defaults.controls + defaults.joystick).associate { spec ->
+            spec.name to Placement(
+                cx = if (preset.mirror) 1f - spec.cx else spec.cx,
+                cy = spec.cy,
+                scale = preset.scale,
+                visible = current[spec.name]?.visible ?: true,
+            )
+        }
     }
 }

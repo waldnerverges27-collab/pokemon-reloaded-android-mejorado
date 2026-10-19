@@ -42,6 +42,8 @@ enum class ControlAction(val key: String, val defaultCode: Int) {
     QSAVE("QSAVE", -1),
     QLOAD("QLOAD", -1),
     FFWD("FFWD", -1),
+    STATS("STATS", -1),
+    QSLOT("QSLOT", -1),
 }
 
 /** What the row says in the controls screen: a key of the game, or one of the app's own actions. */
@@ -50,6 +52,8 @@ val ControlAction.title: String
         ControlAction.QSAVE -> "Guardado rapido"
         ControlAction.QLOAD -> "Cargar guardado rapido"
         ControlAction.FFWD -> "Avance rapido"
+        ControlAction.STATS -> "Mostrar u ocultar los FPS"
+        ControlAction.QSLOT -> "Cambiar de ranura de guardado rapido"
         else -> "Tecla $key"
     }
 
@@ -63,6 +67,8 @@ val ControlAction.hint: String
         ControlAction.QSAVE -> "Guarda la partida entera en la ranura elegida en Extras"
         ControlAction.QLOAD -> "La vuelve a cargar; hay que pulsarlo dos veces seguidas"
         ControlAction.FFWD -> "Activa o desactiva el avance rapido"
+        ControlAction.STATS -> "Muestra u oculta el indicador de FPS mientras juegas"
+        ControlAction.QSLOT -> "Pasa de la ranura 1 a la 2, a la 3 y vuelve a la 1; vale hasta que cierres el juego"
         else -> ""
     }
 
