@@ -1,0 +1,217 @@
+{
+ "joystick": {
+  "cx": 0.135,
+  "cy": 0.7,
+  "r": 0.2
+ },
+ "controls": [
+  {
+   "name": "alpha1",
+   "label": "1",
+   "cx": 0.3,
+   "cy": 0.055,
+   "r": 0.02,
+   "contexts": 66
+  },
+  {
+   "name": "alpha2",
+   "label": "2",
+   "cx": 0.372,
+   "cy": 0.055,
+   "r": 0.02,
+   "contexts": 66
+  },
+  {
+   "name": "alpha3",
+   "label": "3",
+   "cx": 0.444,
+   "cy": 0.055,
+   "r": 0.02,
+   "contexts": 66
+  },
+  {
+   "name": "alpha5",
+   "label": "5",
+   "cx": 0.516,
+   "cy": 0.055,
+   "r": 0.02,
+   "contexts": 66
+  },
+  {
+   "name": "alpha7",
+   "label": "7",
+   "cx": 0.588,
+   "cy": 0.055,
+   "r": 0.02,
+   "contexts": 66
+  },
+  {
+   "name": "space",
+   "label": "PKM",
+   "cx": 0.3,
+   "cy": 0.145,
+   "r": 0.022,
+   "contexts": 70
+  },
+  {
+   "name": "o",
+   "label": "O",
+   "cx": 0.372,
+   "cy": 0.145,
+   "r": 0.022,
+   "contexts": 70
+  },
+  {
+   "name": "m",
+   "label": "M",
+   "cx": 0.444,
+   "cy": 0.145,
+   "r": 0.022,
+   "contexts": 70
+  },
+  {
+   "name": "e",
+   "label": "E",
+   "cx": 0.516,
+   "cy": 0.145,
+   "r": 0.022,
+   "contexts": 70
+  },
+  {
+   "name": "t",
+   "label": "T",
+   "cx": 0.588,
+   "cy": 0.145,
+   "r": 0.022,
+   "contexts": 70
+  },
+  {
+   "name": "l",
+   "label": "L",
+   "cx": 0.66,
+   "cy": 0.145,
+   "r": 0.022,
+   "contexts": 70
+  },
+  {
+   "name": "p",
+   "label": "P",
+   "cx": 0.732,
+   "cy": 0.145,
+   "r": 0.022,
+   "contexts": 70
+  },
+  {
+   "name": "z",
+   "label": "Z",
+   "cx": 0.865,
+   "cy": 0.851,
+   "r": 0.033,
+   "contexts": 38
+  },
+  {
+   "name": "x",
+   "label": "X",
+   "cx": 0.933,
+   "cy": 0.7,
+   "r": 0.033,
+   "contexts": 166
+  },
+  {
+   "name": "c",
+   "label": "C",
+   "cx": 0.797,
+   "cy": 0.7,
+   "r": 0.033,
+   "contexts": 6
+  },
+  {
+   "name": "v",
+   "label": "V",
+   "cx": 0.865,
+   "cy": 0.549,
+   "r": 0.033,
+   "contexts": 6
+  },
+  {
+   "name": "b",
+   "label": "B",
+   "cx": 0.712,
+   "cy": 0.84,
+   "r": 0.026,
+   "contexts": 68
+  },
+  {
+   "name": "s",
+   "label": "S",
+   "cx": 0.712,
+   "cy": 0.7,
+   "r": 0.026,
+   "contexts": 4
+  },
+  {
+   "name": "pkmn",
+   "label": "SEL",
+   "cx": 0.3,
+   "cy": 0.76,
+   "r": 0.038,
+   "contexts": 4
+  },
+  {
+   "name": "a",
+   "label": "A",
+   "cx": 0.64,
+   "cy": 0.9,
+   "r": 0.024,
+   "contexts": 66
+  },
+  {
+   "name": "n",
+   "label": "N",
+   "cx": 0.64,
+   "cy": 0.76,
+   "r": 0.024,
+   "contexts": 66
+  },
+  {
+   "name": "return",
+   "label": "OK",
+   "cx": 0.5,
+   "cy": 0.945,
+   "r": 0.032,
+   "contexts": 70
+  },
+  {
+   "name": "escape",
+   "label": "ESC",
+   "cx": 0.4,
+   "cy": 0.905,
+   "r": 0.026,
+   "contexts": 70
+  },
+  {
+   "name": "eleccion_ok",
+   "label": "OK",
+   "cx": 0.932,
+   "cy": 0.6,
+   "r": 0.036,
+   "contexts": 16
+  },
+  {
+   "name": "eleccion_atras",
+   "label": "X",
+   "cx": 0.972,
+   "cy": 0.42,
+   "r": 0.028,
+   "contexts": 16
+  },
+  {
+   "name": "truco_ctrl_p",
+   "label": "C+P",
+   "cx": 0.5,
+   "cy": 0.06,
+   "r": 0.018,
+   "contexts": 16
+  }
+ ]
+}

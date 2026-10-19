@@ -98,14 +98,20 @@ Ya resuelto:
 Cambios de esta rama (`pokemon-reloaded-android-mejorado`, sin probar aún en todos los móviles):
 
 - **Audio**: la mezcla va en su propio hilo y el callback de AAudio solo copia desde un buffer circular
-  de ~40 ms, así que ya no se corta al mezclar música y efectos. Si hay huecos, se cuentan en el log
-  (`[aaudio] N huecos de audio`).
+  de ~60 ms, así que ya no se corta al mezclar música y efectos. Si hay huecos, se cuentan en el log
+  (`[aaudio] N huecos de audio`). Los sonidos con frecuencia rara (los gritos) se preparan al cargar el
+  juego y no al sonar, y se retiró el modo de rendimiento sostenido, que limitaba los relojes del móvil.
+- **Controles táctiles con aspecto nativo** (v0.3.1-mejorado.2): botones translúcidos con borde suave,
+  letras e iconos vectoriales, animación al pulsar y brillo del color de cada botón. Se puede volver al
+  pixel art en Ajustes → Aspecto de los controles. **Editor de posiciones** en Ajustes: arrastra, cambia
+  el tamaño u oculta cada botón por pantalla del juego; se guarda en `files/layout.conf`
+  (`tools/generate-layout.py` regenera las posiciones de origen).
 - **Controles táctiles más nativos**: vibración al tocar (apagada / ligera / fuerte), deslizar el dedo de
   un botón a otro sin levantarlo, joystick flotante opcional que sigue al pulgar, zona muerta ajustable,
   un solo eje a la vez en el joystick (el juego es de cuadrícula), tamaño de los botones ajustable y
   los bordes de la pantalla excluidos del gesto «atrás» del sistema.
 - **Rendimiento**: aviso de 30 fps al compositor (`ANativeWindow_setFrameRate`), sesión de
-  `PerformanceHintManager` (ADPF) con la duración de cada frame y modo de rendimiento sostenido.
+  `PerformanceHintManager` (ADPF) con la duración de cada frame con un objetivo del 70 % del frame.
 - **Memoria**: tras cargar el juego y al pasar a segundo plano se devuelve al sistema lo que el
   asignador retiene (`mallopt` M_PURGE); el log muestra `[mem] ... MB -> ... MB`. Con
   `gm8exe/examples/memstats.rs` se mide qué ocupan los recursos del juego.

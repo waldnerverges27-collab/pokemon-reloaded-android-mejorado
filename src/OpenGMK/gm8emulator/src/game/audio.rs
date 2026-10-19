@@ -292,6 +292,15 @@ impl AudioManager {
         exclusive: bool,
     ) -> Option<WavHandle> {
         WavPlayer::new(file)
+            .map(|player| {
+                // Build the resampling filter now, while loading, rather than the first time the
+                // sound plays: for some rates (the cries are 32.7 kHz) it takes tens of milliseconds
+                // and the game stood still for that long every time one started.
+                if self.do_output {
+                    udon::resampler::prepare(player.sample_rate(), self.mixer_sample_rate);
+                }
+                player
+            })
             .map(|player| WavHandle {
                 player,
                 params: Arc::new(SoundParams { volume: AtomicU32::new(make_volume(volume).to_bits()) }),

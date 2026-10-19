@@ -1342,6 +1342,8 @@ impl RendererImpl {
             }
         }
 
+        let dt = touch_controls::anim_tick();
+        let native = touch_controls::native_style();
         let mut verts: Vec<f32> = Vec::new();
         // Textured geometry (the pixel-art controls) goes in its own buffer, because it samples the
         // artwork rather than the 1x1 white texture the plain shapes use.
@@ -1363,6 +1365,36 @@ impl RendererImpl {
             } else {
                 ([0.10, 0.10, 0.16, 0.28], [1.0, 1.0, 1.0, 0.60], [1.0, 1.0, 1.0, 0.90])
             };
+            let press = touch_controls::press_anim(i, pressed, dt);
+            if native && !touch_controls::keeps_art(c.name) {
+                // The native look: a smooth translucent button with a vector label.
+                let (cx, cy, r) = match touch_controls::window_shape(i) {
+                    touch_controls::Shape::Circle { cx, cy, r } => (cx * ww, cy * wh, r * ww),
+                    touch_controls::Shape::Rect { cx, cy, w, h } => (cx * ww, cy * wh, (w * ww + h * wh) / 4.0),
+                };
+                let (accent, tinted) = touch_controls::accent_of(c.name);
+                let label = match c.label {
+                    touch_controls::Label::Text(text) => text,
+                    _ => "",
+                };
+                crate::touch_style::draw_button(
+                    &mut verts,
+                    ww,
+                    wh,
+                    &crate::touch_style::Button {
+                        cx,
+                        cy,
+                        r,
+                        accent,
+                        tinted,
+                        press,
+                        opacity: touch_controls::sprite_opacity(),
+                        label,
+                        icon: touch_controls::icon_of(c.name),
+                    },
+                );
+                continue;
+            }
             if let Some(uv) = overlay.art(c.name) {
                 // A control with its own artwork is drawn as that sprite, sized by its height: every
                 // button comes out exactly as tall as a square one (the X), whatever shape it was
@@ -1425,7 +1457,10 @@ impl RendererImpl {
             let (cx, cy) = (jcx * ww, jcy * wh);
             let r = touch_controls::joystick_radius() * wh;
             let (ox, oy) = touch_controls::joystick_offset();
-            if let (Some(base), Some(knob)) = (overlay.art("joystick"), overlay.art("joystick-knob")) {
+            if native {
+                let engaged = ox != 0.0 || oy != 0.0;
+                crate::touch_style::draw_stick(&mut verts, ww, wh, cx, cy, r, (ox, oy), engaged, touch_controls::sprite_opacity());
+            } else if let (Some(base), Some(knob)) = (overlay.art("joystick"), overlay.art("joystick-knob")) {
                 // The artwork is a square panel with the knob at its centre. The panel is sized so it
                 // encloses the joystick's circle, and the knob keeps the share of the image it has.
                 let half = r * 1.05;

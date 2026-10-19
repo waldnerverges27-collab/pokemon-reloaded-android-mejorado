@@ -63,12 +63,9 @@ class GameActivity : NativeActivity() {
         hideSystemBars()
         setUpVibrator()
         excludeSystemGestures()
-        // Tells the system this is a long, steady load, so it picks a clock speed it can hold
-        // instead of boosting and then throttling when the phone heats up. Devices that do not
-        // support it ignore it.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            runCatching { window.setSustainedPerformanceMode(true) }
-        }
+        // Sustained-performance mode used to be requested here. It caps the clocks at a level the
+        // phone can hold forever, which on gaming phones is well under what the game and its audio
+        // thread need during a busy scene, so it is left off; the ADPF hint session does the job.
     }
 
     override fun onDestroy() {

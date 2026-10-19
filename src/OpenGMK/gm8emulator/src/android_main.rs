@@ -161,6 +161,8 @@ fn load_controls() {
                 // A pad was connected when the game started, so start with the controls out of the
                 // way; touching the screen brings them back.
                 crate::touch_controls::set_pad_active(value.trim() != "0");
+            } else if name.trim() == "style" {
+                crate::touch_controls::set_native_style(value.trim() != "pixel");
             } else if name.trim() == "scale" {
                 if let Ok(scale) = value.trim().parse::<f32>() {
                     crate::touch_controls::set_button_scale(scale);
@@ -182,6 +184,9 @@ fn load_controls() {
             }
         }
     }
+    // The player's own layout, if the launcher's editor has written one.
+    let layout = PathBuf::from(format!("/data/data/{}/files/layout.conf", PACKAGE_DIR));
+    crate::touch_controls::load_layout(&fs::read_to_string(&layout).unwrap_or_default());
     // Replaced rather than cached: the launcher can change the layout while the app is still alive.
     if let Ok(mut map) = MAPPED_BUTTONS.get_or_init(|| Mutex::new(HashMap::new())).lock() {
         *map = buttons;

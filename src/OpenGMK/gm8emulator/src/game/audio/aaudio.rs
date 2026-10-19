@@ -46,7 +46,7 @@ const AAUDIO_CALLBACK_RESULT_CONTINUE: i32 = 0;
 
 /// How much audio the render thread keeps queued ahead of the device, in milliseconds. A 30 fps
 /// game does not need tighter latency than this, and it is what absorbs scheduling hiccups.
-const RING_TARGET_MS: usize = 40;
+const RING_TARGET_MS: usize = 60;
 /// Size of one mixer block, in milliseconds.
 const BLOCK_MS: usize = 10;
 
@@ -243,6 +243,11 @@ fn reopen_async() {
         for attempt in 1..=15 {
             match open_stream(rate, channels) {
                 Ok(stream) => {
+                    if stream.sample_rate != rate {
+                        // The mixer is fixed at `rate`; a device that insists on another one plays
+                        // everything at the wrong speed, so say so in the log.
+                        eprintln!("[aaudio] AVISO: el dispositivo nuevo usa {} Hz y la mezcla {} Hz", stream.sample_rate, rate);
+                    }
                     STREAM.store(stream.pointer as usize, Ordering::SeqCst);
                     if !PAUSED.load(Ordering::Relaxed) {
                         unsafe { AAudioStream_requestStart(stream.pointer) };
@@ -334,7 +339,9 @@ fn raise_priority() {
     unsafe {
         let tid = libc::gettid();
         // Process.THREAD_PRIORITY_AUDIO
-        let _ = libc::setpriority(libc::PRIO_PROCESS as _, tid as _, -16);
+        let result = libc::setpriority(libc::PRIO_PROCESS as _, tid as _, -16);
+        let now = libc::getpriority(libc::PRIO_PROCESS as _, tid as _);
+        eprintln!("[aaudio] prioridad del hilo de audio: resultado {}, nice actual {}", result, now);
     }
 }
 

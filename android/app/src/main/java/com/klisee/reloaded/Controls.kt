@@ -83,6 +83,8 @@ data class TouchSettings(
     val floatingStick: Boolean = false,
     /** How far the stick has to be pushed (fraction of its radius) before it moves the player. */
     val deadzone: Float = 0.35f,
+    /** Native-looking buttons, or the pixel-art sprites. */
+    val nativeStyle: Boolean = true,
 )
 
 fun writeControlsFile(
@@ -107,6 +109,7 @@ fun writeControlsFile(
         appendLine("haptics=${touch.haptics}")
         appendLine("floating=${if (touch.floatingStick) 1 else 0}")
         appendLine("deadzone=${touch.deadzone}")
+        appendLine("style=${if (touch.nativeStyle) "native" else "pixel"}")
     }
     runCatching { File(filesDir, "controls.conf").writeText(text) }
 }

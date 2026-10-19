@@ -327,14 +327,157 @@ pub fn picker_reset() {
 /// own shape; the indirection stays because the renderer and the hit test share it.
 pub fn effective_shape(index: usize) -> Shape {
     let shape = base_shape(index);
-    let scale = button_scale();
-    if (scale - 1.0).abs() < 0.001 {
-        return shape
-    }
+    let name = CONTROLS[index].name;
+    // The picker's arrows follow the characters on screen, so the player's layout does not move them.
+    let moved = name != LEFT_ARROW_NAME && name != RIGHT_ARROW_NAME;
+    let place = if moved { placement(name) } else { Placement::default() };
+    let scale = button_scale() * place.scale;
     match shape {
-        Shape::Circle { cx, cy, r } => Shape::Circle { cx, cy, r: r * scale },
-        Shape::Rect { cx, cy, w, h } => Shape::Rect { cx, cy, w: w * scale, h: h * scale },
+        Shape::Circle { cx, cy, r } => {
+            let (cx, cy) = if place.moved { (place.cx, place.cy) } else { (cx, cy) };
+            Shape::Circle { cx, cy, r: r * scale }
+        },
+        Shape::Rect { cx, cy, w, h } => {
+            let (cx, cy) = if place.moved { (place.cx, place.cy) } else { (cx, cy) };
+            Shape::Rect { cx, cy, w: w * scale, h: h * scale }
+        },
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The player's layout (`layout.conf`, written by the launcher's editor): where each button sits,
+// how big it is and whether it is shown. Lines are `<name>=<cx>,<cy>,<scale>,<visible>`; the
+// stick is `joystick` and takes the same fields. Anything unrecognised is ignored, so an old or
+// hand-edited file can never stop the game from starting.
+
+#[derive(Clone, Copy)]
+pub struct Placement {
+    /// Whether `cx`/`cy` replace the built-in position.
+    pub moved: bool,
+    pub cx: f32,
+    pub cy: f32,
+    pub scale: f32,
+    pub visible: bool,
+}
+
+impl Default for Placement {
+    fn default() -> Self {
+        Self { moved: false, cx: 0.0, cy: 0.0, scale: 1.0, visible: true }
+    }
+}
+
+static LAYOUT: Mutex<Vec<(String, Placement)>> = Mutex::new(Vec::new());
+
+pub fn placement(name: &str) -> Placement {
+    let layout = LAYOUT.lock().unwrap();
+    if layout.is_empty() {
+        return Placement::default()
+    }
+    layout.iter().find(|(known, _)| known == name).map(|(_, p)| *p).unwrap_or_default()
+}
+
+/// Replaces the layout with what `text` says.
+pub fn load_layout(text: &str) {
+    let mut entries = Vec::new();
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue
+        }
+        let Some((name, value)) = line.split_once('=') else { continue };
+        let name = name.trim();
+        if name != JOYSTICK_NAME && index_of(name).is_none() {
+            continue
+        }
+        let mut parts = value.trim().split(',').map(|part| part.trim());
+        let (Some(Ok(cx)), Some(Ok(cy)), Some(Ok(scale))) = (
+            parts.next().map(|v| v.parse::<f32>()),
+            parts.next().map(|v| v.parse::<f32>()),
+            parts.next().map(|v| v.parse::<f32>()),
+        ) else {
+            continue
+        };
+        let visible = !matches!(parts.next(), Some("0") | Some("false") | Some("no"));
+        if !(0.0..=1.0).contains(&cx) || !(0.0..=1.0).contains(&cy) {
+            continue
+        }
+        entries.push((name.to_string(), Placement { moved: true, cx, cy, scale: scale.clamp(0.4, 2.5), visible }));
+    }
+    *LAYOUT.lock().unwrap() = entries;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Look. The default is the native one (smooth translucent buttons drawn as vectors); the pixel-art
+// sprites remain as the "classic" style.
+
+static NATIVE_STYLE: AtomicBool = AtomicBool::new(true);
+
+pub fn native_style() -> bool {
+    NATIVE_STYLE.load(Ordering::Relaxed)
+}
+
+pub fn set_native_style(value: bool) {
+    NATIVE_STYLE.store(value, Ordering::Relaxed);
+}
+
+/// Controls that keep their artwork in the native style: the character picker's arrows are part of
+/// the picker's own screen, not a gamepad button.
+pub fn keeps_art(name: &str) -> bool {
+    name == LEFT_ARROW_NAME || name == RIGHT_ARROW_NAME
+}
+
+#[derive(Clone, Copy)]
+pub enum Icon {
+    Pause,
+    Back,
+    Ball,
+}
+
+/// The icon a button wears instead of its letter, if it has one.
+pub fn icon_of(name: &str) -> Option<Icon> {
+    match name {
+        "return" => Some(Icon::Pause),
+        "escape" => Some(Icon::Back),
+        "b" => Some(Icon::Ball),
+        _ => None,
+    }
+}
+
+/// Accent colour of a button, and whether its label takes it at rest. The four main buttons keep the
+/// colours they have always had, which is how the player tells them apart at a glance.
+pub fn accent_of(name: &str) -> ([f32; 3], bool) {
+    match name {
+        "x" | "eleccion_atras" => ([1.00, 0.36, 0.42], true),
+        "z" | "dialogo" => ([0.56, 0.92, 0.42], true),
+        "c" => ([0.46, 0.58, 1.00], true),
+        "v" => ([1.00, 0.88, 0.30], true),
+        "return" | "eleccion_ok" => ([0.40, 0.85, 1.00], false),
+        _ => ([0.55, 0.78, 1.00], false),
+    }
+}
+
+/// How pressed each control looks, 0..1. It eases towards where the finger is, quickly down and a
+/// little slower back up, so a press has a visible weight even at 30 frames a second.
+static PRESS_ANIM: Mutex<[f32; 64]> = Mutex::new([0.0; 64]);
+static ANIM_LAST: Mutex<Option<Instant>> = Mutex::new(None);
+
+/// Call once per overlay draw. Returns the time since the previous one, in seconds.
+pub fn anim_tick() -> f32 {
+    let now = Instant::now();
+    let mut last = ANIM_LAST.lock().unwrap();
+    let dt = last.map(|at| now.duration_since(at).as_secs_f32()).unwrap_or(0.033).clamp(0.001, 0.1);
+    *last = Some(now);
+    dt
+}
+
+pub fn press_anim(index: usize, pressed: bool, dt: f32) -> f32 {
+    let mut anim = PRESS_ANIM.lock().unwrap();
+    let Some(value) = anim.get_mut(index) else { return if pressed { 1.0 } else { 0.0 } };
+    let target = if pressed { 1.0 } else { 0.0 };
+    // Time constants: ~40 ms down, ~110 ms up.
+    let k = if pressed { 1.0 - (-dt / 0.04).exp() } else { 1.0 - (-dt / 0.11).exp() };
+    *value += (target - *value) * k;
+    *value
 }
 
 fn base_shape(index: usize) -> Shape {
@@ -640,6 +783,9 @@ pub fn is_active(index: usize) -> bool {
     if pad_active() || info_window_open() || CONTROLS[index].contexts & current_context() == 0 {
         return false
     }
+    if !placement(CONTROLS[index].name).visible {
+        return false
+    }
     // The picker's trick button opens the whole roster once, and then has done its job: it is taken
     // away rather than left over the screen for the rest of the game. It comes back with the next new
     // game (see [set_room]).
@@ -742,6 +888,9 @@ pub fn set_art_aspect(name: &'static str, aspect: f32) {
 }
 
 fn art_aspect(name: &str) -> Option<f32> {
+    if native_style() && !keeps_art(name) {
+        return None
+    }
     ART_ASPECTS.lock().unwrap().iter().find(|(known, _)| *known == name).map(|(_, aspect)| *aspect)
 }
 
@@ -819,6 +968,10 @@ pub fn joystick_center() -> (f32, f32) {
     if let Some(center) = *FLOAT_CENTER.lock().unwrap() {
         return center
     }
+    let place = placement(JOYSTICK_NAME);
+    if place.moved {
+        return (place.cx, place.cy)
+    }
     (JOYSTICK_CX, JOYSTICK_CY)
 }
 
@@ -834,11 +987,11 @@ pub fn reset_joystick_center() {
 
 /// Radius as a fraction of the window height.
 pub fn joystick_radius() -> f32 {
-    JOYSTICK_R * button_scale().clamp(0.8, 1.3)
+    JOYSTICK_R * button_scale().clamp(0.8, 1.3) * placement(JOYSTICK_NAME).scale
 }
 
 pub fn joystick_visible() -> bool {
-    true
+    placement(JOYSTICK_NAME).visible
 }
 
 /// Whether a touch at the point starts the stick. A fixed stick is the ring itself; a floating

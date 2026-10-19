@@ -1,4 +1,20 @@
 use crate::source::{ChannelCount, Sample, SampleRate, Source};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, OnceLock},
+};
+
+/// The filter tables depend only on the pair of rates (reduced by their GCD), and building one is
+/// expensive: ~1 ms for 22050 -> 48000 and 16+ ms for 32728 -> 48000 (it needs hundreds of
+/// thousands of sinc evaluations). A game starts a sound many times, and it did all of that on the
+/// game's thread each time, which showed up as a hitch whenever a cry or effect began. Built once
+/// per pair and shared.
+type KaiserTable = Arc<[Box<[f32]>]>;
+
+fn kaiser_cache() -> &'static Mutex<HashMap<(u32, u32), KaiserTable>> {
+    static CACHE: OnceLock<Mutex<HashMap<(u32, u32), KaiserTable>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
 
 /// Implementation of a PQF resampler. Construct with: Resampler::new(source, source_rate, dest_rate)
 /// Once constructed, it will behave as a Source object which outputs samples at the target sample rate.
@@ -11,7 +27,7 @@ where
     to: u32,
     dest_rate: SampleRate, // Actual output rate - different from `to` because that is scaled down by GCD
     left_offset: usize,
-    kaiser_values: Box<[Box<[f32]>]>,
+    kaiser_values: Arc<[Box<[f32]>]>,
     filter_1: Box<[Sample]>,
     filter_2: Box<[Sample]>,
 
@@ -108,11 +124,21 @@ impl<S: Source> Resampler<S> {
         let left_offset = kaiser_value_count / 2;
 
         let step = to as usize;
-        let kaiser_values: Box<[Box<[f32]>]> = (0..step).map(|start_val| {
-            (start_val..kaiser_value_count).step_by(step).rev().map(|i| {
-                sinc_filter(left_offset as _, downscale_factor, cutoff, i as _) as f32
-            }).collect::<Vec<_>>().into_boxed_slice()
-        }).collect::<Vec<_>>().into_boxed_slice();
+        let cached = kaiser_cache().lock().ok().and_then(|cache| cache.get(&(from, to)).cloned());
+        let kaiser_values: KaiserTable = match cached {
+            Some(table) => table,
+            None => {
+                let table: KaiserTable = (0..step).map(|start_val| {
+                    (start_val..kaiser_value_count).step_by(step).rev().map(|i| {
+                        sinc_filter(left_offset as _, downscale_factor, cutoff, i as _) as f32
+                    }).collect::<Vec<_>>().into_boxed_slice()
+                }).collect::<Vec<_>>().into();
+                if let Ok(mut cache) = kaiser_cache().lock() {
+                    cache.insert((from, to), table.clone());
+                }
+                table
+            },
+        };
 
         let filter_samples = ((kaiser_value_count + to as usize) / to as usize) * usize::from(source.channel_count().get());
         let mut filter_1 = Vec::with_capacity(filter_samples);
@@ -282,4 +308,23 @@ impl<S> Resampler<S> where S: Source {
             Some(len)
         }
     }
+}
+
+/// Builds the filter for a pair of rates ahead of time, so the first sound that needs it does not
+/// pay for it while the game is running.
+pub fn prepare(source_rate: SampleRate, dest_rate: SampleRate) {
+    struct Silent(SampleRate);
+    impl Source for Silent {
+        fn channel_count(&self) -> ChannelCount {
+            ChannelCount::new(1).unwrap()
+        }
+        fn sample_rate(&self) -> SampleRate {
+            self.0
+        }
+        fn write_samples(&mut self, _buffer: &mut [Sample]) -> usize {
+            0
+        }
+        fn reset(&mut self) {}
+    }
+    let _ = Resampler::new(Silent(source_rate), dest_rate);
 }

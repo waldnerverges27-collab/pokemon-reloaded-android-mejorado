@@ -2495,7 +2495,9 @@ impl Game {
         #[cfg(target_os = "android")]
         {
             crate::android_main::purge_memory("tras cargar");
-            crate::android_main::perf_start(Duration::from_nanos(1_000_000_000 / self.room.speed.max(1) as u64));
+            // Aim well under a frame: the hint tells the system how long the work should take, and
+            // a target equal to the whole frame lets it lower the clocks until frames only just fit.
+            crate::android_main::perf_start(Duration::from_nanos(700_000_000 / self.room.speed.max(1) as u64));
         }
 
         let mut time_now = Instant::now();

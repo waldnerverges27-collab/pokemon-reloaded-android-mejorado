@@ -66,6 +66,7 @@ fun SettingsScreen(
     onLog: () -> Unit,
     onAbout: () -> Unit,
     onControls: () -> Unit,
+    onLayout: () -> Unit,
     onMySaves: () -> Unit,
     onUpdateFound: (Update.Release) -> Unit,
     bottomBar: @Composable () -> Unit = {},
@@ -77,6 +78,7 @@ fun SettingsScreen(
     var keepScreenOn by remember { mutableStateOf(prefs.keepScreenOn) }
     var keepAspect by remember { mutableStateOf(prefs.keepAspect) }
     var touchOpacity by remember { mutableStateOf(prefs.touchOpacity) }
+    var nativeStyle by remember { mutableStateOf(prefs.nativeStyle) }
     var touchScale by remember { mutableStateOf(prefs.touchScale) }
     var hapticLevel by remember { mutableStateOf(prefs.hapticLevel) }
     var floatingStick by remember { mutableStateOf(prefs.floatingStick) }
@@ -167,6 +169,41 @@ fun SettingsScreen(
                     items = 1,
                     index = 0,
                     onClick = onControls,
+                )
+            }
+
+            SettingsGroup("Aspecto de los controles") {
+                ChoiceRow(
+                    icon = Icons.Filled.TouchApp,
+                    title = "Nativo",
+                    subtitle = "Botones translucidos y suaves, como un juego de Android",
+                    selected = nativeStyle,
+                    items = 3,
+                    index = 0,
+                    onSelect = {
+                        nativeStyle = true
+                        prefs.nativeStyle = true
+                    },
+                )
+                ChoiceRow(
+                    icon = Icons.Filled.VideogameAsset,
+                    title = "Pixel art clasico",
+                    subtitle = "Los botones dibujados a mano que trae el juego",
+                    selected = !nativeStyle,
+                    items = 3,
+                    index = 1,
+                    onSelect = {
+                        nativeStyle = false
+                        prefs.nativeStyle = false
+                    },
+                )
+                NavRow(
+                    icon = Icons.Filled.ZoomOutMap,
+                    title = "Posicion y tamano de los botones",
+                    subtitle = "Arrastra cada boton donde te venga mejor, o escondelo",
+                    items = 3,
+                    index = 2,
+                    onClick = onLayout,
                 )
             }
 
