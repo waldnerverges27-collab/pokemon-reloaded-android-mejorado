@@ -10,7 +10,7 @@
 ![ABI](https://img.shields.io/badge/ABI-arm64--v8a%20%C2%B7%20armeabi--v7a-555)
 ![Paquete](https://img.shields.io/badge/paquete-com.ahjin.pr-555)
 
-[Descargar](../../releases/latest) · [Cómo se usa](#cómo-se-usa) · [Funciones](#funciones) · [Compilar](#compilar-desde-el-código) · [Historial](#historial-de-versiones)
+[Descargar](../../releases/latest) · [Capturas](#capturas) · [Cómo se usa](#cómo-se-usa) · [Funciones](#funciones) · [Compilar](#compilar-desde-el-código) · [Historial](#historial-de-versiones)
 
 </div>
 
@@ -19,17 +19,18 @@
 ## Índice
 
 1. [Qué es](#qué-es)
-2. [Cómo se usa](#cómo-se-usa)
-3. [Funciones](#funciones)
-4. [Rendimiento y fotogramas por segundo](#rendimiento-y-fotogramas-por-segundo)
-5. [Arquitectura](#arquitectura)
-6. [Estructura del repositorio](#estructura-del-repositorio)
-7. [Compilar desde el código](#compilar-desde-el-código)
-8. [Firma y actualizaciones](#firma-y-actualizaciones)
-9. [Herramientas de diagnóstico](#herramientas-de-diagnóstico)
-10. [Historial de versiones](#historial-de-versiones)
-11. [Estado y problemas conocidos](#estado-y-problemas-conocidos)
-12. [Licencia y créditos](#licencia-y-créditos)
+2. [Capturas](#capturas)
+3. [Cómo se usa](#cómo-se-usa)
+4. [Funciones](#funciones)
+5. [Rendimiento y fotogramas por segundo](#rendimiento-y-fotogramas-por-segundo)
+6. [Arquitectura](#arquitectura)
+7. [Estructura del repositorio](#estructura-del-repositorio)
+8. [Compilar desde el código](#compilar-desde-el-código)
+9. [Firma y actualizaciones](#firma-y-actualizaciones)
+10. [Herramientas de diagnóstico](#herramientas-de-diagnóstico)
+11. [Historial de versiones](#historial-de-versiones)
+12. [Estado y problemas conocidos](#estado-y-problemas-conocidos)
+13. [Licencia y créditos](#licencia-y-créditos)
 
 ---
 
@@ -54,6 +55,30 @@ de audio, controles, rendimiento y extras.
 
 > **El juego no está incluido.** El repositorio no contiene ningún recurso de Pokémon Reloaded; lo
 > importas tú a partir del `.zip` oficial.
+
+## Capturas
+
+Capturas reales en un RedMagic 8S Pro. En las de juego se ve el indicador de rendimiento
+(FPS, milisegundos por fotograma y memoria) activado.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/juego-mundo.jpg" alt="Exploración con joystick y botones nativos"><br><sub><b>Exploración.</b> Joystick de 8 direcciones y botones nativos translúcidos.</sub></td>
+    <td width="50%"><img src="docs/screenshots/juego-combate.jpg" alt="Combate con la capa táctil de combate"><br><sub><b>Combate.</b> La capa táctil cambia sola y muestra solo lo necesario.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/juego-laboratorio.jpg" alt="Interior del laboratorio con escala de píxeles perfectos"><br><sub><b>Píxeles perfectos.</b> Escala entera para un píxel nítido y uniforme.</sub></td>
+    <td width="50%"><img src="docs/screenshots/juego-dialogo.jpg" alt="Diálogo con el botón de acción contextual"><br><sub><b>Diálogos.</b> Solo aparece el botón de acción, sin ocupar la pantalla.</sub></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/ajustes-controles.jpg" alt="Ajustes: aspecto de los controles"><br><sub><b>Ajustes.</b> Aspecto de los controles y tema «Obsidiana y oro».</sub></td>
+    <td width="33%"><img src="docs/screenshots/editor-botones.jpg" alt="Editor de posición de los botones"><br><sub><b>Editor de controles.</b> Posición y tamaño por pantalla, botones propios y diseños guardados.</sub></td>
+    <td width="33%"><img src="docs/screenshots/ajustes-resolucion.jpg" alt="Ajustes: vibración y resolución"><br><sub><b>Vibración y resolución.</b> Incluye la escala de píxeles perfectos.</sub></td>
+  </tr>
+</table>
 
 ## Cómo se usa
 
@@ -219,6 +244,7 @@ romper el motor, y viceversa.
 │       ├── java/com/ahjin/pr/   Lanzador, ajustes, editor de controles, actualizador
 │       ├── assets/              Sprites de botones, SoundFont, diseño por defecto de los controles
 │       └── res/                 Tema, tipografía e iconos
+├── docs/screenshots/        Capturas de pantalla del README
 ├── src/OpenGMK/             OpenGMK con las modificaciones para Android
 │   ├── gm8emulator/             Motor: runner, render, audio, capa táctil, extras
 │   ├── gm8exe/                  Lector de ejecutables GM8 (+ ejemplos de diagnóstico)
