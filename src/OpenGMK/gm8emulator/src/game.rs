@@ -2607,6 +2607,23 @@ impl Game {
             let pace_factor = u64::from(crate::extras::ffwd_factor());
             #[cfg(not(target_os = "android"))]
             let pace_factor = 1u64;
+            // The game watches the wall clock (script CheckDaySpeed, run by obj_DayNightControl every
+            // 5 seconds' worth of steps) and lowers `room_speed` by 5 whenever it finds that time went
+            // by too fast, which is exactly what fast-forward looks like to it. Left alone, x2 and up
+            // would slow itself down to a crawl and stay slow afterwards. While fast-forwarding, the
+            // room goes back to the speed it was designed with, so the factor means what it says.
+            #[cfg(target_os = "android")]
+            if pace_factor > 1 {
+                let nominal = self
+                    .assets
+                    .rooms
+                    .get(self.room.id as usize)
+                    .and_then(|room| room.as_ref())
+                    .map_or(30, |room| room.speed);
+                if self.room.speed < nominal {
+                    self.room.speed = nominal;
+                }
+            }
             let duration = Duration::from_nanos(1_000_000_000 / self.room.speed as u64);
             // Fast-forward only shortens the wait between frames; the game still advances one step
             // per frame, so nothing about its logic changes.

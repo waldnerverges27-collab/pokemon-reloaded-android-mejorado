@@ -1,6 +1,7 @@
-package com.klisee.reloaded.ui
+package com.ahjin.pr.ui
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -27,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.text.DateFormat
 import java.util.Date
 
@@ -102,6 +104,9 @@ fun GroupListItem(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
+            // A hairline instead of a shadow: it is what separates a raised surface from a flat one
+            // on near-black, where shadows do not show.
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), shape)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(onClick = onClick, interactionSource = interactionSource)
@@ -122,7 +127,7 @@ fun SettingsGroup(
     Column(modifier.fillMaxWidth()) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall.copy(letterSpacing = 0.9.sp),
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
         )

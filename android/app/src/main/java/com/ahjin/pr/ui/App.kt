@@ -1,4 +1,4 @@
-package com.klisee.reloaded.ui
+package com.ahjin.pr.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -35,11 +35,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.klisee.reloaded.Emulator
-import com.klisee.reloaded.GameRepository
-import com.klisee.reloaded.Preferences
-import com.klisee.reloaded.Update
-import com.klisee.reloaded.installUpdate
+import com.ahjin.pr.Emulator
+import com.ahjin.pr.GameRepository
+import com.ahjin.pr.Preferences
+import com.ahjin.pr.Update
+import com.ahjin.pr.installUpdate
 import kotlinx.coroutines.launch
 
 /** Screens reached from a tab rather than being tabs themselves. */

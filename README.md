@@ -41,6 +41,23 @@ ajustes, gestión de partidas y logs. El juego en sí no se toca.
 - **Logs.** Si algo va mal, la app escribe un log y lo puedes compartir como archivo de texto desde
   Ajustes → Logs, sin perderlo al reiniciar el móvil.
 
+## Novedades de la 0.5.0
+
+- **Paquete propio: `com.ahjin.pr`.** Es una app distinta de la de Klisee y de la 0.4.0 (otro
+  `applicationId`), así que se instala **en paralelo**, no actualiza a la anterior y no hereda sus
+  datos: hay que volver a importar el `.zip` del juego. Las partidas de la app vieja se pueden
+  sacar desde su pantalla de partidas y traer a esta.
+- **Firma propia.** Las releases se firman con una clave de release del proyecto (no con la de
+  depuración). Quien compile por su cuenta tendrá otra firma y no podrá actualizar encima.
+- **Tema "Obsidiana y oro".** Fondo casi negro, texto marfil y un único acento dorado champán; en claro,
+  marfil con bronce. Sin color dinámico, para que se vea igual en todos los móviles. Se elige en
+  Ajustes → Apariencia (oscuro por defecto, claro o según el sistema). Icono con fondo obsidiana.
+- **Avance rápido corregido.** El juego vigila el reloj real (script `CheckDaySpeed`) y baja
+  `room_speed` de 5 en 5 cuando cree que va demasiado rápido; con x2 o más se frenaba a sí mismo.
+  Ahora, mientras se avanza rápido, la room vuelve a su velocidad de diseño.
+- **A cuántos fps va el juego:** a 30, por diseño. Las 717 rooms tienen `room_speed = 30`
+  (`gm8exe/examples/roomspeed.rs`) y el único código que lo toca solo puede bajarlo, nunca subirlo.
+
 ## Extras de la 0.4.0
 
 Todo esto se configura en Ajustes → Extras (y la escala, en Ajustes → Resolución). **No he podido
@@ -164,7 +181,7 @@ Y por ir haciendo, sin orden:
 cd src/OpenGMK
 cargo ndk -t arm64-v8a --platform 29 build -p gm8emulator --release
 
-# La app
+# La app (con android/keystore.properties apunta a tu clave; sin él se firma con la de depuración)
 cd ../../android
 ./build.sh :app:assembleRelease
 ```

@@ -1,6 +1,9 @@
-package com.klisee.reloaded
+package com.ahjin.pr
 
 import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import java.io.File
 
 /**
@@ -15,6 +18,16 @@ class Preferences(context: Context) {
         get() = prefs.getBoolean("keepScreenOn", true)
         set(value) {
             prefs.edit().putBoolean("keepScreenOn", value).apply()
+        }
+
+    private var themeModeState by mutableIntStateOf(prefs.getInt("themeMode", 1))
+
+    /** Appearance: 0 follow the system, 1 dark (default), 2 light. Backed by Compose state so the UI follows it live. */
+    var themeMode: Int
+        get() = themeModeState
+        set(value) {
+            themeModeState = value
+            prefs.edit().putInt("themeMode", value).apply()
         }
 
     /** Whether the first-run setup has been completed. */

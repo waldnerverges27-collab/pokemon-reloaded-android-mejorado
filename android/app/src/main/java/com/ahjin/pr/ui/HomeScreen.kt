@@ -1,4 +1,4 @@
-package com.klisee.reloaded.ui
+package com.ahjin.pr.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,6 +25,10 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.foundation.background
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -53,9 +57,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.klisee.reloaded.Blog
-import com.klisee.reloaded.Emulator
-import com.klisee.reloaded.GameRepository
+import com.ahjin.pr.Blog
+import com.ahjin.pr.Emulator
+import com.ahjin.pr.GameRepository
 import kotlinx.coroutines.launch
 
 /**
@@ -162,11 +166,32 @@ fun HomeScreen(
             // The one-handed zone: the three actions live at the bottom, never in the middle.
             Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
                 Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    val canPlay = installed != null && !busy && !launching
+                    val playShape = MaterialTheme.shapes.extraLarge
+                    val gold = MaterialTheme.colorScheme.primary
+                    val sheen = goldBrush()
                     Button(
                         onClick = onLaunch,
                         enabled = installed != null && !busy && !launching,
-                        modifier = Modifier.fillMaxWidth().height(72.dp),
-                        shape = MaterialTheme.shapes.extraLarge,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(72.dp)
+                            .then(
+                                if (canPlay) {
+                                    Modifier
+                                        .shadow(16.dp, playShape, ambientColor = gold.copy(alpha = 0.35f), spotColor = gold.copy(alpha = 0.55f))
+                                        .background(sheen, playShape)
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                        shape = playShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
                     ) {
                         if (launching) {
                             CircularProgressIndicator(

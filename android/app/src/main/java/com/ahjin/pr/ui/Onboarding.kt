@@ -1,4 +1,4 @@
-package com.klisee.reloaded.ui
+package com.ahjin.pr.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -178,7 +178,7 @@ fun OnboardingHero(label: String) {
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    painter = androidx.compose.ui.res.painterResource(com.klisee.reloaded.R.drawable.ic_hero_ball),
+                    painter = androidx.compose.ui.res.painterResource(com.ahjin.pr.R.drawable.ic_hero_ball),
                     contentDescription = null,
                     tint = androidx.compose.ui.graphics.Color.Unspecified,
                     modifier = Modifier.size(72.dp),

@@ -1,4 +1,4 @@
-package com.klisee.reloaded.ui
+package com.ahjin.pr.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.SystemUpdate
@@ -53,9 +55,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.klisee.reloaded.GameRepository
-import com.klisee.reloaded.Preferences
-import com.klisee.reloaded.Update
+import com.ahjin.pr.GameRepository
+import com.ahjin.pr.Preferences
+import com.ahjin.pr.Update
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -314,6 +316,36 @@ fun SettingsScreen(
                     items = 1,
                     index = 0,
                     onClick = onExtras,
+                )
+            }
+
+            SettingsGroup("Apariencia") {
+                ChoiceRow(
+                    icon = Icons.Filled.DarkMode,
+                    title = "Oscuro",
+                    subtitle = "Negro profundo con acentos dorados (recomendado)",
+                    selected = prefs.themeMode == ThemeMode.DARK,
+                    items = 3,
+                    index = 0,
+                    onSelect = { prefs.themeMode = ThemeMode.DARK },
+                )
+                ChoiceRow(
+                    icon = Icons.Filled.LightMode,
+                    title = "Claro",
+                    subtitle = "Marfil con acentos de bronce",
+                    selected = prefs.themeMode == ThemeMode.LIGHT,
+                    items = 3,
+                    index = 1,
+                    onSelect = { prefs.themeMode = ThemeMode.LIGHT },
+                )
+                ChoiceRow(
+                    icon = Icons.Filled.BrightnessAuto,
+                    title = "Segun el sistema",
+                    subtitle = "Cambia solo con el modo del movil",
+                    selected = prefs.themeMode == ThemeMode.SYSTEM,
+                    items = 3,
+                    index = 2,
+                    onSelect = { prefs.themeMode = ThemeMode.SYSTEM },
                 )
             }
 

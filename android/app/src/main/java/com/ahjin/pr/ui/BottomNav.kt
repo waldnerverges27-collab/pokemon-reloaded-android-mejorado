@@ -1,6 +1,7 @@
-package com.klisee.reloaded.ui
+package com.ahjin.pr.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -70,9 +71,10 @@ fun ReloadedBottomNav(current: Tab, onSelect: (Tab) -> Unit, modifier: Modifier 
     ) {
         HorizontalFloatingToolbar(
             expanded = true,
+            modifier = Modifier.border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
             colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(
-                toolbarContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                toolbarContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                toolbarContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                toolbarContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ),
         ) {
             Tab.entries.forEach { tab ->
@@ -90,7 +92,7 @@ fun ReloadedBottomNav(current: Tab, onSelect: (Tab) -> Unit, modifier: Modifier 
                         checkedContainerColor = MaterialTheme.colorScheme.primary,
                         checkedContentColor = MaterialTheme.colorScheme.onPrimary,
                         containerColor = Color.Transparent,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     ),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

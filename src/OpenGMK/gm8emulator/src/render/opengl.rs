@@ -975,7 +975,7 @@ impl RendererImpl {
 fn load_skin(gl: &gl::Gl) -> (GLuint, [Option<SkinSlot>; MAX_SKIN_SLOTS]) {
     let mut slots: [Option<SkinSlot>; MAX_SKIN_SLOTS] = [None; MAX_SKIN_SLOTS];
     // Same folder the launcher writes `controls.conf` and `layout.conf` to.
-    let dir = format!("/data/data/{}/files", "com.klisee.reloaded");
+    let dir = format!("/data/data/{}/files", "com.ahjin.pr");
     let mut images: Vec<(&'static str, image::RgbaImage)> = Vec::new();
     for (name, file) in [
         ("joystick", "joystick-base.png"),
@@ -1084,7 +1084,7 @@ unsafe fn create_party_texture(gl: &gl::Gl) -> GLuint {
 /// Pokémon keep the offset the game stores, which is also what picks their folder.
 #[cfg(target_os = "android")]
 unsafe fn upload_party(gl: &gl::Gl, texture: GLuint, species: [i32; crate::touch_controls::PICKER_SLOTS]) {
-    let dir = format!("/data/data/{}/files/game/data", "com.klisee.reloaded");
+    let dir = format!("/data/data/{}/files/game/data", "com.ahjin.pr");
     let cell = PARTY_CELL as usize;
     let cells = crate::touch_controls::PICKER_SLOTS;
     let stride = cell * cells;
@@ -3428,7 +3428,7 @@ impl RendererTrait for RendererImpl {
                     let frames = FRAMES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     if crate::game::audio::sound_started() || frames > 900 {
                         READY.store(true, std::sync::atomic::Ordering::Relaxed);
-                        let _ = std::fs::write("/data/data/com.klisee.reloaded/files/game-ready", b"");
+                        let _ = std::fs::write("/data/data/com.ahjin.pr/files/game-ready", b"");
                     }
                 }
             }

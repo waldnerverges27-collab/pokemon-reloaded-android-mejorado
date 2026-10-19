@@ -11,7 +11,7 @@
     android:viewportHeight="108">
     <!-- the thin lighter rim that surrounds the ball -->
     <path
-        android:strokeColor="#9E9E9E"
+        android:strokeColor="#D9B567"
         android:strokeWidth="1.6"
         android:pathData="M54,25.6 A28.4,28.4 0 1,1 53.9,25.6 Z" />
     <!-- pale body -->

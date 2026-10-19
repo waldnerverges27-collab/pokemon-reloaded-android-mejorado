@@ -1,4 +1,4 @@
-package com.klisee.reloaded.ui
+package com.ahjin.pr.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -60,13 +60,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.klisee.reloaded.ControlSpec
-import com.klisee.reloaded.CustomButton
-import com.klisee.reloaded.LayoutFile
-import com.klisee.reloaded.LayoutProfiles
-import com.klisee.reloaded.JOYSTICK
-import com.klisee.reloaded.Layout
-import com.klisee.reloaded.Placement
+import com.ahjin.pr.ControlSpec
+import com.ahjin.pr.CustomButton
+import com.ahjin.pr.LayoutFile
+import com.ahjin.pr.LayoutProfiles
+import com.ahjin.pr.JOYSTICK
+import com.ahjin.pr.Layout
+import com.ahjin.pr.Placement
 import java.io.File
 import kotlin.math.hypot
 import kotlin.math.max

@@ -1,11 +1,11 @@
-package com.klisee.reloaded
+package com.ahjin.pr
 
 import android.content.Context
 import android.content.Intent
 
 /** Starts the native activity that runs the bundled `libgm8emulator.so`. */
 object Emulator {
-    private const val GAME_ACTIVITY = "com.klisee.reloaded.GameActivity"
+    private const val GAME_ACTIVITY = "com.ahjin.pr.GameActivity"
 
     fun start(context: Context) {
         // The emulator reads the pad layout and the video mode once, at startup, so they have to be

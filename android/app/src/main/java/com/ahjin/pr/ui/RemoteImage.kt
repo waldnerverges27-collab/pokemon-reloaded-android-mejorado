@@ -1,4 +1,4 @@
-package com.klisee.reloaded.ui
+package com.ahjin.pr.ui
 
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image

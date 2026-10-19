@@ -1,4 +1,4 @@
-package com.klisee.reloaded
+package com.ahjin.pr
 
 import android.app.NativeActivity
 import android.content.BroadcastReceiver
@@ -340,7 +340,7 @@ class GameActivity : NativeActivity() {
     companion object {
         init {
             // These are declared as `native` methods on this class, so the JVM has to find their
-            // `Java_com_klisee_reloaded_GameActivity_*` symbols in the library. The emulator loads
+            // `Java_com_ahjin_pr_GameActivity_*` symbols in the library. The emulator loads
             // the same one through the manifest, and this only links it to the app's class loader.
             System.loadLibrary("gm8emulator")
         }

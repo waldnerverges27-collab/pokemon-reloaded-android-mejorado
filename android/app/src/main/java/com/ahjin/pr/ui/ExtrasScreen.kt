@@ -1,4 +1,4 @@
-package com.klisee.reloaded.ui
+package com.ahjin.pr.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,9 +40,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.klisee.reloaded.Preferences
-import com.klisee.reloaded.QUICK_SLOTS
-import com.klisee.reloaded.QuickSaves
+import com.ahjin.pr.Preferences
+import com.ahjin.pr.QUICK_SLOTS
+import com.ahjin.pr.QuickSaves
 import java.io.File
 
 /**

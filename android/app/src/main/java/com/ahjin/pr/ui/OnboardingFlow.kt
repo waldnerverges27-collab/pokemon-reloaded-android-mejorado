@@ -1,4 +1,4 @@
-package com.klisee.reloaded.ui
+package com.ahjin.pr.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,9 +26,9 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
-import com.klisee.reloaded.Blog
-import com.klisee.reloaded.GameRepository
-import com.klisee.reloaded.Preferences
+import com.ahjin.pr.Blog
+import com.ahjin.pr.GameRepository
+import com.ahjin.pr.Preferences
 import kotlinx.coroutines.launch
 
 /**

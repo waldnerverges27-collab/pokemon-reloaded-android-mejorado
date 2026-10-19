@@ -1075,7 +1075,7 @@ fn ime_char_to_key(c: char) -> Key {
 
 /// Called from the activity's `InputConnection` for every committed string.
 #[no_mangle]
-pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeCommitText<'local>(
+pub extern "system" fn Java_com_ahjin_pr_GameActivity_nativeCommitText<'local>(
     mut env: jni::JNIEnv<'local>,
     _this: jni::objects::JObject<'local>,
     text: jni::objects::JString<'local>,
@@ -1091,7 +1091,7 @@ pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeCommitText<'l
 
 /// Called from the activity's `InputConnection` for the delete key.
 #[no_mangle]
-pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeBackspace<'local>(
+pub extern "system" fn Java_com_ahjin_pr_GameActivity_nativeBackspace<'local>(
     _env: jni::JNIEnv<'local>,
     _this: jni::objects::JObject<'local>,
 ) {
@@ -1102,7 +1102,7 @@ pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeBackspace<'lo
 
 /// Called from the activity's `InputConnection` for the enter/done key.
 #[no_mangle]
-pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeEnter<'local>(
+pub extern "system" fn Java_com_ahjin_pr_GameActivity_nativeEnter<'local>(
     _env: jni::JNIEnv<'local>,
     _this: jni::objects::JObject<'local>,
 ) {
@@ -1113,7 +1113,7 @@ pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeEnter<'local>
 
 /// Called from the activity when the phone's temperature or the system battery saver changes.
 #[no_mangle]
-pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeDeviceState<'local>(
+pub extern "system" fn Java_com_ahjin_pr_GameActivity_nativeDeviceState<'local>(
     _env: jni::JNIEnv<'local>,
     _this: jni::objects::JObject<'local>,
     thermal: jni::sys::jint,
@@ -1130,7 +1130,7 @@ pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeDeviceState<'
 
 /// Called from the activity with the space the camera cutout and system bars take, in pixels.
 #[no_mangle]
-pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeInsets<'local>(
+pub extern "system" fn Java_com_ahjin_pr_GameActivity_nativeInsets<'local>(
     _env: jni::JNIEnv<'local>,
     _this: jni::objects::JObject<'local>,
     left: jni::sys::jint,
@@ -1144,7 +1144,7 @@ pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeInsets<'local
 /// Called from the activity whenever the system keyboard's height changes, so the renderer can keep
 /// the game above it.
 #[no_mangle]
-pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeImeInset<'local>(
+pub extern "system" fn Java_com_ahjin_pr_GameActivity_nativeImeInset<'local>(
     _env: jni::JNIEnv<'local>,
     _this: jni::objects::JObject<'local>,
     height: jni::sys::jint,
@@ -1212,7 +1212,7 @@ fn with_activity(f: impl FnOnce(&mut jni::JNIEnv, &jni::objects::JClass) -> jni:
         let loaded = (|| -> jni::errors::Result<jni::objects::GlobalRef> {
             let context = unsafe { jni::objects::JObject::from_raw(ctx.context().cast()) };
             let loader = env.call_method(&context, "getClassLoader", "()Ljava/lang/ClassLoader;", &[])?.l()?;
-            let name = env.new_string("com.klisee.reloaded.GameActivity")?;
+            let name = env.new_string("com.ahjin.pr.GameActivity")?;
             let class = env
                 .call_method(
                     &loader,
@@ -1521,7 +1521,7 @@ use std::{
 /// Where the app looks for `game.zip`, most specific first. The first two are the app's own
 /// storage and need no permissions; the last one is shared storage and may need one.
 const ZIP_NAME: &str = "game.zip";
-pub(crate) const PACKAGE_DIR: &str = "com.klisee.reloaded";
+pub(crate) const PACKAGE_DIR: &str = "com.ahjin.pr";
 
 /// Free bytes on the filesystem containing `path`, or `None` if it can't be queried.
 fn free_bytes_on(path: &Path) -> Option<u64> {

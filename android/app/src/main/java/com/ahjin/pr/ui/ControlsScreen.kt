@@ -1,4 +1,4 @@
-package com.klisee.reloaded.ui
+package com.ahjin.pr.ui
 
 import android.content.Context
 import android.hardware.input.InputManager
@@ -36,13 +36,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.klisee.reloaded.ControlAction
-import com.klisee.reloaded.Preferences
-import com.klisee.reloaded.buttonName
-import com.klisee.reloaded.connectedPads
-import com.klisee.reloaded.hint
-import com.klisee.reloaded.title
-import com.klisee.reloaded.writeControlsFile
+import com.ahjin.pr.ControlAction
+import com.ahjin.pr.Preferences
+import com.ahjin.pr.buttonName
+import com.ahjin.pr.connectedPads
+import com.ahjin.pr.hint
+import com.ahjin.pr.title
+import com.ahjin.pr.writeControlsFile
 import java.io.File
 
 /** The action a button is currently bound to, for showing what a press will do. */
