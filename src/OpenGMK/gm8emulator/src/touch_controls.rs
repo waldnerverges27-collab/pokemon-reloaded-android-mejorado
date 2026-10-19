@@ -1026,7 +1026,7 @@ pub fn stick_dirs(dx: f32, dy: f32) -> [bool; 4] {
 
 /// Same, knowing which directions are already held (bit 0 up, 1 down, 2 left, 3 right).
 ///
-/// The game is a tile-based grid with four directions, so the stick picks one axis at a time: when
+/// Outside battle the game is a tile-based grid with four directions, so the stick picks one axis at a time: when
 /// both are past the dead zone the stronger one wins, and the axis already held keeps priority
 /// until the other is clearly stronger. That stops a thumb drifting across a diagonal from
 /// zig-zagging the character. A direction that is held stays on until the thumb comes back well
@@ -1043,6 +1043,18 @@ pub fn stick_dirs_held(dx: f32, dy: f32, held: u32) -> [bool; 4] {
     let vertical = up || down;
     let horizontal = left || right;
     if vertical && horizontal {
+        // In battle the character moves in eight directions, so a diagonal is a real input there:
+        // both axes stay on while the weaker one is at least ~45% of the stronger (a 24-degree
+        // margin either side of the diagonal), and once a diagonal is held it takes only ~30% to
+        // keep it, so the thumb can wobble without the direction flickering.
+        if current_context() & BATTLE != 0 {
+            let both_held = held & 0b0011 != 0 && held & 0b1100 != 0;
+            let (major, minor) = if dy.abs() >= dx.abs() { (dy.abs(), dx.abs()) } else { (dx.abs(), dy.abs()) };
+            let ratio = if both_held { 0.30 } else { 0.45 };
+            if minor >= major * ratio {
+                return [up, down, left, right]
+            }
+        }
         let held_vertical = held & 0b0011 != 0;
         let held_horizontal = held & 0b1100 != 0;
         // The axis that was already held gets a 25% head start.
