@@ -43,6 +43,15 @@ fun UpdateDialog(
         text = {
             Column {
                 Text("Version ${release.version}")
+                if (!busy && release.notes.isNotEmpty()) {
+                    Text(
+                        text = release.notes.take(700),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 10,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
                 if (busy) {
                     LinearWavyProgressIndicator(
                         progress = { if (total > 0) written.toFloat() / total.toFloat() else 0f },

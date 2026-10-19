@@ -140,8 +140,12 @@ fun App(repo: GameRepository, prefs: Preferences) {
                             // like nothing happening. Now it says so.
                             problem = "No pude descargar la actualizacion: ${result.exceptionOrNull()?.message}"
                         } else {
-                            problem = installUpdate(context, file)
-                            if (problem == null) update = null
+                            problem = Update.verify(context, file, release) ?: installUpdate(context, file)
+                            if (problem == null) {
+                                update = null
+                            } else if (problem!!.startsWith("La descarga") || problem!!.startsWith("El archivo")) {
+                                file.delete()
+                            }
                         }
                     }
                 }

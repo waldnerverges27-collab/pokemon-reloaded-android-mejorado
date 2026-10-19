@@ -132,7 +132,7 @@ fn load_video() {
                 continue
             }
             let value = value.trim();
-            if value == "aspect" || value == "full" {
+            if value == "aspect" || value == "full" || value == "integer" {
                 eprintln!("[video] escalado: {}", value);
                 // Read by the engine when it builds its renderer.
                 std::env::set_var("OPENGMK_SCALING", value);
@@ -146,6 +146,7 @@ fn load_video() {
 fn load_controls() {
     let path = PathBuf::from(format!("/data/data/{}/files/controls.conf", PACKAGE_DIR));
     let mut buttons = HashMap::new();
+    let mut actions = HashMap::new();
     if let Ok(text) = fs::read_to_string(&path) {
         eprintln!("[pad] leyendo {}", path.display());
         for line in text.lines() {
@@ -179,6 +180,9 @@ fn load_controls() {
                 if let Ok(opacity) = value.trim().parse::<f32>() {
                     crate::touch_controls::set_sprite_opacity(opacity);
                 }
+            } else if let (Ok(code), Some(action)) = (name.trim().parse::<AKeyCode>(), pad_action_named(value.trim())) {
+                // A pad button bound to one of the app's own actions instead of a key of the game.
+                actions.insert(code, action);
             } else if let (Ok(code), Some(key)) = (name.trim().parse::<AKeyCode>(), parse_key(value.trim())) {
                 buttons.insert(code, key);
             }
@@ -187,10 +191,62 @@ fn load_controls() {
     // The player's own layout, if the launcher's editor has written one.
     let layout = PathBuf::from(format!("/data/data/{}/files/layout.conf", PACKAGE_DIR));
     crate::touch_controls::load_layout(&fs::read_to_string(&layout).unwrap_or_default());
+    // The extras: quick save slot, fast-forward, filters, the stats readout and so on.
+    let extras = PathBuf::from(format!("/data/data/{}/files/extras.conf", PACKAGE_DIR));
+    crate::extras::load(&fs::read_to_string(&extras).unwrap_or_default());
+    if let Ok(mut map) = PAD_ACTIONS.get_or_init(|| Mutex::new(HashMap::new())).lock() {
+        *map = actions;
+    }
     // Replaced rather than cached: the launcher can change the layout while the app is still alive.
     if let Ok(mut map) = MAPPED_BUTTONS.get_or_init(|| Mutex::new(HashMap::new())).lock() {
         *map = buttons;
     }
+}
+
+/// Pad buttons bound to the app's own actions (quick save, quick load, fast-forward).
+static PAD_ACTIONS: std::sync::OnceLock<Mutex<HashMap<AKeyCode, crate::touch_controls::SysAction>>> = std::sync::OnceLock::new();
+
+fn pad_action_named(name: &str) -> Option<crate::touch_controls::SysAction> {
+    use crate::touch_controls::SysAction;
+    match name.to_ascii_uppercase().as_str() {
+        "QSAVE" => Some(SysAction::QuickSave),
+        "QLOAD" => Some(SysAction::QuickLoad),
+        "FFWD" => Some(SysAction::FastForward),
+        _ => None,
+    }
+}
+
+fn pad_action(code: i32) -> Option<crate::touch_controls::SysAction> {
+    PAD_ACTIONS.get()?.lock().ok()?.get(&code).copied()
+}
+
+/// Does what an action of the app's own asks for. Quick save and load only leave a request: the
+/// game thread carries it out between two frames.
+fn run_sys_action(action: crate::touch_controls::SysAction) {
+    use crate::touch_controls::SysAction;
+    match action {
+        SysAction::QuickSave => crate::extras::request_quick(true),
+        SysAction::QuickLoad => crate::extras::request_quick(false),
+        SysAction::FastForward => {
+            if crate::extras::toggle_ffwd() {
+                toast(&format!("Avance rapido x{}", crate::extras::ffwd_factor()));
+            } else if crate::extras::thermal_blocks_ffwd() {
+                toast("El movil esta demasiado caliente para el avance rapido");
+            } else {
+                toast("Velocidad normal");
+            }
+        },
+    }
+}
+
+/// A short system message over the game (a `Toast`).
+pub fn toast(message: &str) {
+    let text = message.to_string();
+    with_activity(|env, class| {
+        let java = env.new_string(&text)?;
+        env.call_static_method(class, "toast", "(Ljava/lang/String;)V", &[jni::objects::JValue::Object(&java)])?;
+        Ok(())
+    });
 }
 
 /// The key names the control screen can write into `controls.conf`.
@@ -285,6 +341,11 @@ fn tap_key(key: ramen::input::Key) {
 fn control_key_down(index: usize) {
     crate::touch_controls::set_pressed(index, true);
     haptic(HapticKind::Press);
+    // The app's own buttons do their job and send nothing to the game.
+    if let Some(action) = crate::touch_controls::sys_action(index) {
+        run_sys_action(action);
+        return
+    }
     // TEMP: the trick combination needs both keys held at once, so it is not one key like the rest.
     if crate::touch_controls::CONTROLS[index].name == crate::touch_controls::COMBO_BUTTON_NAME {
         for key in [Key::LeftControl, Key::P] {
@@ -294,7 +355,7 @@ fn control_key_down(index: usize) {
         crate::touch_controls::set_combo_used();
         return
     }
-    let key = crate::touch_controls::CONTROLS[index].key;
+    let key = crate::touch_controls::key_of(index);
     // On the character picker the overlay's arrows travel with the game's own selection, so the
     // buttons stay around the character the player is on rather than around the first one.
     match key {
@@ -307,13 +368,16 @@ fn control_key_down(index: usize) {
 
 fn control_key_up(index: usize) {
     crate::touch_controls::set_pressed(index, false);
+    if crate::touch_controls::sys_action(index).is_some() {
+        return
+    }
     if crate::touch_controls::CONTROLS[index].name == crate::touch_controls::COMBO_BUTTON_NAME {
         for key in [Key::LeftControl, Key::P] {
             android::push_input(ramen::platform::android::InputEvent::KeyUp { key });
         }
         return
     }
-    android::push_input(ramen::platform::android::InputEvent::KeyUp { key: crate::touch_controls::CONTROLS[index].key });
+    android::push_input(ramen::platform::android::InputEvent::KeyUp { key: crate::touch_controls::key_of(index) });
 }
 
 /// Pointers whose press was swallowed to bring the on-screen controls back, so that their release
@@ -632,15 +696,26 @@ fn translate(event: &InputEvent) {
                     jni_adjust_volume(code == KEYCODE_VOLUME_UP);
                     return
                 }
+                crate::extras::set_pad_device(key.device_id());
+                if let Some(action) = pad_action(code) {
+                    crate::touch_controls::set_pad_active(true);
+                    run_sys_action(action);
+                    pad_rumble();
+                    return
+                }
                 if let Some(k) = mapped_key(code) {
                     // A real key press means a pad or a keyboard is in the player's hands, so the
                     // on-screen controls get out of the way.
                     crate::touch_controls::set_pad_active(true);
+                    pad_rumble();
                     eprintln!("[pad] tecla {} -> {:?}", code, k);
                     android::push_input(ramen::platform::android::InputEvent::KeyDown { key: k, text: None });
                 }
             },
             KeyAction::Up => {
+                if pad_action(key_code_value(&key.key_code())).is_some() {
+                    return
+                }
                 if let Some(k) = mapped_key(key_code_value(&key.key_code())) {
                     android::push_input(ramen::platform::android::InputEvent::KeyUp { key: k });
                 }
@@ -667,6 +742,8 @@ fn translate(event: &InputEvent) {
                 return
             }
 
+            // Any touch wakes the buttons if they had faded.
+            crate::extras::touched();
             match motion.action() {
                 MotionAction::Down | MotionAction::PointerDown => {
                     if let Some((id, x, y)) = changed_pointer(motion) {
@@ -784,6 +861,31 @@ pub fn perf_start(target_frame: Duration) {
         "(IJ)V",
         &[jni::objects::JValue::Int(tid), jni::objects::JValue::Long(target_frame.as_nanos() as i64)],
     );
+}
+
+/// A short buzz in the pad that is being played with, as the player asked in the settings. Skipped
+/// when a burst of presses would turn it into a continuous hum.
+fn pad_rumble() {
+    let level = crate::extras::rumble_level();
+    let device = crate::extras::pad_device();
+    if level == 0 || device < 0 {
+        return
+    }
+    static LAST: Mutex<Option<Instant>> = Mutex::new(None);
+    {
+        let mut last = LAST.lock().unwrap();
+        let now = Instant::now();
+        if last.map(|at| now.duration_since(at) < Duration::from_millis(60)).unwrap_or(false) {
+            return
+        }
+        *last = Some(now);
+    }
+    jni_activity_call("padRumble", "(II)V", &[jni::objects::JValue::Int(device), jni::objects::JValue::Int(i32::from(level))]);
+}
+
+/// Changes the frame length the hint session aims for (the battery saver asks for a longer one).
+pub fn perf_set_target(target_frame: Duration) {
+    jni_activity_call("perfTarget", "(J)V", &[jni::objects::JValue::Long(target_frame.as_nanos() as i64)]);
 }
 
 /// Tells the hint session how long the last frame's work took.
@@ -991,6 +1093,36 @@ pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeEnter<'local>
     if let Ok(mut queue) = ime_queue().lock() {
         queue.push_back(ImeEvent::Enter);
     }
+}
+
+/// Called from the activity when the phone's temperature or the system battery saver changes.
+#[no_mangle]
+pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeDeviceState<'local>(
+    _env: jni::JNIEnv<'local>,
+    _this: jni::objects::JObject<'local>,
+    thermal: jni::sys::jint,
+    power_save: jni::sys::jboolean,
+) {
+    let was_blocking = crate::extras::thermal_blocks_ffwd();
+    crate::extras::set_device_state(thermal, power_save != 0);
+    if crate::extras::thermal_blocks_ffwd() && !was_blocking && crate::extras::ffwd_on() {
+        // Too hot to keep running faster than normal: the game drops back on its own, and says so.
+        crate::extras::toggle_ffwd();
+        toast("Avance rapido desactivado: el movil esta muy caliente");
+    }
+}
+
+/// Called from the activity with the space the camera cutout and system bars take, in pixels.
+#[no_mangle]
+pub extern "system" fn Java_com_klisee_reloaded_GameActivity_nativeInsets<'local>(
+    _env: jni::JNIEnv<'local>,
+    _this: jni::objects::JObject<'local>,
+    left: jni::sys::jint,
+    top: jni::sys::jint,
+    right: jni::sys::jint,
+    bottom: jni::sys::jint,
+) {
+    crate::extras::set_insets(left.max(0) as u32, top.max(0) as u32, right.max(0) as u32, bottom.max(0) as u32);
 }
 
 /// Called from the activity whenever the system keyboard's height changes, so the renderer can keep
@@ -1373,7 +1505,7 @@ use std::{
 /// Where the app looks for `game.zip`, most specific first. The first two are the app's own
 /// storage and need no permissions; the last one is shared storage and may need one.
 const ZIP_NAME: &str = "game.zip";
-const PACKAGE_DIR: &str = "com.klisee.reloaded";
+pub(crate) const PACKAGE_DIR: &str = "com.klisee.reloaded";
 
 /// Free bytes on the filesystem containing `path`, or `None` if it can't be queried.
 fn free_bytes_on(path: &Path) -> Option<u64> {

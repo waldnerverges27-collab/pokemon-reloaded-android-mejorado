@@ -34,7 +34,7 @@ pub fn display_rect(
 ) -> (i32, i32, i32, i32) {
     let (window_width, window_height) = (window_width as i32, window_height as i32);
     let (fb_width, fb_height) = (fb_width as i32, fb_height as i32);
-    let (x, y, w, h) = window_rect(window_width, window_height, fb_width, fb_height, scaling);
+    let (x, y, w, h) = base_rect(window_width, window_height, fb_width, fb_height, scaling);
     // The effective height: zero outside the game's text dialog, so a stale height cannot leave the
     // picture stuck up top.
     let inset = crate::touch_controls::text_entry_inset() as i32;
@@ -60,9 +60,33 @@ pub fn display_rect(
     (x, y - pan, w, h)
 }
 
+/// The game image's rectangle inside the area the camera cutout leaves free (the whole window when the
+/// player turned that off or there is no cutout), whichever scaling mode is in use.
+pub fn base_rect(window_width: i32, window_height: i32, fb_width: i32, fb_height: i32, scaling: Scaling) -> (i32, i32, i32, i32) {
+    let [left, top, right, bottom] = crate::extras::safe_insets().map(|inset| inset as i32);
+    let (avail_w, avail_h) = ((window_width - left - right).max(1), (window_height - top - bottom).max(1));
+    // Insets that eat most of the window are not believed, as with the keyboard's height.
+    let (left, top, avail_w, avail_h) =
+        if avail_w * 2 < window_width || avail_h * 2 < window_height { (0, 0, window_width, window_height) } else { (left, top, avail_w, avail_h) };
+    let (x, y, w, h) = window_rect(avail_w, avail_h, fb_width, fb_height, scaling);
+    (x + left, y + top, w, h)
+}
+
 /// The game image's rectangle with the whole window to itself, whichever scaling mode is in use.
 fn window_rect(window_width: i32, window_height: i32, fb_width: i32, fb_height: i32, scaling: Scaling) -> (i32, i32, i32, i32) {
     match scaling {
+        // Whole multiples of the game's size, as large as fit: every game pixel comes out the same size,
+        // which is what keeps pixel art sharp. Too small a window for even one multiple falls back to
+        // keeping the aspect ratio.
+        Scaling::Fixed(scale) if scale.is_infinite() => {
+            let times = if fb_width > 0 && fb_height > 0 { (window_width / fb_width).min(window_height / fb_height) } else { 0 };
+            if times >= 1 {
+                let (w, h) = (fb_width * times, fb_height * times);
+                ((window_width - w) / 2, (window_height - h) / 2, w, h)
+            } else {
+                window_rect(window_width, window_height, fb_width, fb_height, Scaling::Aspect(-1.0))
+            }
+        },
         Scaling::Fixed(scale) => {
             let w = (f64::from(fb_width) * scale) as i32;
             let h = (f64::from(fb_height) * scale) as i32;
@@ -100,6 +124,9 @@ pub fn pinned_scaling() -> Option<Scaling> {
     match value.to_string_lossy().trim().to_ascii_lowercase().as_str() {
         "aspect" => Some(Scaling::Aspect(-1.0)),
         "full" => Some(Scaling::Full),
+        // Whole multiples of the game's size (see `window_rect`); infinity is how that mode is told
+        // apart from a fixed scale.
+        "integer" => Some(Scaling::Fixed(f64::INFINITY)),
         _ => None,
     }
 }

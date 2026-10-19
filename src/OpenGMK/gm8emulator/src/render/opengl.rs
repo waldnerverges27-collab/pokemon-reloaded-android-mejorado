@@ -489,6 +489,45 @@ impl ShapeBuilder {
 // the process termination time - but can be quite useful for Debug ones.
 
 impl RendererImpl {
+    /// `dump_dynamic_textures` for GLES, which has no `glGetTexImage` and no `glGetTexLevelParameter`:
+    /// every runtime texture is one surface of the size its rectangle says, so it is read back
+    /// through its own framebuffer. A depth buffer, which nothing in a 2D game uses, is not kept.
+    #[cfg(target_os = "android")]
+    fn dump_dynamic_textures_gles(&self) -> Vec<Option<SavedTexture>> {
+        let first = self.stock_atlas_count as usize;
+        let mut out = Vec::with_capacity(self.texture_ids.len().saturating_sub(first));
+        unsafe {
+            let mut prev_fbo = 0;
+            self.gl.GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_fbo);
+            while self.gl.GetError() != 0 {}
+            for atlas_id in first..self.texture_ids.len() {
+                let fbo = self.fbo_ids.get(atlas_id).copied().flatten();
+                let live = self.texture_ids[atlas_id].is_some();
+                let size = self.texture_rects.iter().flatten().find(|r| r.atlas_id as usize == atlas_id).map(|r| (r.w, r.h));
+                out.push(match (live, fbo, size) {
+                    (true, Some(fbo), Some((width, height))) if width > 0 && height > 0 => {
+                        let mut pixels = vec![0u8; width as usize * height as usize * 4];
+                        self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
+                        self.gl.PixelStorei(gl::PACK_ALIGNMENT, 1);
+                        self.gl.ReadPixels(0, 0, width, height, gl::RGBA, gl::UNSIGNED_BYTE, pixels.as_mut_ptr().cast());
+                        if self.gl.GetError() != 0 {
+                            eprintln!("[quicksave] no pude leer la textura {}", atlas_id);
+                            None
+                        } else {
+                            Some(SavedTexture { width, height, pixels: pixels.into_boxed_slice(), zbuf: None })
+                        }
+                    },
+                    _ => None,
+                });
+            }
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_fbo as _);
+            while self.gl.GetError() != 0 {}
+        }
+        out
+    }
+}
+
+impl RendererImpl {
     pub fn new(options: &RendererOptions, connection: &Connection, window: &Window, clear_colour: Colour) -> Result<Self, String> {
         unsafe {
             let imp = native_gl::PlatformImpl::new(connection, window)?;
@@ -1322,6 +1361,47 @@ impl RendererImpl {
         }
     }
 
+    /// The LCD grid or CRT scanlines over the game's picture: thin translucent dark lines along the
+    /// borders between the game's own pixels. Nothing is drawn when a game pixel is too small on
+    /// screen (under 2 px) for lines to look like anything but dirt.
+    fn push_screen_effect(&self, verts: &mut Vec<f32>, ww: f32, wh: f32) {
+        let effect = crate::extras::effect();
+        if effect == 0 {
+            return
+        }
+        let (vx, vy, vw, vh) = crate::touch_controls::viewport();
+        let (x0, y0, w, h) = (vx * ww, vy * wh, vw * ww, vh * wh);
+        let (fw, fh) = (self.framebuffer.width as f32, self.framebuffer.height as f32);
+        if fw < 1.0 || fh < 1.0 || w < 1.0 || h < 1.0 {
+            return
+        }
+        let (sx, sy) = (w / fw, h / fh);
+        if sx < 2.0 || sy < 2.0 {
+            return
+        }
+        if effect == 1 {
+            // Grid: a hairline on every border between game pixels, both ways.
+            let line = [0.0, 0.0, 0.0, 0.20];
+            let tx = (sx * 0.14).max(1.0);
+            let ty = (sy * 0.14).max(1.0);
+            for i in 1..self.framebuffer.width {
+                let x = x0 + i as f32 * sx;
+                push_quad(verts, ww, wh, x - tx / 2.0, y0, x + tx / 2.0, y0 + h, line);
+            }
+            for j in 1..self.framebuffer.height {
+                let y = y0 + j as f32 * sy;
+                push_quad(verts, ww, wh, x0, y - ty / 2.0, x0 + w, y + ty / 2.0, line);
+            }
+        } else {
+            // Scanlines: the lower third of every row of game pixels is darkened.
+            let line = [0.0, 0.0, 0.0, 0.26];
+            for j in 0..self.framebuffer.height {
+                let top = y0 + j as f32 * sy + sy * 0.64;
+                push_quad(verts, ww, wh, x0, top, x0 + w, y0 + (j + 1) as f32 * sy, line);
+            }
+        }
+    }
+
     /// Draws the on-screen touch controls over the presented frame with its own GL state, so the
     /// emulator's render state is never disturbed.
     fn draw_touch_overlay(&mut self, window_width: u32, window_height: u32) {
@@ -1344,7 +1424,11 @@ impl RendererImpl {
 
         let dt = touch_controls::anim_tick();
         let native = touch_controls::native_style();
+        let fade = crate::extras::overlay_fade();
+        let opacity = touch_controls::sprite_opacity() * fade;
         let mut verts: Vec<f32> = Vec::new();
+        // Screen effect over the picture, under the controls.
+        self.push_screen_effect(&mut verts, ww, wh);
         // Textured geometry (the pixel-art controls) goes in its own buffer, because it samples the
         // artwork rather than the 1x1 white texture the plain shapes use.
         let mut sprites: Vec<f32> = Vec::new();
@@ -1359,7 +1443,10 @@ impl RendererImpl {
             if touch_controls::wheel_open() && c.name == touch_controls::PARTY_NAME {
                 continue
             }
-            let pressed = touch_controls::is_pressed(i);
+            // The fast-forward button stays lit while it is on.
+            let pressed = touch_controls::is_pressed(i)
+                || (c.name == touch_controls::SYS_FFWD && crate::extras::ffwd_on());
+            let label_now = touch_controls::label_of(i);
             let (fill, border, ink) = if pressed {
                 ([1.0, 0.80, 0.10, 0.55], [1.0, 1.0, 0.70, 0.95], [0.10, 0.10, 0.10, 0.95])
             } else {
@@ -1373,7 +1460,7 @@ impl RendererImpl {
                     touch_controls::Shape::Rect { cx, cy, w, h } => (cx * ww, cy * wh, (w * ww + h * wh) / 4.0),
                 };
                 let (accent, tinted) = touch_controls::accent_of(c.name);
-                let label = match c.label {
+                let label = match label_now {
                     touch_controls::Label::Text(text) => text,
                     _ => "",
                 };
@@ -1388,7 +1475,7 @@ impl RendererImpl {
                         accent,
                         tinted,
                         press,
-                        opacity: touch_controls::sprite_opacity(),
+                        opacity,
                         label,
                         icon: touch_controls::icon_of(c.name),
                     },
@@ -1407,7 +1494,7 @@ impl RendererImpl {
                 let aspect = overlay.art_aspect(c.name).unwrap_or(1.0);
                 let (half_w, half_h) = (half * aspect, half);
                 // The picker arrows are not buttons: they stay solid whatever the artwork opacity is.
-                let alpha = if c.name == "flecha" { 1.0 } else { touch_controls::sprite_opacity() };
+                let alpha = if c.name == "flecha" { 1.0 } else { opacity };
                 push_sprite(
                     &mut sprites,
                     ww,
@@ -1435,7 +1522,7 @@ impl RendererImpl {
                     push_quad(&mut verts, ww, wh, x1, y2 - t, x2, y2, border);
                     push_quad(&mut verts, ww, wh, x1, y1, x1 + t, y2, border);
                     push_quad(&mut verts, ww, wh, x2 - t, y1, x2, y2, border);
-                    if let touch_controls::Label::Arrow(dir) = c.label {
+                    if let touch_controls::Label::Arrow(dir) = label_now {
                         push_arrow(&mut verts, ww, wh, cx, cy, h * 0.26, dir, ink);
                     }
                 },
@@ -1443,7 +1530,7 @@ impl RendererImpl {
                     let (cx, cy, r) = (cx * ww, cy * wh, r * ww);
                     push_circle(&mut verts, ww, wh, cx, cy, r, fill);
                     push_ring(&mut verts, ww, wh, cx, cy, r, 3.0, border);
-                    if let touch_controls::Label::Text(text) = c.label {
+                    if let touch_controls::Label::Text(text) = label_now {
                         push_text(&mut verts, ww, wh, text, cx, cy, r * 0.24, ink);
                     }
                 },
@@ -1459,21 +1546,30 @@ impl RendererImpl {
             let (ox, oy) = touch_controls::joystick_offset();
             if native {
                 let engaged = ox != 0.0 || oy != 0.0;
-                crate::touch_style::draw_stick(&mut verts, ww, wh, cx, cy, r, (ox, oy), engaged, touch_controls::sprite_opacity());
+                crate::touch_style::draw_stick(&mut verts, ww, wh, cx, cy, r, (ox, oy), engaged, opacity);
             } else if let (Some(base), Some(knob)) = (overlay.art("joystick"), overlay.art("joystick-knob")) {
                 // The artwork is a square panel with the knob at its centre. The panel is sized so it
                 // encloses the joystick's circle, and the knob keeps the share of the image it has.
                 let half = r * 1.05;
-                push_sprite(&mut sprites, ww, wh, cx - half, cy - half, cx + half, cy + half, base[0], base[1], base[2], base[3], 1.0);
+                push_sprite(&mut sprites, ww, wh, cx - half, cy - half, cx + half, cy + half, base[0], base[1], base[2], base[3], fade);
                 let (kx, ky) = (cx + ox * r * 0.72, cy + oy * r * 0.72);
                 let kh = r * 0.88;
-                push_sprite(&mut sprites, ww, wh, kx - kh, ky - kh, kx + kh, ky + kh, knob[0], knob[1], knob[2], knob[3], 1.0);
+                push_sprite(&mut sprites, ww, wh, kx - kh, ky - kh, kx + kh, ky + kh, knob[0], knob[1], knob[2], knob[3], fade);
             } else {
                 push_circle(&mut verts, ww, wh, cx, cy, r, [0.10, 0.10, 0.16, 0.22]);
                 push_ring(&mut verts, ww, wh, cx, cy, r, 4.0, [1.0, 1.0, 1.0, 0.45]);
                 let (kx, ky) = (cx + ox * r * 0.72, cy + oy * r * 0.72);
                 push_circle(&mut verts, ww, wh, kx, ky, r * 0.40, [0.85, 0.85, 0.92, 0.50]);
                 push_ring(&mut verts, ww, wh, kx, ky, r * 0.40, 3.0, [1.0, 1.0, 1.0, 0.75]);
+            }
+        }
+
+        // The readout in the corner (frames per second, memory), if the player asked for it.
+        if crate::extras::stats_on() {
+            let text = crate::extras::stats_text();
+            if !text.is_empty() {
+                let height = (wh * 0.034).max(14.0);
+                crate::touch_style::draw_readout(&mut verts, ww, wh, &text, ww * 0.5 - text.len() as f32 * height * 0.46, wh * 0.035, height, 1.0);
             }
         }
 
@@ -2391,6 +2487,11 @@ impl RendererTrait for RendererImpl {
     }
 
     fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
+        #[cfg(target_os = "android")]
+        {
+            return self.dump_dynamic_textures_gles()
+        }
+        #[cfg(not(target_os = "android"))]
         unsafe {
             // store previous
             let mut prev_tex2d = 0;
@@ -2530,7 +2631,11 @@ impl RendererTrait for RendererImpl {
                 }
             }
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer.fbo);
+            // A phone driver may flag something harmless here; a panic would end the game for it.
+            #[cfg(not(target_os = "android"))]
             assert_eq!(self.gl.GetError(), 0);
+            #[cfg(target_os = "android")]
+            while self.gl.GetError() != 0 {}
         }
     }
 
@@ -3361,7 +3466,8 @@ impl RendererTrait for RendererImpl {
                 blit_y + w_h,
                 gl::COLOR_BUFFER_BIT,
                 if cfg!(target_os = "android") {
-                    gl::NEAREST
+                    // Hard pixels, unless the player chose the smooth filter in the settings.
+                    if crate::extras::filter_smooth() { gl::LINEAR } else { gl::NEAREST }
                 } else if self.next_render_state.interpolate_pixels.into() {
                     gl::LINEAR
                 } else {

@@ -529,7 +529,9 @@ impl AudioManager {
     }
 
     pub fn set_state(&mut self, state: AudioState) {
-        self.global_volume = state.global_volume;
+        // The mixer holds the other end of this atomic: copy the value in rather than swapping the
+        // handle for the deserialized one, which nothing listens to.
+        self.global_volume.store(state.global_volume.load(Ordering::Acquire), Ordering::Release);
         self.end_times = state.end_times;
         self.multimedia_end = state.multimedia_end;
     }
@@ -538,6 +540,20 @@ impl AudioManager {
 impl WavHandle {
     pub fn set_volume(&self, vol: f64) {
         self.params.volume.store(make_volume(vol).to_bits(), Ordering::Release);
+    }
+}
+
+impl AudioState {
+    /// Sounds that were set to loop: they never end by themselves, so a restored game has to start
+    /// them again or it would carry on in silence.
+    pub fn looping_ids(&self) -> Vec<i32> {
+        let mut ids: Vec<i32> = self.end_times.iter().filter(|(_, end)| end.is_none()).map(|(id, _)| *id).collect();
+        if let Some((id, None)) = self.multimedia_end {
+            ids.push(id);
+        }
+        ids.sort_unstable();
+        ids.dedup();
+        ids
     }
 }
 

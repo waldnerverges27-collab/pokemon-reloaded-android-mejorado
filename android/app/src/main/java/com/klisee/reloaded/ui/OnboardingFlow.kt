@@ -80,7 +80,7 @@ fun Onboarding(
             title = "Pokemon Reloaded en Android",
             subtitle = buildAnnotatedString {
                 append(
-                    "Un port hecho por la comunidad y para la comunidad, por @kliseex. Corre sobre " +
+                    "Versión mejorada del port de @kliseex, hecha por la comunidad y para la comunidad. Corre sobre " +
                         "OpenGMK, una reimplementación nativa del motor de Game Maker 8, así que el " +
                         "juego se ejecuta de verdad: no hay ningún Windows emulado por medio y el " +
                         "rendimiento es prácticamente el de un juego nativo.\n\n" +
@@ -88,8 +88,12 @@ fun Onboarding(
                         "algún bug, mínimo o grave, por favor guarda un log y repórtalo.\n\n" +
                         "Manda reportes de bugs, crasheos o congelamientos a ",
                 )
-                withLink(LinkAnnotation.Url("https://github.com/Klisee/pokemon-reloaded-android")) {
+                withLink(LinkAnnotation.Url("https://github.com/waldnerverges27-collab/pokemon-reloaded-android-mejorado/issues")) {
                     append("GitHub")
+                }
+                append(". El port original es de ")
+                withLink(LinkAnnotation.Url("https://github.com/Klisee/pokemon-reloaded-android")) {
+                    append("Klisee")
                 }
                 append(".")
             },

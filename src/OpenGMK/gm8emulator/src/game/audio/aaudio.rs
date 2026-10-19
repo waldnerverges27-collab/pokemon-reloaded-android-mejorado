@@ -352,6 +352,7 @@ fn render_loop(mut mixer: Mixer, shared: &'static Shared) {
     let block_samples = (shared.sample_rate as usize * BLOCK_MS / 1000).max(64) * channels;
     let target = (shared.sample_rate as usize * RING_TARGET_MS / 1000) * channels;
     let mut block = vec![0.0 as Sample; block_samples];
+    let mut gain = 1.0f32;
     let mut reported = 0u32;
     let mut last_report = std::time::Instant::now();
 
@@ -365,6 +366,16 @@ fn render_loop(mut mixer: Mixer, shared: &'static Shared) {
         if shared.ring.available() < target {
             let count = mixer.write_samples(&mut block).min(block.len());
             block[count..].iter_mut().for_each(|x| *x = 0.0);
+            // Silence while the game runs fast-forward, eased in and out over a few blocks so it does not click.
+            let wanted = if crate::extras::ffwd_mute() && crate::extras::ffwd_factor() > 1 { 0.0 } else { 1.0 };
+            let next_gain = if gain < wanted { (gain + 0.25).min(wanted) } else { (gain - 0.25).max(wanted) };
+            if gain != 1.0 || next_gain != 1.0 {
+                let len = block.len() as f32;
+                for (i, x) in block.iter_mut().enumerate() {
+                    *x *= gain + (next_gain - gain) * (i as f32 / len);
+                }
+            }
+            gain = next_gain;
             soft_clip(&mut block);
             if !SOUND.load(Ordering::Relaxed) && block.iter().any(|x| *x != 0.0) {
                 SOUND.store(true, Ordering::Relaxed);

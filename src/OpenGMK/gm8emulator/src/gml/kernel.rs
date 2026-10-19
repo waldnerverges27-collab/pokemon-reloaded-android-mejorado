@@ -488,6 +488,8 @@ impl Game {
     pub fn window_get_region_scale(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(match self.scaling {
+            // Whole-number scaling has no single scale to report; the game sees "fill", as before.
+            Scaling::Fixed(n) if n.is_infinite() => 0.0,
             Scaling::Fixed(n) => n,
             Scaling::Aspect(n) => n,
             Scaling::Full => 0.0,

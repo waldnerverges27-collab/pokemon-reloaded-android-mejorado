@@ -1,7 +1,12 @@
 # Pokémon Reloaded en Android
 
-Ejecuta **Pokémon Reloaded** en Android sin emulador de Windows de por medio. Lo mantiene
-[@Klisee](https://github.com/Klisee), para la comunidad.
+Ejecuta **Pokémon Reloaded** en Android sin emulador de Windows de por medio.
+
+Este repositorio es una versión mejorada del port de [@Klisee](https://github.com/Klisee)
+([pokemon-reloaded-android](https://github.com/Klisee/pokemon-reloaded-android)), que a su vez se apoya en
+[OpenGMK](https://github.com/OpenGMK/OpenGMK). Todo el código se distribuye bajo **GPL-2.0** (ver `LICENSE`).
+Las versiones se descargan de la página de [Releases](../../releases); la app las busca aquí sola.
+El juego en sí (Pokémon Reloaded) **no** está incluido: lo importas tú desde un `.zip`.
 
 ## Qué es esto, en realidad
 

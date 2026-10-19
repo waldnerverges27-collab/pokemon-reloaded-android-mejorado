@@ -11,6 +11,8 @@ pub mod movement;
 pub mod particle;
 pub mod pathfinding;
 pub mod platform;
+#[cfg(target_os = "android")]
+pub mod quicksave;
 pub mod recording;
 pub mod replay;
 pub mod savestate;
@@ -115,6 +117,55 @@ mod game_epoch_serde {
         let now = Instant::now();
         let instant = now.checked_add(duration).ok_or(serde::de::Error::custom("bad game epoch"))?;
         Ok(instant)
+    }
+}
+
+/// What the game loop keeps track of for the phone: the readout in the corner, and how much CPU to ask
+/// the system for given the saver and the fast-forward.
+#[cfg(target_os = "android")]
+struct Pacing {
+    since: Instant,
+    frames: u32,
+    work: Duration,
+    /// (saver, fast-forward factor, room speed) the hint session was last configured for.
+    applied: (bool, u32, u32),
+}
+
+#[cfg(target_os = "android")]
+impl Pacing {
+    fn new(speed: u32) -> Self {
+        Self { since: Instant::now(), frames: 0, work: Duration::ZERO, applied: (false, 1, speed) }
+    }
+
+    fn after_frame(&mut self, work: Duration, speed: u32) {
+        self.frames += 1;
+        self.work += work;
+
+        let wanted = (crate::extras::battery_saver(), crate::extras::ffwd_factor(), speed);
+        if wanted != self.applied {
+            self.applied = wanted;
+            let frame_ns = 1_000_000_000 / u64::from(speed.max(1)) / u64::from(wanted.1);
+            // Normally ask for well under a frame so the clocks stay up; the saver asks for the
+            // whole frame, which lets the system settle on the lowest clock that still makes it.
+            let percent = if wanted.0 && wanted.1 == 1 { 100 } else { 70 };
+            crate::android_main::perf_set_target(Duration::from_nanos(frame_ns * percent / 100));
+        }
+
+        let elapsed = self.since.elapsed();
+        if elapsed >= Duration::from_millis(500) {
+            if crate::extras::stats_on() {
+                let seconds = elapsed.as_secs_f64();
+                crate::extras::set_stats_text(format!(
+                    "{:.0} FPS {:.1} MS {} MB",
+                    f64::from(self.frames) / seconds,
+                    self.work.as_secs_f64() * 1000.0 / f64::from(self.frames.max(1)),
+                    crate::android_main::rss_mb(),
+                ));
+            }
+            self.since = Instant::now();
+            self.frames = 0;
+            self.work = Duration::ZERO;
+        }
     }
 }
 
@@ -2504,6 +2555,8 @@ impl Game {
         let mut time_last = time_now;
         let mut current_frame_time: u32 = 0;
         #[cfg(target_os = "android")]
+        let mut pacing = Pacing::new(self.room.speed);
+        #[cfg(target_os = "android")]
         let mut mem_frames: u32 = 0;
         loop {
             self.process_window_events();
@@ -2520,7 +2573,9 @@ impl Game {
 
             #[cfg(target_os = "android")]
             {
-                crate::android_main::perf_report(work_started.elapsed());
+                let work = work_started.elapsed();
+                crate::android_main::perf_report(work);
+                pacing.after_frame(work, self.room.speed);
                 // Every two minutes, so a leak shows up in the log without anyone having to look.
                 mem_frames += 1;
                 if mem_frames % (120 * 30) == 0 {
@@ -2537,6 +2592,10 @@ impl Game {
             }
             handle_scene_change!(self);
 
+            // A save or load asked for with the buttons or the pad, now that the frame is complete.
+            #[cfg(target_os = "android")]
+            self.handle_quick_request();
+
             // Exit if the window was closed by the user, such as by pressing 'X'
             if self.close_requested {
                 break Ok(self.run_game_end_events()?);
@@ -2544,7 +2603,14 @@ impl Game {
 
             // frame limiter
             let diff = Instant::now().duration_since(time_now);
+            #[cfg(target_os = "android")]
+            let pace_factor = u64::from(crate::extras::ffwd_factor());
+            #[cfg(not(target_os = "android"))]
+            let pace_factor = 1u64;
             let duration = Duration::from_nanos(1_000_000_000 / self.room.speed as u64);
+            // Fast-forward only shortens the wait between frames; the game still advances one step
+            // per frame, so nothing about its logic changes.
+            let wait = duration / pace_factor as u32;
             if let GameClock::SpoofedNanos(t) = &mut self.clock {
                 *t += duration.as_nanos();
                 self.fps = self.room.speed.into();
@@ -2558,9 +2624,9 @@ impl Game {
             }
             self.frame_counter += 1;
 
-            if let (Some(time), true) = (duration.checked_sub(diff), self.frame_limiter) {
+            if let (Some(time), true) = (wait.checked_sub(diff), self.frame_limiter) {
                 gml::datetime::sleep(time);
-                time_now += duration;
+                time_now += wait;
             } else {
                 time_now = Instant::now();
             }
@@ -2785,23 +2851,7 @@ impl Game {
         if ww <= 0 || wh <= 0 || fw <= 0 || fh <= 0 {
             return (x, y);
         }
-        let (w_x, w_y, w_w, w_h) = match self.scaling {
-            Scaling::Fixed(scale) => {
-                let w = (f64::from(fw) * scale) as i32;
-                let h = (f64::from(fh) * scale) as i32;
-                ((ww - w) / 2, (wh - h) / 2, w, h)
-            },
-            Scaling::Aspect(_) => {
-                let fixed_width = wh * fw / fh;
-                if fixed_width < ww {
-                    ((ww - fixed_width) / 2, 0, fixed_width, wh)
-                } else {
-                    let fixed_height = ww * fh / fw;
-                    (0, (wh - fixed_height) / 2, ww, fixed_height)
-                }
-            },
-            Scaling::Full => (0, 0, ww, wh),
-        };
+        let (w_x, w_y, w_w, w_h) = crate::render::base_rect(ww, wh, fw, fh, self.scaling);
         let (w_w, w_h) = (w_w.max(1), w_h.max(1));
         ((x - w_x) * fw / w_w, (y - w_y) * fh / w_h)
     }
@@ -2814,23 +2864,7 @@ impl Game {
         if ww <= 0 || wh <= 0 || fw <= 0 || fh <= 0 {
             return (x, y);
         }
-        let (w_x, w_y, w_w, w_h) = match self.scaling {
-            Scaling::Fixed(scale) => {
-                let w = (f64::from(fw) * scale) as i32;
-                let h = (f64::from(fh) * scale) as i32;
-                ((ww - w) / 2, (wh - h) / 2, w, h)
-            },
-            Scaling::Aspect(_) => {
-                let fixed_width = wh * fw / fh;
-                if fixed_width < ww {
-                    ((ww - fixed_width) / 2, 0, fixed_width, wh)
-                } else {
-                    let fixed_height = ww * fh / fw;
-                    (0, (wh - fixed_height) / 2, ww, fixed_height)
-                }
-            },
-            Scaling::Full => (0, 0, ww, wh),
-        };
+        let (w_x, w_y, w_w, w_h) = crate::render::base_rect(ww, wh, fw, fh, self.scaling);
         let (w_w, w_h) = (w_w.max(1), w_h.max(1));
         (w_x + x * w_w / fw, w_y + y * w_h / fh)
     }

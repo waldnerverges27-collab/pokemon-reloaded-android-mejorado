@@ -171,7 +171,134 @@ pub const CONTROLS: &[Control] = &[
     // the pair is pressed together (see `control_key_down`). Centred along the very top, and drawn
     // smaller than the rest because its label is a wide one.
     Control { name: COMBO_BUTTON_NAME, key: Key::LeftControl, shape: Shape::Circle { cx: 0.500, cy: 0.060, r: 0.018 }, label: Label::Text("C+P"), contexts: CHARACTER },
+    // Controls of the app itself, not of the game: quick save, quick load and fast-forward. They
+    // press no key (see `sys_action`) and sit in the top-left corner, clear of the stick and the rest.
+    Control { name: SYS_QSAVE, key: Key::Space, shape: Shape::Circle { cx: 0.045, cy: 0.110, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
+    Control { name: SYS_QLOAD, key: Key::Space, shape: Shape::Circle { cx: 0.045, cy: 0.215, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
+    Control { name: SYS_FFWD, key: Key::Space, shape: Shape::Circle { cx: 0.045, cy: 0.320, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
+    // Slots for buttons the player adds in the editor. Each stays inactive (no contexts) until
+    // `layout.conf` gives it a key, a label and the screens it belongs to; see `CustomDef`.
+    Control { name: "custom1", key: Key::Space, shape: Shape::Circle { cx: 0.500, cy: 0.500, r: 0.026 }, label: Label::None, contexts: 0 },
+    Control { name: "custom2", key: Key::Space, shape: Shape::Circle { cx: 0.500, cy: 0.500, r: 0.026 }, label: Label::None, contexts: 0 },
+    Control { name: "custom3", key: Key::Space, shape: Shape::Circle { cx: 0.500, cy: 0.500, r: 0.026 }, label: Label::None, contexts: 0 },
+    Control { name: "custom4", key: Key::Space, shape: Shape::Circle { cx: 0.500, cy: 0.500, r: 0.026 }, label: Label::None, contexts: 0 },
+    Control { name: "custom5", key: Key::Space, shape: Shape::Circle { cx: 0.500, cy: 0.500, r: 0.026 }, label: Label::None, contexts: 0 },
+    Control { name: "custom6", key: Key::Space, shape: Shape::Circle { cx: 0.500, cy: 0.500, r: 0.026 }, label: Label::None, contexts: 0 },
+    Control { name: "custom7", key: Key::Space, shape: Shape::Circle { cx: 0.500, cy: 0.500, r: 0.026 }, label: Label::None, contexts: 0 },
+    Control { name: "custom8", key: Key::Space, shape: Shape::Circle { cx: 0.500, cy: 0.500, r: 0.026 }, label: Label::None, contexts: 0 },
 ];
+
+pub const SYS_QSAVE: &str = "sys_qsave";
+pub const SYS_QLOAD: &str = "sys_qload";
+pub const SYS_FFWD: &str = "sys_ffwd";
+
+/// What a control of the app itself does instead of pressing a key.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum SysAction {
+    QuickSave,
+    QuickLoad,
+    FastForward,
+}
+
+pub fn sys_action_named(name: &str) -> Option<SysAction> {
+    match name {
+        SYS_QSAVE => Some(SysAction::QuickSave),
+        SYS_QLOAD => Some(SysAction::QuickLoad),
+        SYS_FFWD => Some(SysAction::FastForward),
+        _ => None,
+    }
+}
+
+pub fn sys_action(index: usize) -> Option<SysAction> {
+    sys_action_named(CONTROLS[index].name)
+}
+
+/// A button the player made: the key it presses, its label and the screens it shows on.
+#[derive(Clone, Copy)]
+pub struct CustomDef {
+    pub key: Key,
+    pub label: &'static str,
+    pub contexts: u8,
+}
+
+pub const CUSTOM_SLOTS: usize = 8;
+static CUSTOM: Mutex<[Option<CustomDef>; CUSTOM_SLOTS]> = Mutex::new([None; CUSTOM_SLOTS]);
+
+fn custom_slot(name: &str) -> Option<usize> {
+    let number: usize = name.strip_prefix("custom")?.parse().ok()?;
+    (1..=CUSTOM_SLOTS).contains(&number).then(|| number - 1)
+}
+
+fn custom_def(index: usize) -> Option<CustomDef> {
+    let slot = custom_slot(CONTROLS[index].name)?;
+    CUSTOM.lock().unwrap()[slot]
+}
+
+/// The screens a control belongs to: its own, or the ones the player gave a custom button.
+pub fn contexts_of(index: usize) -> u8 {
+    if custom_slot(CONTROLS[index].name).is_some() {
+        return custom_def(index).map(|def| def.contexts).unwrap_or(0)
+    }
+    CONTROLS[index].contexts
+}
+
+/// The key a control presses.
+pub fn key_of(index: usize) -> Key {
+    custom_def(index).map(|def| def.key).unwrap_or(CONTROLS[index].key)
+}
+
+/// What a control shows on its face.
+pub fn label_of(index: usize) -> Label {
+    match custom_def(index) {
+        Some(def) => Label::Text(def.label),
+        None => CONTROLS[index].label,
+    }
+}
+
+/// The keys a custom button may press, by the names the editor writes.
+pub fn parse_custom_key(name: &str) -> Option<Key> {
+    const LETTERS: [Key; 26] = [
+        Key::A, Key::B, Key::C, Key::D, Key::E, Key::F, Key::G, Key::H, Key::I, Key::J, Key::K, Key::L,
+        Key::M, Key::N, Key::O, Key::P, Key::Q, Key::R, Key::S, Key::T, Key::U, Key::V, Key::W, Key::X,
+        Key::Y, Key::Z,
+    ];
+    const DIGITS: [Key; 10] = [
+        Key::Alpha0, Key::Alpha1, Key::Alpha2, Key::Alpha3, Key::Alpha4, Key::Alpha5, Key::Alpha6,
+        Key::Alpha7, Key::Alpha8, Key::Alpha9,
+    ];
+    const FUNCTION: [Key; 12] = [
+        Key::F1, Key::F2, Key::F3, Key::F4, Key::F5, Key::F6, Key::F7, Key::F8, Key::F9, Key::F10, Key::F11, Key::F12,
+    ];
+    let upper = name.trim().to_ascii_uppercase();
+    let bytes = upper.as_bytes();
+    if bytes.len() == 1 {
+        if bytes[0].is_ascii_uppercase() {
+            return Some(LETTERS[usize::from(bytes[0] - b'A')])
+        }
+        if bytes[0].is_ascii_digit() {
+            return Some(DIGITS[usize::from(bytes[0] - b'0')])
+        }
+    }
+    if let Some(number) = upper.strip_prefix('F').and_then(|n| n.parse::<usize>().ok()) {
+        if (1..=12).contains(&number) {
+            return Some(FUNCTION[number - 1])
+        }
+    }
+    Some(match upper.as_str() {
+        "RETURN" | "ENTER" => Key::Return,
+        "SPACE" => Key::Space,
+        "ESCAPE" => Key::Escape,
+        "TAB" => Key::Tab,
+        "BACKSPACE" => Key::Backspace,
+        "UP" => Key::UpArrow,
+        "DOWN" => Key::DownArrow,
+        "LEFT" => Key::LeftArrow,
+        "RIGHT" => Key::RightArrow,
+        "SHIFT" => Key::LeftShift,
+        "CONTROL" | "CTRL" => Key::LeftControl,
+        _ => return None,
+    })
+}
 
 /// TEMP: the button that presses the game's trick combination. The game wants both keys held at the
 /// same time, so it is not an ordinary one-key control.
@@ -379,6 +506,7 @@ pub fn placement(name: &str) -> Placement {
 /// Replaces the layout with what `text` says.
 pub fn load_layout(text: &str) {
     let mut entries = Vec::new();
+    let mut defs: [Option<CustomDef>; CUSTOM_SLOTS] = [None; CUSTOM_SLOTS];
     for line in text.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {
@@ -401,8 +529,23 @@ pub fn load_layout(text: &str) {
         if !(0.0..=1.0).contains(&cx) || !(0.0..=1.0).contains(&cy) {
             continue
         }
+        // A custom button also says which key it presses, what it shows and where it appears:
+        // `custom1=<cx>,<cy>,<scale>,<visible>,<key>,<label>,<contexts>`.
+        if let Some(slot) = custom_slot(name) {
+            let (Some(key), Some(label), Some(Ok(contexts))) = (
+                parts.next().and_then(parse_custom_key),
+                parts.next(),
+                parts.next().map(|v| v.parse::<u8>()),
+            ) else {
+                continue
+            };
+            // Kept for the rest of the run: eight short labels at most, once per start of the game.
+            let label: &'static str = Box::leak(label.chars().take(3).collect::<String>().to_ascii_uppercase().into_boxed_str());
+            defs[slot] = Some(CustomDef { key, label, contexts });
+        }
         entries.push((name.to_string(), Placement { moved: true, cx, cy, scale: scale.clamp(0.4, 2.5), visible }));
     }
+    *CUSTOM.lock().unwrap() = defs;
     *LAYOUT.lock().unwrap() = entries;
 }
 
@@ -411,6 +554,12 @@ pub fn load_layout(text: &str) {
 // sprites remain as the "classic" style.
 
 static NATIVE_STYLE: AtomicBool = AtomicBool::new(true);
+
+/// How opaque the buttons are drawn right now: the player's setting times the fade of the idle
+/// screen (see `extras::overlay_fade`).
+pub fn overlay_opacity() -> f32 {
+    sprite_opacity() * crate::extras::overlay_fade()
+}
 
 pub fn native_style() -> bool {
     NATIVE_STYLE.load(Ordering::Relaxed)
@@ -431,6 +580,9 @@ pub enum Icon {
     Pause,
     Back,
     Ball,
+    Save,
+    Load,
+    Forward,
 }
 
 /// The icon a button wears instead of its letter, if it has one.
@@ -439,6 +591,9 @@ pub fn icon_of(name: &str) -> Option<Icon> {
         "return" => Some(Icon::Pause),
         "escape" => Some(Icon::Back),
         "b" => Some(Icon::Ball),
+        SYS_QSAVE => Some(Icon::Save),
+        SYS_QLOAD => Some(Icon::Load),
+        SYS_FFWD => Some(Icon::Forward),
         _ => None,
     }
 }
@@ -452,6 +607,8 @@ pub fn accent_of(name: &str) -> ([f32; 3], bool) {
         "c" => ([0.46, 0.58, 1.00], true),
         "v" => ([1.00, 0.88, 0.30], true),
         "return" | "eleccion_ok" => ([0.40, 0.85, 1.00], false),
+        SYS_QSAVE | SYS_QLOAD => ([0.62, 0.95, 0.80], false),
+        SYS_FFWD => ([1.00, 0.78, 0.35], false),
         _ => ([0.55, 0.78, 1.00], false),
     }
 }
@@ -509,7 +666,7 @@ pub fn set_viewport(x: f32, y: f32, w: f32, h: f32) {
     *VIEWPORT.lock().unwrap() = (x, y, w, h);
 }
 
-fn viewport() -> (f32, f32, f32, f32) {
+pub fn viewport() -> (f32, f32, f32, f32) {
     *VIEWPORT.lock().unwrap()
 }
 
@@ -518,7 +675,7 @@ fn viewport() -> (f32, f32, f32, f32) {
 /// image, because it has to sit on the dialogue box the game draws.
 pub fn window_shape(index: usize) -> Shape {
     let shape = effective_shape(index);
-    if CONTROLS[index].contexts & DIALOG == 0 {
+    if contexts_of(index) & DIALOG == 0 {
         return shape
     }
     let (vx, vy, vw, vh) = viewport();
@@ -530,7 +687,7 @@ pub fn window_shape(index: usize) -> Shape {
 
 /// The inverse: a point in window coordinates, expressed in a control's own coordinates.
 pub fn control_point(index: usize, nx: f32, ny: f32) -> (f32, f32) {
-    if CONTROLS[index].contexts & DIALOG == 0 {
+    if contexts_of(index) & DIALOG == 0 {
         return (nx, ny)
     }
     let (vx, vy, vw, vh) = viewport();
@@ -780,7 +937,7 @@ pub fn info_window_open() -> bool {
 }
 
 pub fn is_active(index: usize) -> bool {
-    if pad_active() || info_window_open() || CONTROLS[index].contexts & current_context() == 0 {
+    if pad_active() || info_window_open() || contexts_of(index) & current_context() == 0 {
         return false
     }
     if !placement(CONTROLS[index].name).visible {
@@ -796,7 +953,7 @@ pub fn is_active(index: usize) -> bool {
     // from. With any of its modals up - the name dialog, the question it asks to check the data, a
     // summary - nothing of the picker belongs on top: those screens are gone through with the game's
     // own keyboard and buttons.
-    if CONTROLS[index].contexts & CHARACTER != 0 {
+    if contexts_of(index) & CHARACTER != 0 {
         if modal_open() {
             return false
         }
@@ -806,7 +963,7 @@ pub fn is_active(index: usize) -> bool {
         // would hop about, so they sit that one out. The rest of the controls stay put: they do not
         // follow anything.
         let candidates = picker_boxes().len();
-        if matches!(CONTROLS[index].label, Label::Arrow(_)) && !(1..=PICKER_MAX_CHARACTERS).contains(&candidates) {
+        if matches!(label_of(index), Label::Arrow(_)) && !(1..=PICKER_MAX_CHARACTERS).contains(&candidates) {
             return false
         }
     }

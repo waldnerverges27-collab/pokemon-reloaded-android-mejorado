@@ -12,11 +12,19 @@ import java.net.URL
  * published, so there is no server to keep running and nothing to keep in step.
  */
 object Update {
-    private const val REPO = "Klisee/pokemon-reloaded-android"
+    private const val REPO = "waldnerverges27-collab/pokemon-reloaded-android-mejorado"
     private const val LATEST = "https://api.github.com/repos/$REPO/releases/latest"
     const val RELEASES_PAGE = "https://github.com/$REPO/releases/latest"
 
-    data class Release(val version: String, val apkUrl: String?, val pageUrl: String)
+    data class Release(
+        val version: String,
+        val apkUrl: String?,
+        val pageUrl: String,
+        /** Size the release says the APK has, to catch a download that stopped halfway. 0 if unknown. */
+        val apkSize: Long = 0,
+        /** What changed, as written in the release. */
+        val notes: String = "",
+    )
 
     /** The newer release, or `null` when the installed build is already the latest one. */
     suspend fun check(installed: String): Result<Release?> = withContext(Dispatchers.IO) {
@@ -26,14 +34,18 @@ object Update {
             if (tag.isEmpty() || !isNewer(tag, installed)) {
                 return@runCatching null
             }
-            val apk = json.optJSONArray("assets")?.let { assets ->
+            val asset = json.optJSONArray("assets")?.let { assets ->
                 (0 until assets.length())
                     .map { assets.getJSONObject(it) }
                     .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
-                    ?.optString("browser_download_url")
-                    ?.takeIf { it.isNotEmpty() }
             }
-            Release(tag, apk, json.optString("html_url").ifEmpty { RELEASES_PAGE })
+            Release(
+                version = tag,
+                apkUrl = asset?.optString("browser_download_url")?.takeIf { it.isNotEmpty() },
+                pageUrl = json.optString("html_url").ifEmpty { RELEASES_PAGE },
+                apkSize = asset?.optLong("size", 0L) ?: 0L,
+                notes = json.optString("body").trim(),
+            )
         }
     }
 
@@ -68,6 +80,41 @@ object Update {
             }
             target
         }.onFailure { trace("update: FALLO la descarga: ${it::class.java.simpleName}: ${it.message}") }
+    }
+
+    /**
+     * Checks the downloaded file before the installer sees it: it must be complete, be this same
+     * app, be newer, and be signed with the same key. Android would refuse a differently signed
+     * update anyway, but only after the user has gone through the installer, with a message that
+     * does not say why. Returns the reason in words, or `null` when the file is fine.
+     */
+    fun verify(context: android.content.Context, file: File, release: Release): String? {
+        if (release.apkSize > 0 && file.length() != release.apkSize) {
+            return "La descarga quedo incompleta (${file.length()} de ${release.apkSize} bytes). Vuelve a intentarlo."
+        }
+        return runCatching {
+            val pm = context.packageManager
+            val flags = android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
+            val archive = pm.getPackageArchiveInfo(file.absolutePath, flags)
+                ?: return "El archivo descargado no es un APK valido."
+            if (archive.packageName != context.packageName) {
+                return "El archivo descargado es de otra aplicacion (${archive.packageName})."
+            }
+            val installed = pm.getPackageInfo(context.packageName, flags)
+            if (archive.longVersionCode <= installed.longVersionCode) {
+                return "La version descargada no es mas nueva que la instalada."
+            }
+            fun certs(info: android.content.pm.PackageInfo) =
+                info.signingInfo?.apkContentsSigners?.map { it.toByteArray().contentHashCode() }?.toSet().orEmpty()
+            val mine = certs(installed)
+            val theirs = certs(archive)
+            if (mine.isNotEmpty() && theirs.isNotEmpty() && mine.intersect(theirs).isEmpty()) {
+                "La actualizacion esta firmada con otra clave y Android no la dejaria instalar encima. " +
+                    "Desinstala la app (exporta antes tus partidas) o instala la version nueva a mano."
+            } else {
+                null
+            }
+        }.getOrElse { "No pude comprobar el archivo: ${it::class.java.simpleName}: ${it.message}" }
     }
 
     private fun trace(message: String) {

@@ -30,6 +30,9 @@ mod touch_style;
 /// `dump_layout` example can turn the built-in layout into the file the launcher app draws.
 pub mod touch_controls;
 
+/// Settings and live state of the extras of the Android build (quick save, fast-forward, filters).
+pub mod extras;
+
 mod main_impl;
 
 mod patches;

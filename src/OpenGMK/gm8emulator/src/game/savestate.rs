@@ -125,9 +125,16 @@ pub struct SaveState {
 impl SaveState {
     /// Creates a new SaveState from the given components.
     pub fn from(game: &Game, replay: Replay, renderer_state: RendererState, clean_state: bool) -> Self {
+        // The stored picture only serves the TAS tools, and reading the depth texture back needs
+        // desktop GL (`glGetTexImage` does not exist on GLES), so a phone leaves both out.
+        #[cfg(not(target_os = "android"))]
         let (window_width, window_height) = game.renderer.stored_size();
+        #[cfg(not(target_os = "android"))]
         let screenshot = game.renderer.stored_pixels();
+        #[cfg(not(target_os = "android"))]
         let zbuffer = game.renderer.stored_zbuffer();
+        #[cfg(target_os = "android")]
+        let (window_width, window_height, screenshot, zbuffer) = (0u32, 0u32, Box::<[u8]>::default(), Box::<[f32]>::default());
 
         Self {
             compiler: game.compiler.clone(),
@@ -212,6 +219,7 @@ impl SaveState {
     pub fn load_into(self, game: &mut Game) -> (Replay, RendererState) {
         game.renderer.upload_dynamic_textures(&self.textures);
 
+        #[cfg(not(target_os = "android"))]
         game.renderer.set_stored(self.screenshot, self.zbuffer, self.window_width, self.window_height);
 
         if let Some(surf) = self.surface_target.and_then(|id| self.surfaces.get(id)) {
@@ -294,6 +302,11 @@ impl SaveState {
         (self.replay, self.renderer_state)
     }
 
+    /// Ids of the sounds that were looping when this state was taken.
+    pub fn looping_sounds(&self) -> Vec<i32> {
+        self.audio_state.looping_ids()
+    }
+
     /// Consumes this SaveState and returns just its Replay component.
     pub fn into_replay(self) -> Replay {
         self.replay
@@ -342,10 +355,26 @@ impl SaveState {
             Ok(()) => {
                 match lz4::compress_to_vec(buffer.bin_buf.as_slice(), buffer.lz4_buf.as_mut(), lz4::ACC_LEVEL_DEFAULT) {
                     Ok(_length) => {
-                        match OpenOptions::new().create(true).write(true).truncate(true).open(path).and_then(|mut f| {
-                            f.write_u64::<LE>(buffer.bin_buf.len() as u64)
-                                .and_then(|_| f.write_all(buffer.lz4_buf.as_slice()))
-                        }) {
+                        // Written beside the target and renamed over it, so a crash or a full disk in
+                        // the middle leaves the previous save as it was instead of half a file.
+                        let mut tmp_name = path.clone().into_os_string();
+                        tmp_name.push(".tmp");
+                        let tmp = PathBuf::from(tmp_name);
+                        let written = OpenOptions::new()
+                            .create(true)
+                            .write(true)
+                            .truncate(true)
+                            .open(&tmp)
+                            .and_then(|mut f| {
+                                f.write_u64::<LE>(buffer.bin_buf.len() as u64)
+                                    .and_then(|_| f.write_all(buffer.lz4_buf.as_slice()))
+                                    .and_then(|_| f.sync_all())
+                            })
+                            .and_then(|_| std::fs::rename(&tmp, path));
+                        if written.is_err() {
+                            let _ = std::fs::remove_file(&tmp);
+                        }
+                        match written {
                             Ok(()) => Ok(()),
                             Err(e) => Err(WriteError::IOErr(e)),
                         }

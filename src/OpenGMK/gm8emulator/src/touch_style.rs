@@ -159,6 +159,11 @@ fn glyph(ch: char) -> &'static [&'static [(f32, f32)]] {
         '8' => &[&[(0.5, 0.5), (0.15, 0.35), (0.15, 0.12), (0.5, 0.0), (0.85, 0.12), (0.85, 0.35), (0.5, 0.5), (0.05, 0.7), (0.05, 0.9), (0.5, 1.0), (0.95, 0.9), (0.95, 0.7), (0.5, 0.5)]],
         '9' => &[&[(0.1, 0.95), (0.5, 1.0), (0.85, 0.8), (1.0, 0.4), (0.9, 0.1), (0.5, 0.0), (0.1, 0.1), (0.0, 0.3), (0.15, 0.5), (0.5, 0.55), (0.9, 0.4)]],
         '+' => &[&[(0.5, 0.25), (0.5, 0.75)], &[(0.2, 0.5), (0.8, 0.5)]],
+        '-' => &[&[(0.1, 0.5), (0.9, 0.5)]],
+        '.' => &[&[(0.5, 0.92), (0.5, 1.0)]],
+        '/' => &[&[(0.9, 0.0), (0.1, 1.0)]],
+        ':' => &[&[(0.5, 0.2), (0.5, 0.3)], &[(0.5, 0.7), (0.5, 0.8)]],
+        '%' => &[&[(0.9, 0.0), (0.1, 1.0)], &[(0.05, 0.05), (0.3, 0.05), (0.3, 0.3), (0.05, 0.3), (0.05, 0.05)], &[(0.7, 0.7), (0.95, 0.7), (0.95, 0.95), (0.7, 0.95), (0.7, 0.7)]],
         _ => &[],
     }
 }
@@ -194,6 +199,24 @@ fn icon(c: &mut Canvas, kind: Icon, cx: f32, cy: f32, size: f32, col: Color) {
         Icon::Back => {
             c.line(cx - 0.4 * size, cy, cx + 0.4 * size, cy, width, col);
             c.polyline(&[(cx - 0.05 * size, cy - 0.36 * size), (cx - 0.42 * size, cy), (cx - 0.05 * size, cy + 0.36 * size)], width, col);
+        },
+        // A floppy-disc-like tray with an arrow going down into it: "save".
+        Icon::Save => {
+            c.line(cx, cy - 0.40 * size, cx, cy + 0.12 * size, width, col);
+            c.polyline(&[(cx - 0.26 * size, cy - 0.12 * size), (cx, cy + 0.14 * size), (cx + 0.26 * size, cy - 0.12 * size)], width, col);
+            c.polyline(&[(cx - 0.42 * size, cy + 0.12 * size), (cx - 0.42 * size, cy + 0.40 * size), (cx + 0.42 * size, cy + 0.40 * size), (cx + 0.42 * size, cy + 0.12 * size)], width, col);
+        },
+        // The same tray with the arrow coming out of it: "load".
+        Icon::Load => {
+            c.line(cx, cy - 0.40 * size, cx, cy + 0.12 * size, width, col);
+            c.polyline(&[(cx - 0.26 * size, cy - 0.14 * size), (cx, cy - 0.40 * size), (cx + 0.26 * size, cy - 0.14 * size)], width, col);
+            c.polyline(&[(cx - 0.42 * size, cy + 0.12 * size), (cx - 0.42 * size, cy + 0.40 * size), (cx + 0.42 * size, cy + 0.40 * size), (cx + 0.42 * size, cy + 0.12 * size)], width, col);
+        },
+        // Two chevrons: "faster".
+        Icon::Forward => {
+            for dx in [-0.22, 0.14] {
+                c.polyline(&[(cx + (dx - 0.12) * size, cy - 0.34 * size), (cx + (dx + 0.16) * size, cy), (cx + (dx - 0.12) * size, cy + 0.34 * size)], width, col);
+            }
         },
         Icon::Ball => {
             c.ring(cx, cy, size * 0.5, width * 0.8, col);
@@ -289,4 +312,24 @@ pub fn draw_stick(out: &mut Vec<f32>, ww: f32, wh: f32, cx: f32, cy: f32, r: f32
     c.band(kx, ky + kr * 0.10, kr * 0.98, kr * 1.2, [0.0, 0.0, 0.0, 0.25 * a], [0.0, 0.0, 0.0, 0.0]);
     c.smooth_disc(kx, ky, kr, [0.85, 0.88, 0.95, (0.50 + lift) * a], [0.55, 0.60, 0.72, (0.45 + lift) * a]);
     c.ring(kx, ky, kr, (kr * 0.07).max(2.0), [1.0, 1.0, 1.0, (0.65 + lift) * a]);
+}
+
+/// Draws `label` with its left edge at `x` and centred on `y`, `height` pixels tall. For the readout in
+/// the corner, over a soft dark pill so it reads on any picture.
+pub fn draw_readout(out: &mut Vec<f32>, ww: f32, wh: f32, label: &str, x: f32, y: f32, height: f32, opacity: f32) {
+    let count = label.chars().count() as f32;
+    if count == 0.0 {
+        return
+    }
+    let glyph_w = height * 0.62;
+    let gap = height * 0.30;
+    let total = glyph_w * count + gap * (count - 1.0);
+    let pad = height * 0.6;
+    let mut c = Canvas { out, ww, wh };
+    // The pill is a plain quad pair: it is behind small text, so soft edges are not worth the cost.
+    let (x0, x1, y0, y1) = (x - pad, x + total + pad, y - height / 2.0 - pad * 0.6, y + height / 2.0 + pad * 0.6);
+    let back = [0.0, 0.0, 0.0, 0.45 * opacity];
+    c.tri((x0, y0, back), (x1, y0, back), (x1, y1, back));
+    c.tri((x0, y0, back), (x1, y1, back), (x0, y1, back));
+    text(&mut c, label, x + total / 2.0, y, height, [1.0, 1.0, 1.0, 0.92 * opacity]);
 }
