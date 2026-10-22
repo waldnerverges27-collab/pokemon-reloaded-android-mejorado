@@ -2578,6 +2578,20 @@ impl Game {
         let mut mem_frames: u32 = 0;
         loop {
             self.process_window_events();
+            // The table of types is up: the game waits for it. Nothing advances (so the enemy does not
+            // act), the picture is redrawn so the table shows, and the frame clock starts over when the
+            // table goes away instead of trying to catch up.
+            #[cfg(target_os = "android")]
+            if crate::touch_controls::type_chart_open() && !self.close_requested {
+                if self.play_type != PlayType::Record {
+                    let (width, height) = self.window_inner_size;
+                    self.renderer.present(width, height, self.scaling);
+                }
+                gml::datetime::sleep(Duration::from_millis(33));
+                time_now = Instant::now();
+                time_last = time_now;
+                continue
+            }
             #[cfg(target_os = "android")]
             let work_started = Instant::now();
 

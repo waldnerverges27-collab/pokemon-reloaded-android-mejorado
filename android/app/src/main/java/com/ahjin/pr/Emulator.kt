@@ -15,6 +15,10 @@ object Emulator {
         prefs.writeControls(context.filesDir, connectedPads(context).isNotEmpty())
         prefs.writeVideo(context.filesDir)
         prefs.writeExtras(context.filesDir, quickLoad)
-        context.startActivity(Intent().setClassName(context.packageName, GAME_ACTIVITY))
+        val intent = Intent().setClassName(context.packageName, GAME_ACTIVITY)
+        // From anything that is not an activity (the application context) Android refuses to start
+        // one without a task of its own; asking for it is harmless from an activity too.
+        if (context !is android.app.Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
     }
 }

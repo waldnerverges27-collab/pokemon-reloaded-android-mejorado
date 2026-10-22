@@ -42,13 +42,17 @@ object Shortcuts {
             Toast.makeText(activity, "La ranura de guardado rapido ${prefs.quickSlot} esta vacia", Toast.LENGTH_LONG).show()
             return false
         }
-        val context = activity.applicationContext
-        (activity as? androidx.activity.ComponentActivity)?.lifecycleScope?.launch {
+        val owner = activity as? androidx.activity.ComponentActivity ?: return false
+        owner.lifecycleScope.launch {
             // The same copy of the saves the Play button makes, and the game starts whatever happens to it.
             if (prefs.autoBackup) {
                 runCatching { withTimeoutOrNull(4_000) { repo.backup(SaveBackups.Reason.PLAY) } }
             }
-            Emulator.start(context, quickLoad)
+            // Started from the activity itself, as the Play button does. If it still fails, the launcher
+            // stays open and says so, instead of the app closing.
+            runCatching { Emulator.start(activity, quickLoad) }.onFailure {
+                Toast.makeText(activity, "No se pudo abrir el juego: ${it.message}", Toast.LENGTH_LONG).show()
+            }
         }
         return true
     }

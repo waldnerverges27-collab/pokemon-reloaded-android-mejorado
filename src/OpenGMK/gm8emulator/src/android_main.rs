@@ -886,6 +886,11 @@ fn translate(event: &InputEvent) {
                     return
                 }
                 crate::extras::set_pad_device(key.device_id());
+                // The table of types is closed by any button too, and that press goes no further.
+                if crate::touch_controls::type_chart_open() {
+                    crate::touch_controls::close_type_chart();
+                    return
+                }
                 if let Some(action) = pad_action(code) {
                     crate::touch_controls::set_pad_active(true);
                     run_sys_action(action);
