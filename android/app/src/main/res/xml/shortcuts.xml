@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="play"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_play"
+        android:shortcutShortLabel="@string/shortcut_play_short"
+        android:shortcutLongLabel="@string/shortcut_play_long">
+        <intent
+            android:action="com.ahjin.pr.action.PLAY"
+            android:targetPackage="com.ahjin.pr"
+            android:targetClass="com.ahjin.pr.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="quickload"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_load"
+        android:shortcutShortLabel="@string/shortcut_load_short"
+        android:shortcutLongLabel="@string/shortcut_load_long">
+        <intent
+            android:action="com.ahjin.pr.action.QUICKLOAD"
+            android:targetPackage="com.ahjin.pr"
+            android:targetClass="com.ahjin.pr.MainActivity" />
+    </shortcut>
+</shortcuts>

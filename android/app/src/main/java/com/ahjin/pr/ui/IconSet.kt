@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Groups
@@ -66,6 +67,7 @@ fun iconVector(name: String): ImageVector = when (name) {
     "save" -> Icons.Filled.Save
     "load" -> Icons.Filled.Upload
     "forward" -> Icons.Filled.FastForward
+    "chart" -> Icons.Filled.BarChart
     "up" -> Icons.Filled.ArrowUpward
     "down" -> Icons.Filled.ArrowDownward
     "right" -> Icons.AutoMirrored.Filled.ArrowForward

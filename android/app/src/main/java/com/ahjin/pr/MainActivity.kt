@@ -20,6 +20,8 @@ class MainActivity : ComponentActivity() {
         )
         val repo = GameRepository(applicationContext)
         val prefs = Preferences(applicationContext)
+        // Only on a fresh start: coming back after a turn of the screen must not run the shortcut again.
+        if (savedInstanceState == null) Shortcuts.handle(this, repo, prefs)
         setContent {
             val mode = prefs.themeMode
             val dark = isDarkTheme(mode)

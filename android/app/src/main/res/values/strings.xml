@@ -4,4 +4,8 @@
     <string name="import_game">Importar juego</string>
     <string name="log">Registro</string>
     <string name="about">Acerca de</string>
+    <string name="shortcut_play_short">Continuar</string>
+    <string name="shortcut_play_long">Continuar la partida</string>
+    <string name="shortcut_load_short">Guardado rapido</string>
+    <string name="shortcut_load_long">Cargar el guardado rapido</string>
 </resources>

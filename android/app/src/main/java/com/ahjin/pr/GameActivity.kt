@@ -347,6 +347,9 @@ class GameActivity : NativeActivity() {
 
         private var instance: GameActivity? = null
 
+        /** Whether a game is on screen (or in the background) right now. */
+        val isRunning: Boolean get() = instance != null
+
         /** Called from the engine over JNI. `effect`: 0 = a button went down, 1 = stick tick. */
         @JvmStatic
         fun haptic(level: Int, effect: Int) {

@@ -33,6 +33,12 @@ data class CustomButton(val slot: Int, val key: String, val label: String, val c
 
     /** The picture the button wears instead of text (its label is then written `~name`), or null. */
     val icon: String? get() = Layout.iconOf(label)
+
+    /** The key without how it acts (`Z` for `Z:turbo`), or the action itself (`@speed`). */
+    val baseKey: String get() = Layout.baseKey(key)
+
+    /** How it acts: [Layout.MODE_PRESS], [Layout.MODE_TURBO], [Layout.MODE_LOCK] or [Layout.MODE_ACTION]. */
+    val mode: String get() = Layout.modeOf(key)
 }
 
 /** What `layout.conf` holds: where each button is, and the buttons the player made. */
@@ -44,6 +50,7 @@ const val JOYSTICK = "joystick"
 object Layout {
     const val WORLD = 2
     const val BATTLE = 4
+    const val DIALOG = 8
     const val CHARACTER = 16
     const val CHOICE = 32
     const val SAFARI = 64
@@ -83,11 +90,57 @@ object Layout {
             (1..12).map { "F$it" } +
             listOf("RETURN", "SPACE", "ESCAPE", "TAB", "BACKSPACE", "UP", "DOWN", "LEFT", "RIGHT", "SHIFT", "CONTROL")
 
+    /** Actions of the app's own a custom button can do instead of pressing a key. */
+    const val ACTION_SPEED = "@speed"
+    const val ACTION_TYPES = "@types"
+    val ACTIONS: List<String> = listOf(ACTION_SPEED, ACTION_TYPES)
+
+    const val MODE_PRESS = "press"
+    const val MODE_TURBO = "turbo"
+    const val MODE_LOCK = "lock"
+    const val MODE_ACTION = "action"
+
+    /** The key part of what a custom button's key field says: `Z:turbo` is `Z`; an action stays as it is. */
+    fun baseKey(token: String): String = if (token.startsWith("@")) token else token.substringBefore(':')
+
+    /** How a key field acts: a plain key is pressed, `:turbo` taps it over and over, `:lock` keeps it down. */
+    fun modeOf(token: String): String = when {
+        token.startsWith("@") -> MODE_ACTION
+        token.endsWith(":turbo") -> MODE_TURBO
+        token.endsWith(":lock") -> MODE_LOCK
+        else -> MODE_PRESS
+    }
+
+    /** Puts a key and a way of acting together into the text the engine reads. */
+    fun keyToken(key: String, mode: String): String = when {
+        key.startsWith("@") -> key
+        mode == MODE_TURBO -> "$key:turbo"
+        mode == MODE_LOCK -> "$key:lock"
+        else -> key
+    }
+
+    /**
+     * What `layout.conf` may hold in a custom button's key field, cleaned up: the key in capitals and
+     * the way of acting in lower case. Null when it is none of the things the engine understands.
+     */
+    fun normalizeKey(raw: String): String? {
+        val text = raw.trim()
+        if (text.startsWith("@")) return text.lowercase().takeIf { it in ACTIONS }
+        val base = text.substringBefore(':').uppercase()
+        if (base !in CUSTOM_KEYS) return null
+        if (':' !in text) return base
+        return when (text.substringAfter(':').lowercase()) {
+            "turbo" -> "$base:turbo"
+            "lock" -> "$base:lock"
+            else -> null
+        }
+    }
+
     /** The pictures a custom button can wear. The engine draws them (`Icon` in `touch_controls.rs`). */
     val ICONS: List<String> = listOf(
         "act", "run", "hook", "bike", "ball", "team", "bag", "map", "star", "exit", "swap", "bolt", "box",
         "person", "magnifier", "chat", "smile", "clock", "heart", "check", "plus", "menu", "pause", "back",
-        "save", "load", "forward", "up", "down", "left", "right",
+        "save", "load", "forward", "chart", "up", "down", "left", "right",
     )
 
     /** What each picture is called in the editor. */
@@ -96,7 +149,7 @@ object Layout {
         "bag" to "Mochila", "map" to "Mapa", "star" to "Estrella", "exit" to "Huir", "swap" to "Cambiar", "bolt" to "Rayo",
         "box" to "Objeto", "person" to "Entrenador", "magnifier" to "Buscar", "chat" to "Hablar", "smile" to "Emoji",
         "clock" to "Reloj", "heart" to "Corazon", "check" to "Ok", "plus" to "Mas", "menu" to "Menu", "pause" to "Pausa",
-        "back" to "Atras", "save" to "Guardar", "load" to "Cargar", "forward" to "Rapido", "up" to "Arriba",
+        "back" to "Atras", "save" to "Guardar", "load" to "Cargar", "forward" to "Rapido", "chart" to "Tabla", "up" to "Arriba",
         "down" to "Abajo", "left" to "Izquierda", "right" to "Derecha",
     )
 
@@ -147,7 +200,9 @@ object Layout {
     }
 
     /** A short name for the key, which is also what a new button says on its face. */
-    fun defaultLabel(key: String): String = when (key) {
+    fun defaultLabel(token: String): String = when (val key = baseKey(token)) {
+        ACTION_SPEED -> "VEL"
+        ACTION_TYPES -> "TIP"
         "RETURN" -> "ENT"
         "SPACE" -> "SPC"
         "ESCAPE" -> "ESC"
@@ -180,7 +235,7 @@ object Layout {
             val slot = name.removePrefix("custom").toIntOrNull()?.takeIf { name.startsWith("custom") && it in 1..CUSTOM_SLOTS }
             if (slot != null) {
                 // A custom button without its key, label and screens is no button at all.
-                val key = parts.getOrNull(4)?.uppercase()?.takeIf { it in CUSTOM_KEYS } ?: continue
+                val key = parts.getOrNull(4)?.let { normalizeKey(it) } ?: continue
                 val label = parts.getOrNull(5) ?: continue
                 val contexts = parts.getOrNull(6)?.toIntOrNull()?.takeIf { it in 1..255 } ?: continue
                 customs[slot] = CustomButton(slot, key, cleanLabel(label).ifEmpty { defaultLabel(key) }, contexts)

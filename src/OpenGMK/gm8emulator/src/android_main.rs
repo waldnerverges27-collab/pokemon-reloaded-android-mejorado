@@ -196,6 +196,8 @@ fn load_controls() {
     // The extras: quick save slot, fast-forward, filters, the stats readout and so on.
     let extras = PathBuf::from(format!("/data/data/{}/files/extras.conf", PACKAGE_DIR));
     crate::extras::load(&fs::read_to_string(&extras).unwrap_or_default());
+    // The count that times the load of the "load quick save" shortcut starts over with the game.
+    TICKS.store(0, std::sync::atomic::Ordering::Relaxed);
     if let Ok(mut map) = PAD_ACTIONS.get_or_init(|| Mutex::new(HashMap::new())).lock() {
         *map = actions;
     }
@@ -249,11 +251,22 @@ fn run_sys_action(action: crate::touch_controls::SysAction) {
         },
         SysAction::FastForward => {
             if crate::extras::toggle_ffwd() {
-                toast(&format!("Avance rapido x{}", crate::extras::ffwd_factor()));
-            } else if crate::extras::thermal_blocks_ffwd() {
+                announce_speed(crate::extras::speed_percent());
+            } else if crate::extras::selected_is_fast() && crate::extras::thermal_blocks_ffwd() && !crate::extras::ffwd_on() {
                 toast("El movil esta demasiado caliente para el avance rapido");
             } else {
                 toast("Velocidad normal");
+            }
+        },
+        SysAction::Speed => announce_speed(crate::extras::cycle_speed()),
+        SysAction::TypeChart => {
+            if crate::touch_controls::type_chart_open() {
+                crate::touch_controls::close_type_chart();
+            } else if !std::path::Path::new(&format!("/data/data/{}/files/game/data/image/Efectividades.png", PACKAGE_DIR)).exists() {
+                toast("No encuentro la tabla de tipos en los datos del juego");
+            } else {
+                crate::touch_controls::open_type_chart();
+                toast("Toca la pantalla para cerrar la tabla");
             }
         },
         SysAction::Stats => {
@@ -263,6 +276,16 @@ fn run_sys_action(action: crate::touch_controls::SysAction) {
             toast(&format!("Ranura de guardado rapido: {}", crate::extras::next_quick_slot()));
         },
     }
+}
+
+/// Says which speed the game runs at now.
+fn announce_speed(percent: u32) {
+    let label = crate::extras::speed_label(percent);
+    toast(&match percent {
+        100 => "Velocidad normal".to_string(),
+        p if p < 100 => format!("Camara lenta {}", label),
+        _ => format!("Avance rapido {}", label),
+    });
 }
 
 /// A short system message over the game (a `Toast`).
@@ -382,6 +405,22 @@ fn control_key_down(index: usize) {
         return
     }
     let key = crate::touch_controls::key_of(index);
+    match crate::touch_controls::custom_mode(index) {
+        // Held: the first tap goes out now and the rest follow from `input_tick`.
+        Some(CustomMode::Turbo) => {
+            tap_key(key);
+            let mut turbo = TURBO.lock().unwrap();
+            turbo.retain(|(held, _, _)| *held != index);
+            turbo.push((index, key, TICKS.load(std::sync::atomic::Ordering::Relaxed) + TURBO_PERIOD));
+            return
+        },
+        // A touch switches it on, the next one off; letting go does nothing.
+        Some(CustomMode::Lock) => {
+            toggle_lock(index, key);
+            return
+        },
+        _ => {},
+    }
     // On the character picker the overlay's arrows travel with the game's own selection, so the
     // buttons stay around the character the player is on rather than around the first one.
     match key {
@@ -403,7 +442,120 @@ fn control_key_up(index: usize) {
         }
         return
     }
+    match crate::touch_controls::custom_mode(index) {
+        Some(CustomMode::Turbo) => {
+            TURBO.lock().unwrap().retain(|(held, _, _)| *held != index);
+            return
+        },
+        Some(CustomMode::Lock) => return,
+        _ => {},
+    }
     android::push_input(ramen::platform::android::InputEvent::KeyUp { key: crate::touch_controls::key_of(index) });
+}
+
+use crate::touch_controls::CustomMode;
+
+/// Frames between two taps of a button on turbo: about 7 a second at the game's 30 frames.
+const TURBO_PERIOD: u32 = 4;
+
+/// Frames the game has run, as counted by `input_tick`.
+static TICKS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// The buttons on turbo that a finger is holding: (control, key, frame of the next tap).
+static TURBO: Mutex<Vec<(usize, Key, u32)>> = Mutex::new(Vec::new());
+
+/// A button that stays pressed: its control, its key and whether the key is down at this moment.
+struct Lock {
+    index: usize,
+    key: Key,
+    down: bool,
+}
+
+static LOCKS: Mutex<Vec<Lock>> = Mutex::new(Vec::new());
+
+fn toggle_lock(index: usize, key: Key) {
+    {
+        let mut locks = LOCKS.lock().unwrap();
+        match locks.iter().position(|lock| lock.index == index) {
+            Some(at) => {
+                let lock = locks.remove(at);
+                if lock.down {
+                    android::push_input(ramen::platform::android::InputEvent::KeyUp { key: lock.key });
+                }
+                crate::touch_controls::set_locked(index, false);
+            },
+            None => {
+                locks.push(Lock { index, key, down: false });
+                crate::touch_controls::set_locked(index, true);
+            },
+        }
+    }
+    sync_locks();
+}
+
+/// Keeps each lock's key down exactly while it should be: the button is on screen (so not while a
+/// dialogue, a menu or a battle has taken the controls away) and nothing of the game is in the way.
+/// A lock whose button was changed or hidden in the editor is dropped.
+fn sync_locks() {
+    let mut locks = LOCKS.lock().unwrap();
+    locks.retain_mut(|lock| {
+        if !crate::touch_controls::lock_valid(lock.index, lock.key) {
+            if lock.down {
+                android::push_input(ramen::platform::android::InputEvent::KeyUp { key: lock.key });
+            }
+            crate::touch_controls::set_locked(lock.index, false);
+            return false
+        }
+        let should = crate::touch_controls::is_active(lock.index) && !crate::touch_controls::modal_open();
+        if should != lock.down {
+            lock.down = should;
+            let event = if should {
+                ramen::platform::android::InputEvent::KeyDown { key: lock.key, text: None }
+            } else {
+                ramen::platform::android::InputEvent::KeyUp { key: lock.key }
+            };
+            android::push_input(event);
+        }
+        true
+    });
+}
+
+/// Lets go of every held-down key the app is keeping for the player (turbo, locks). Used when the
+/// game leaves the screen, so nothing is still pressed when it comes back.
+fn release_holds() {
+    TURBO.lock().unwrap().clear();
+    let mut locks = LOCKS.lock().unwrap();
+    for lock in locks.drain(..) {
+        if lock.down {
+            android::push_input(ramen::platform::android::InputEvent::KeyUp { key: lock.key });
+        }
+        crate::touch_controls::set_locked(lock.index, false);
+    }
+}
+
+/// How many frames into the game the quick load asked for by the shortcut is made: the game needs
+/// a moment to be up before a saved state can replace it.
+const STARTUP_LOAD_FRAME: u32 = 60;
+
+/// Called by the game thread once per frame: the work of the buttons that keep acting after the
+/// finger went down (turbo taps, locked keys), the table of types following its screen, and the
+/// load that the launcher shortcut asked for.
+pub fn input_tick() {
+    let frame = TICKS.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+    crate::touch_controls::type_chart_follow();
+    {
+        let mut turbo = TURBO.lock().unwrap();
+        for (_, key, next) in turbo.iter_mut() {
+            if frame >= *next {
+                tap_key(*key);
+                *next = frame + TURBO_PERIOD;
+            }
+        }
+    }
+    sync_locks();
+    if frame >= STARTUP_LOAD_FRAME && crate::extras::take_startup_load() {
+        crate::extras::request_quick(false);
+    }
 }
 
 /// Pointers whose press was swallowed to bring the on-screen controls back, so that their release
@@ -415,6 +567,12 @@ static SWALLOWED_INPUTS: Mutex<Option<std::collections::HashSet<i32>>> = Mutex::
 fn pointer_down(id: i32, x: f32, y: f32) {
     let (w, h) = android::window_size();
     let (wf, hf) = (w as f32, h as f32);
+    // The table of types is closed by touching anywhere, and that touch goes no further.
+    if crate::touch_controls::type_chart_open() {
+        crate::touch_controls::close_type_chart();
+        SWALLOWED_INPUTS.lock().unwrap().get_or_insert_with(std::collections::HashSet::new).insert(id);
+        return
+    }
     // The first touch after using a pad only brings the controls back. It must not also land in the
     // game as a click, or reaching for the on-screen buttons would act on whatever is under them.
     if crate::touch_controls::pad_active() {
@@ -600,7 +758,12 @@ fn pointer_roll(id: i32, x: f32, y: f32) {
             // These two do something heavy on press (open the wheel, fire the trick combo), so a
             // finger only gets them by touching them on purpose, never by sliding across.
             let name = crate::touch_controls::CONTROLS[i].name;
-            name != crate::touch_controls::PARTY_NAME && name != crate::touch_controls::COMBO_BUTTON_NAME
+            name != crate::touch_controls::PARTY_NAME
+                && name != crate::touch_controls::COMBO_BUTTON_NAME
+                && !matches!(
+                    crate::touch_controls::custom_mode(i),
+                    Some(CustomMode::Lock) | Some(CustomMode::Action(_))
+                )
         });
     if target == current {
         return
@@ -1131,7 +1294,7 @@ pub extern "system" fn Java_com_ahjin_pr_GameActivity_nativeDeviceState<'local>(
 ) {
     let was_blocking = crate::extras::thermal_blocks_ffwd();
     crate::extras::set_device_state(thermal, power_save != 0);
-    if crate::extras::thermal_blocks_ffwd() && !was_blocking && crate::extras::ffwd_on() {
+    if crate::extras::thermal_blocks_ffwd() && !was_blocking && crate::extras::ffwd_on() && crate::extras::selected_is_fast() {
         // Too hot to keep running faster than normal: the game drops back on its own, and says so.
         crate::extras::toggle_ffwd();
         toast("Avance rapido desactivado: el movil esta muy caliente");
@@ -1473,6 +1636,7 @@ pub fn android_entry(app: AndroidApp) {
                 | android_activity::MainEvent::Stop => {
                     ramen::platform::android::set_paused(true);
                     crate::game::audio::set_output_paused(true);
+                    release_holds();
                     unsafe { crate::render::opengl::egl::detach_surface() };
                     // Out of sight: hand back what the allocator is holding, so the system has less
                     // reason to kill a game that is sitting in the background.

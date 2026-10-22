@@ -54,6 +54,7 @@ const BUILTIN: &[(Icon, &[u8])] = &[
     (Icon::Save, include_bytes!("art/save.png")),
     (Icon::Load, include_bytes!("art/load.png")),
     (Icon::Forward, include_bytes!("art/forward.png")),
+    (Icon::Chart, include_bytes!("art/chart.png")),
 ];
 
 /// One picture, cropped to the pixels that are not transparent.

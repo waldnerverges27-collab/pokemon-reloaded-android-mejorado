@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import com.ahjin.pr.Preferences
 import com.ahjin.pr.QUICK_SLOTS
 import com.ahjin.pr.QuickSaves
+import com.ahjin.pr.SPEED_CHOICES
+import com.ahjin.pr.speedLabel
 import java.io.File
 
 /**
@@ -53,7 +55,7 @@ import java.io.File
 @Composable
 fun ExtrasScreen(prefs: Preferences, filesDir: File, onBack: () -> Unit) {
     var quickSlot by remember { mutableIntStateOf(prefs.quickSlot) }
-    var ffwdSpeed by remember { mutableIntStateOf(prefs.ffwdSpeed) }
+    var speedPercent by remember { mutableIntStateOf(prefs.speedPercent) }
     var ffwdMute by remember { mutableStateOf(prefs.ffwdMute) }
     var autoHide by remember { mutableIntStateOf(prefs.autoHideSeconds) }
     var smooth by remember { mutableStateOf(prefs.smoothFilter) }
@@ -144,29 +146,35 @@ fun ExtrasScreen(prefs: Preferences, filesDir: File, onBack: () -> Unit) {
                 )
             }
 
-            SettingsGroup("Avance rapido") {
-                listOf(2, 3, 4).forEachIndexed { position, speed ->
+            SettingsGroup("Velocidad del juego") {
+                SPEED_CHOICES.forEachIndexed { position, speed ->
                     ChoiceRow(
                         icon = Icons.Filled.FastForward,
-                        title = "Velocidad x$speed",
-                        subtitle = if (speed == 2) "El doble: buena para caminar y para los textos" else "Si el movil no llega, va a la maxima que pueda",
-                        selected = ffwdSpeed == speed,
-                        items = 4,
+                        title = if (speed < 100) "Camara lenta ${speedLabel(speed)}" else "Avance rapido ${speedLabel(speed)}",
+                        subtitle = when (speed) {
+                            50 -> "La mitad: util para esquivar o leer con calma"
+                            75 -> "Un poco mas despacio"
+                            150 -> "Un poco mas rapido"
+                            200 -> "El doble: buena para caminar y para los textos"
+                            else -> "Si el movil no llega, va a la maxima que pueda"
+                        },
+                        selected = speedPercent == speed,
+                        items = SPEED_CHOICES.size + 1,
                         index = position,
                         onSelect = {
-                            ffwdSpeed = speed
-                            prefs.ffwdSpeed = speed
+                            speedPercent = speed
+                            prefs.speedPercent = speed
                             persist()
                         },
                     )
                 }
                 SwitchRow(
                     icon = Icons.Filled.VolumeOff,
-                    title = "Silenciar mientras acelera",
-                    subtitle = "El sonido acelerado se vuelve ruido, y la musica no cambia de velocidad",
+                    title = "Silenciar si no va a velocidad normal",
+                    subtitle = "A otra velocidad el sonido se descompasa: asi no se oye ruido",
                     checked = ffwdMute,
-                    items = 4,
-                    index = 3,
+                    items = SPEED_CHOICES.size + 1,
+                    index = SPEED_CHOICES.size,
                     onCheckedChange = {
                         ffwdMute = it
                         prefs.ffwdMute = it

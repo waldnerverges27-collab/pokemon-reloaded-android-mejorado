@@ -93,7 +93,7 @@ object Diagnostics {
         line("Vibracion") { "tactil=${prefs.hapticLevel}, mando=${prefs.padRumble}" }
         line("Ocultar controles") { "${prefs.autoHideSeconds} s" }
         line("Guardado rapido") { "ranura=${prefs.quickSlot}" }
-        line("Avance rapido") { "x${prefs.ffwdSpeed}, silenciar=${prefs.ffwdMute}" }
+        line("Avance rapido") { "${speedLabel(prefs.speedPercent)}, silenciar=${prefs.ffwdMute}" }
         line("Copia automatica") { prefs.autoBackup }
         line("Botones propios") {
             File(context.filesDir, "layout.conf").takeIf { it.isFile }?.readLines()?.count { it.startsWith("custom") && it.split(',').getOrNull(3) == "1" } ?: 0

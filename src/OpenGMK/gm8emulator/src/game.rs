@@ -127,27 +127,27 @@ struct Pacing {
     since: Instant,
     frames: u32,
     work: Duration,
-    /// (saver, fast-forward factor, room speed) the hint session was last configured for.
+    /// (saver, speed in percent, room speed) the hint session was last configured for.
     applied: (bool, u32, u32),
 }
 
 #[cfg(target_os = "android")]
 impl Pacing {
     fn new(speed: u32) -> Self {
-        Self { since: Instant::now(), frames: 0, work: Duration::ZERO, applied: (false, 1, speed) }
+        Self { since: Instant::now(), frames: 0, work: Duration::ZERO, applied: (false, 100, speed) }
     }
 
     fn after_frame(&mut self, work: Duration, speed: u32) {
         self.frames += 1;
         self.work += work;
 
-        let wanted = (crate::extras::battery_saver(), crate::extras::ffwd_factor(), speed);
+        let wanted = (crate::extras::battery_saver(), crate::extras::speed_percent(), speed);
         if wanted != self.applied {
             self.applied = wanted;
-            let frame_ns = 1_000_000_000 / u64::from(speed.max(1)) / u64::from(wanted.1);
+            let frame_ns = 100_000_000_000 / u64::from(speed.max(1)) / u64::from(wanted.1.max(1));
             // Normally ask for well under a frame so the clocks stay up; the saver asks for the
             // whole frame, which lets the system settle on the lowest clock that still makes it.
-            let percent = if wanted.0 && wanted.1 == 1 { 100 } else { 70 };
+            let percent = if wanted.0 && wanted.1 == 100 { 100 } else { 70 };
             crate::android_main::perf_set_target(Duration::from_nanos(frame_ns * percent / 100));
         }
 
@@ -2612,7 +2612,10 @@ impl Game {
 
             // A save or load asked for with the buttons or the pad, now that the frame is complete.
             #[cfg(target_os = "android")]
-            self.handle_quick_request();
+            {
+                crate::android_main::input_tick();
+                self.handle_quick_request();
+            }
 
             // Exit if the window was closed by the user, such as by pressing 'X'
             if self.close_requested {
@@ -2622,16 +2625,16 @@ impl Game {
             // frame limiter
             let diff = Instant::now().duration_since(time_now);
             #[cfg(target_os = "android")]
-            let pace_factor = u64::from(crate::extras::ffwd_factor());
+            let pace_percent = u64::from(crate::extras::speed_percent());
             #[cfg(not(target_os = "android"))]
-            let pace_factor = 1u64;
+            let pace_percent = 100u64;
             // The game watches the wall clock (script CheckDaySpeed, run by obj_DayNightControl every
             // 5 seconds' worth of steps) and lowers `room_speed` by 5 whenever it finds that time went
             // by too fast, which is exactly what fast-forward looks like to it. Left alone, x2 and up
             // would slow itself down to a crawl and stay slow afterwards. While fast-forwarding, the
             // room goes back to the speed it was designed with, so the factor means what it says.
             #[cfg(target_os = "android")]
-            if pace_factor > 1 {
+            if pace_percent > 100 {
                 let nominal = self
                     .assets
                     .rooms
@@ -2645,7 +2648,7 @@ impl Game {
             let duration = Duration::from_nanos(1_000_000_000 / self.room.speed as u64);
             // Fast-forward only shortens the wait between frames; the game still advances one step
             // per frame, so nothing about its logic changes.
-            let wait = duration / pace_factor as u32;
+            let wait = Duration::from_nanos((duration.as_nanos() as u64).saturating_mul(100) / pace_percent.max(1));
             if let GameClock::SpoofedNanos(t) = &mut self.clock {
                 *t += duration.as_nanos();
                 self.fps = self.room.speed.into();

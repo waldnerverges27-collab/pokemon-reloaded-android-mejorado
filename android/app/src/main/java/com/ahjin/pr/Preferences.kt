@@ -172,11 +172,18 @@ class Preferences(context: Context) {
             prefs.edit().putInt("quickSlot", value.coerceIn(1, QUICK_SLOTS)).apply()
         }
 
-    /** How many times faster the game runs while fast-forwarding (2 to 4). */
-    var ffwdSpeed: Int
-        get() = prefs.getInt("ffwdSpeed", 2).coerceIn(2, 4)
+    /**
+     * The speed the speed button switches to, as a percentage of normal (one of [SPEED_CHOICES]).
+     * Before there was slow motion this was a whole factor (2 to 4), which is still honoured.
+     */
+    var speedPercent: Int
+        get() {
+            val saved = prefs.getInt("speedPercent", 0)
+            if (saved in SPEED_CHOICES) return saved
+            return prefs.getInt("ffwdSpeed", 2).coerceIn(2, 4) * 100
+        }
         set(value) {
-            prefs.edit().putInt("ffwdSpeed", value.coerceIn(2, 4)).apply()
+            prefs.edit().putInt("speedPercent", if (value in SPEED_CHOICES) value else 200).apply()
         }
 
     /** Silence while fast-forwarding. */
@@ -236,11 +243,11 @@ class Preferences(context: Context) {
         }
 
     /** Mirrors the extras into the file the emulator reads at startup. */
-    fun writeExtras(filesDir: File) = writeExtrasFile(
+    fun writeExtras(filesDir: File, quickLoadAtStart: Boolean = false) = writeExtrasFile(
         filesDir,
         ExtraSettings(
-            quickSlot, ffwdSpeed, ffwdMute, autoHideSeconds, smoothFilter, screenEffect, safeArea,
-            showStats, batteryMode, padRumble,
+            quickSlot, speedPercent, ffwdMute, autoHideSeconds, smoothFilter, screenEffect, safeArea,
+            showStats, batteryMode, padRumble, quickLoadAtStart,
         ),
     )
 }

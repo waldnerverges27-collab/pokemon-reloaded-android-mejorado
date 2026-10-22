@@ -8,7 +8,7 @@
 
 use std::{
     sync::{
-        atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU8, Ordering},
+        atomic::{AtomicBool, AtomicI32, AtomicU16, AtomicU32, AtomicU8, Ordering},
         Mutex,
     },
     time::{Duration, Instant},
@@ -52,15 +52,43 @@ pub fn next_quick_slot() -> u8 {
     next
 }
 
+/// Set when the launcher was opened from the "load quick save" shortcut: the game loads the slot by
+/// itself once it is up, and asks only once.
+static STARTUP_LOAD: AtomicBool = AtomicBool::new(false);
+
+/// Whether a quick load is still waiting to be done because of the shortcut. Taking it clears it.
+pub fn take_startup_load() -> bool {
+    STARTUP_LOAD.swap(false, Ordering::SeqCst)
+}
+
+pub fn startup_load_pending() -> bool {
+    STARTUP_LOAD.load(Ordering::SeqCst)
+}
+
 // ---------------------------------------------------------------------------------------------
 // Fast-forward.
 
 static FFWD_ON: AtomicBool = AtomicBool::new(false);
-static FFWD_SPEED: AtomicU8 = AtomicU8::new(2);
+static SPEED_PERCENT: AtomicU16 = AtomicU16::new(200);
 static FFWD_MUTE: AtomicBool = AtomicBool::new(true);
 
+/// The speeds the player can choose from, as a percentage of normal. Below 100 is slow motion.
+pub const SPEEDS: [u16; 6] = [50, 75, 150, 200, 300, 400];
+
+/// The chosen speed, whether or not it is in force right now.
+pub fn selected_speed() -> u32 {
+    u32::from(SPEED_PERCENT.load(Ordering::Relaxed).clamp(SPEEDS[0], SPEEDS[SPEEDS.len() - 1]))
+}
+
+/// Whether the chosen speed is faster than normal (the only kind a hot phone refuses).
+pub fn selected_is_fast() -> bool {
+    selected_speed() > 100
+}
+
+/// Turns the chosen speed on or off. Returns whether it is on afterwards; a phone that is too hot
+/// refuses a speed above normal.
 pub fn toggle_ffwd() -> bool {
-    let on = !FFWD_ON.load(Ordering::Relaxed) && !thermal_blocks_ffwd();
+    let on = !FFWD_ON.load(Ordering::Relaxed) && !(selected_is_fast() && thermal_blocks_ffwd());
     FFWD_ON.store(on, Ordering::Relaxed);
     on
 }
@@ -69,12 +97,45 @@ pub fn ffwd_on() -> bool {
     FFWD_ON.load(Ordering::Relaxed)
 }
 
-/// How many times faster than normal the game should run right now (1 = normal speed).
-pub fn ffwd_factor() -> u32 {
-    if FFWD_ON.load(Ordering::Relaxed) && !thermal_blocks_ffwd() {
-        u32::from(FFWD_SPEED.load(Ordering::Relaxed).clamp(2, 4))
+/// Moves on to the next speed: normal, then each of the list in turn, then normal again. The chosen
+/// speed is kept while it is in use. Speeds above normal are skipped while the phone is too hot.
+/// Returns the speed now in force (100 = normal).
+pub fn cycle_speed() -> u32 {
+    const STEPS: [u16; 7] = [100, 50, 75, 150, 200, 300, 400];
+    let current = if FFWD_ON.load(Ordering::Relaxed) { selected_speed() as u16 } else { 100 };
+    let start = STEPS.iter().position(|&s| s == current).unwrap_or(0);
+    for step in 1..=STEPS.len() {
+        let next = STEPS[(start + step) % STEPS.len()];
+        if next > 100 && thermal_blocks_ffwd() {
+            continue
+        }
+        if next == 100 {
+            FFWD_ON.store(false, Ordering::Relaxed);
+        } else {
+            SPEED_PERCENT.store(next, Ordering::Relaxed);
+            FFWD_ON.store(true, Ordering::Relaxed);
+        }
+        return u32::from(next)
+    }
+    100
+}
+
+/// How fast the game should run right now, as a percentage of normal (100 = normal speed).
+pub fn speed_percent() -> u32 {
+    if FFWD_ON.load(Ordering::Relaxed) && !(selected_is_fast() && thermal_blocks_ffwd()) {
+        selected_speed()
     } else {
-        1
+        100
+    }
+}
+
+/// "x2", "x1,5", "x0,5": a speed as the player reads it.
+pub fn speed_label(percent: u32) -> String {
+    if percent % 100 == 0 {
+        format!("x{}", percent / 100)
+    } else {
+        let text = format!("{}", f64::from(percent) / 100.0);
+        format!("x{}", text.replace('.', ","))
     }
 }
 
@@ -237,6 +298,8 @@ pub fn pad_device() -> i32 {
 
 /// Applies `extras.conf`. Unknown names and unreadable values are skipped.
 pub fn load(text: &str) {
+    // Asked for afresh by each start of the game: an old request must not carry over.
+    STARTUP_LOAD.store(false, Ordering::SeqCst);
     for line in text.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {
@@ -251,11 +314,20 @@ pub fn load(text: &str) {
                     QUICK_SLOT.store(slot.clamp(1, QUICK_SLOTS), Ordering::Relaxed);
                 }
             },
+            // The first launcher wrote a whole factor (2 to 4); it still reads.
             "ffwd_speed" => {
-                if let Ok(speed) = value.parse::<u8>() {
-                    FFWD_SPEED.store(speed.clamp(2, 4), Ordering::Relaxed);
+                if let Ok(speed) = value.parse::<u16>() {
+                    SPEED_PERCENT.store(speed.clamp(2, 4) * 100, Ordering::Relaxed);
                 }
             },
+            "speed_percent" => {
+                if let Ok(speed) = value.parse::<u16>() {
+                    if SPEEDS.contains(&speed) {
+                        SPEED_PERCENT.store(speed, Ordering::Relaxed);
+                    }
+                }
+            },
+            "startup" => STARTUP_LOAD.store(value == "qload", Ordering::Relaxed),
             "ffwd_mute" => FFWD_MUTE.store(flag, Ordering::Relaxed),
             "autohide_ms" => {
                 if let Ok(ms) = value.parse::<u32>() {
@@ -292,6 +364,9 @@ pub fn load(text: &str) {
 mod tests {
     use super::*;
 
+    /// The speed tests change the same settings, so they take turns.
+    static SPEED_TESTS: Mutex<()> = Mutex::new(());
+
     #[test]
     fn pad_shortcuts_cycle_the_slot_and_flip_the_readout() {
         let start = quick_slot();
@@ -309,5 +384,49 @@ mod tests {
         assert_eq!(toggle_stats(), !before);
         assert_eq!(stats_on(), !before);
         assert_eq!(toggle_stats(), before);
+    }
+
+    #[test]
+    fn speeds_cycle_and_read_well() {
+        let _turn = SPEED_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        assert_eq!(speed_label(50), "x0,5");
+        assert_eq!(speed_label(75), "x0,75");
+        assert_eq!(speed_label(150), "x1,5");
+        assert_eq!(speed_label(300), "x3");
+        SPEED_PERCENT.store(300, Ordering::Relaxed);
+        THERMAL.store(0, Ordering::Relaxed);
+        FFWD_ON.store(true, Ordering::Relaxed);
+        assert_eq!(cycle_speed(), 400);
+        assert_eq!(cycle_speed(), 100, "after the last one comes normal speed");
+        assert_eq!(speed_percent(), 100);
+        assert_eq!(cycle_speed(), 50);
+        assert_eq!(speed_percent(), 50);
+        assert_eq!(cycle_speed(), 75);
+        assert_eq!(cycle_speed(), 150);
+        THERMAL.store(3, Ordering::Relaxed);
+        assert_eq!(speed_percent(), 100, "too hot: 1.5x is refused");
+        assert_eq!(cycle_speed(), 100, "and the fast ones are skipped");
+        assert_eq!(cycle_speed(), 50);
+        THERMAL.store(0, Ordering::Relaxed);
+        FFWD_ON.store(false, Ordering::Relaxed);
+        assert_eq!(speed_percent(), 100);
+    }
+
+    #[test]
+    fn the_shortcut_load_is_asked_once_and_never_carried_over() {
+        let _turn = SPEED_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        load("startup=qload\nspeed_percent=150\n");
+        assert!(startup_load_pending());
+        assert_eq!(selected_speed(), 150);
+        assert!(take_startup_load());
+        assert!(!take_startup_load(), "it is done once");
+        load("startup=qload\n");
+        load("quick_slot=2\n");
+        assert!(!startup_load_pending(), "a later start without it does not inherit it");
+        // The first launcher's whole factor still reads, and a speed outside the list is ignored.
+        load("ffwd_speed=3\n");
+        assert_eq!(selected_speed(), 300);
+        load("speed_percent=120\n");
+        assert_eq!(selected_speed(), 300);
     }
 }

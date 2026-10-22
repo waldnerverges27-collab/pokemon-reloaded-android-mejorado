@@ -114,4 +114,57 @@ class LayoutTest {
             }
         }
     }
+
+    @Test
+    fun `a key says how it acts and is cleaned the way the engine reads it`() {
+        assertEquals("Z", Layout.normalizeKey("z"))
+        assertEquals("Z:turbo", Layout.normalizeKey(" z:TURBO "))
+        assertEquals("X:lock", Layout.normalizeKey("x:Lock"))
+        assertEquals("F5:lock", Layout.normalizeKey("f5:lock"))
+        assertEquals("@speed", Layout.normalizeKey("@SPEED"))
+        assertEquals("@types", Layout.normalizeKey("@types"))
+        assertNull(Layout.normalizeKey("Z:"))
+        assertNull(Layout.normalizeKey("Z:hold"))
+        assertEquals("Q:turbo", Layout.normalizeKey("q:turbo"))
+        assertNull(Layout.normalizeKey("!:turbo"))
+        assertNull(Layout.normalizeKey("@nothing"))
+        assertNull(Layout.normalizeKey("@speed:lock"))
+    }
+
+    @Test
+    fun `a button knows its key and its mode`() {
+        val plain = CustomButton(1, "Z", "Z", 2)
+        assertEquals("Z" to Layout.MODE_PRESS, plain.baseKey to plain.mode)
+        val turbo = CustomButton(1, "Z:turbo", "TUR", 2)
+        assertEquals("Z" to Layout.MODE_TURBO, turbo.baseKey to turbo.mode)
+        val lock = CustomButton(1, "X:lock", "~run", 2)
+        assertEquals("X" to Layout.MODE_LOCK, lock.baseKey to lock.mode)
+        val action = CustomButton(1, "@speed", "~forward", 2)
+        assertEquals("@speed" to Layout.MODE_ACTION, action.baseKey to action.mode)
+        // Changing the key keeps how it acts, and an action has nothing to keep.
+        assertEquals("Q:lock", Layout.keyToken("Q", Layout.MODE_LOCK))
+        assertEquals("Q", Layout.keyToken("Q", Layout.MODE_PRESS))
+        assertEquals("@types", Layout.keyToken("@types", Layout.MODE_LOCK))
+        assertEquals("VEL", Layout.defaultLabel("@speed"))
+        assertEquals("TIP", Layout.defaultLabel("@types"))
+        assertEquals("ENT", Layout.defaultLabel("RETURN:turbo"))
+    }
+
+    @Test
+    fun `turbo, lock and action buttons survive writing and reading, and a bad mode is dropped`() {
+        val customs = mapOf(
+            1 to CustomButton(1, "X:lock", "~run", Layout.WORLD),
+            2 to CustomButton(2, "Z:turbo", "TUR", Layout.WORLD or Layout.DIALOG),
+            3 to CustomButton(3, "@types", "~chart", Layout.BATTLE),
+        )
+        val layout = LayoutFile(customs.keys.associate { "custom$it" to Placement(0.5f, 0.5f) }, customs)
+        val text = Layout.format(layout)
+        assertTrue(text, "custom1=0.5,0.5,1.0,1,X:lock,~run,2" in text)
+        assertTrue(text, "custom3=0.5,0.5,1.0,1,@types,~chart,4" in text)
+        val back = Layout.parse(text)
+        assertEquals(customs, back.customs)
+        val damaged = Layout.parse("custom1=0.5,0.5,1,1,Z:fast,AB,2\ncustom2=0.5,0.5,1,1,z:lock,AB,2\n")
+        assertEquals(setOf(2), damaged.customs.keys)
+        assertEquals("Z:lock", damaged.customs[2]?.key)
+    }
 }

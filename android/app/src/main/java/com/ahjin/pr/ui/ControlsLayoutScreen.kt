@@ -84,6 +84,7 @@ private class Screen(val title: String, val mask: Int)
 
 private val screens = listOf(
     Screen("Mundo", Layout.WORLD),
+    Screen("Dialogos", Layout.DIALOG),
     Screen("Menus", Layout.MENU or Layout.MENU_NAV),
     Screen("Combate", Layout.BATTLE),
     Screen("Safari", Layout.SAFARI),
@@ -403,6 +404,30 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                 )
             }
 
+            // Buttons that do more than hold a key. None is there until it is added, and each one is
+            // a button like the rest: it can be moved, resized, hidden and deleted.
+            SettingsGroup("Botones especiales") {
+                val free = (1..Layout.CUSTOM_SLOTS).firstOrNull { it !in customs }
+                SpecialButtons.ALL.forEachIndexed { position, special ->
+                    NavRow(
+                        icon = Icons.Filled.Add,
+                        title = special.title,
+                        subtitle = if (free == null) "Ya hay ${Layout.CUSTOM_SLOTS} botones propios, el maximo" else special.description,
+                        items = SpecialButtons.ALL.size,
+                        index = position,
+                        enabled = free != null,
+                        onClick = {
+                            val slot = free ?: return@NavRow
+                            val button = CustomButton(slot, special.key, special.label, special.contexts)
+                            customs[slot] = button
+                            placements[button.name] = Placement(0.5f, 0.5f)
+                            selected = button.name
+                            save()
+                        },
+                    )
+                }
+            }
+
             SettingsGroup("Preajustes") {
                 LayoutPresets.ALL.forEachIndexed { index, preset ->
                     NavRow(
@@ -481,30 +506,123 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
     }
 }
 
-/** Key, label and screens of a button the player made. */
+/** A ready-made button with a way of acting the plain "Anadir un boton" does not offer. */
+private class Special(
+    val title: String,
+    val description: String,
+    val key: String,
+    val label: String,
+    val contexts: Int,
+)
+
+private object SpecialButtons {
+    val ALL = listOf(
+        Special(
+            "Correr fijo",
+            "Un toque deja X pulsada y otro la suelta: se corre sin mantener el dedo",
+            "X:lock", Layout.iconLabel("run"), Layout.WORLD,
+        ),
+        Special(
+            "Boton turbo",
+            "Mantenerlo pulsa Z una y otra vez: pasa los textos y los menus a toda prisa",
+            "Z:turbo", "TUR", Layout.WORLD or Layout.DIALOG,
+        ),
+        Special(
+            "Velocidad del juego",
+            "Cada toque pasa a la siguiente velocidad: normal, camara lenta, rapido y vuelta a normal",
+            Layout.ACTION_SPEED, Layout.iconLabel("forward"), Layout.WORLD or Layout.BATTLE or Layout.SAFARI or Layout.DIALOG,
+        ),
+        Special(
+            "Tabla de tipos",
+            "Muestra la tabla de ventajas y debilidades del juego; un toque en la pantalla la cierra",
+            Layout.ACTION_TYPES, Layout.iconLabel("chart"), Layout.BATTLE,
+        ),
+    )
+}
+
+/** The button with another key (or another thing to do), its label following when it still said the old name. */
+private fun CustomButton.withKey(token: String): CustomButton {
+    val follows = icon == null && label == Layout.defaultLabel(key)
+    return copy(key = token, label = if (follows) Layout.defaultLabel(token) else label)
+}
+
+/** Key, way of acting, label and screens of a button the player made. */
 @Composable
 private fun CustomButtonEditor(custom: CustomButton, onChange: (CustomButton) -> Unit) {
+    val isAction = custom.mode == Layout.MODE_ACTION
     SettingsGroup("Que hace este boton") {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Tecla que pulsa", style = MaterialTheme.typography.titleSmall)
+            Text("Funcion", style = MaterialTheme.typography.titleSmall)
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Layout.CUSTOM_KEYS.forEach { key ->
-                    FilterChip(
-                        selected = custom.key == key,
-                        onClick = {
-                            // The label follows the key while it still says what the old key did.
-                            val follows = custom.icon == null && custom.label == Layout.defaultLabel(custom.key)
-                            onChange(custom.copy(key = key, label = if (follows) Layout.defaultLabel(key) else custom.label))
-                        },
-                        label = { Text(key, maxLines = 1) },
-                    )
+                FilterChip(
+                    selected = !isAction,
+                    onClick = { if (isAction) onChange(custom.withKey("Z")) },
+                    label = { Text("Tecla del juego", maxLines = 1) },
+                )
+                FilterChip(
+                    selected = custom.key == Layout.ACTION_SPEED,
+                    onClick = { onChange(custom.withKey(Layout.ACTION_SPEED)) },
+                    label = { Text("Velocidad", maxLines = 1) },
+                )
+                FilterChip(
+                    selected = custom.key == Layout.ACTION_TYPES,
+                    onClick = { onChange(custom.withKey(Layout.ACTION_TYPES)) },
+                    label = { Text("Tabla de tipos", maxLines = 1) },
+                )
+            }
+            if (isAction) {
+                Text(
+                    if (custom.key == Layout.ACTION_SPEED) "Cada toque pasa a la siguiente velocidad (la lista se elige en Extras)."
+                    else "Abre la tabla de tipos; un toque en la pantalla la cierra.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            } else {
+                Text("Tecla que pulsa", style = MaterialTheme.typography.titleSmall)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Layout.CUSTOM_KEYS.forEach { key ->
+                        FilterChip(
+                            selected = custom.baseKey == key,
+                            // The way of acting stays the way it was; the label follows the key while it
+                            // still says what the old key did.
+                            onClick = { onChange(custom.withKey(Layout.keyToken(key, custom.mode))) },
+                            label = { Text(key, maxLines = 1) },
+                        )
+                    }
                 }
+                Text("Como actua", style = MaterialTheme.typography.titleSmall)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    listOf(
+                        Layout.MODE_PRESS to "Normal",
+                        Layout.MODE_TURBO to "Turbo",
+                        Layout.MODE_LOCK to "Fijo",
+                    ).forEach { (mode, title) ->
+                        FilterChip(
+                            selected = custom.mode == mode,
+                            onClick = { onChange(custom.copy(key = Layout.keyToken(custom.baseKey, mode))) },
+                            label = { Text(title, maxLines = 1) },
+                        )
+                    }
+                }
+                Text(
+                    when (custom.mode) {
+                        Layout.MODE_TURBO -> "Turbo: mientras lo mantienes, la tecla se pulsa unas 7 veces por segundo."
+                        Layout.MODE_LOCK -> "Fijo: un toque deja la tecla pulsada y otro la suelta. Se suelta sola al salir de la pantalla del boton."
+                        else -> "Normal: la tecla esta pulsada mientras mantienes el dedo."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
             Text("Que muestra", style = MaterialTheme.typography.titleSmall)
             Row(

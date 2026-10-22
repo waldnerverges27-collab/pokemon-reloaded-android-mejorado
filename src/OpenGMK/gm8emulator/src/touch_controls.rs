@@ -19,7 +19,7 @@
 use ramen::input::Key;
 use std::{
     sync::{
-        atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64, AtomicU8, AtomicUsize, Ordering},
         Mutex,
     },
     time::{Duration, Instant},
@@ -202,6 +202,10 @@ pub enum SysAction {
     Stats,
     /// Moves on to the next quick-save slot.
     NextSlot,
+    /// Goes through the speeds one by one (normal, slow motion, fast-forward, normal again).
+    Speed,
+    /// Shows or hides the table of what each type is strong and weak against.
+    TypeChart,
 }
 
 pub fn sys_action_named(name: &str) -> Option<SysAction> {
@@ -214,13 +218,111 @@ pub fn sys_action_named(name: &str) -> Option<SysAction> {
 }
 
 pub fn sys_action(index: usize) -> Option<SysAction> {
+    if let Some(def) = custom_def(index) {
+        return match def.mode {
+            CustomMode::Action(action) => Some(action),
+            _ => None,
+        }
+    }
     sys_action_named(CONTROLS[index].name)
+}
+
+/// How a button of the player's acts when it is touched.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum CustomMode {
+    /// The key is down while the finger is.
+    Press,
+    /// While held, the key is tapped over and over (for mashing through texts and the like).
+    Turbo,
+    /// A touch switches the key on and a second touch switches it off: it stays down in between.
+    Lock,
+    /// Does something of the app's own instead of pressing a key.
+    Action(SysAction),
+}
+
+/// What a custom button's key field says: a key, a key with `:turbo` or `:lock` after it, or an
+/// action written `@speed` / `@types`. Actions have no key; they come back with a harmless one.
+pub fn parse_custom_token(token: &str) -> Option<(Key, CustomMode)> {
+    let token = token.trim();
+    if let Some(action) = token.strip_prefix('@') {
+        let action = match action.to_ascii_lowercase().as_str() {
+            "speed" => SysAction::Speed,
+            "types" => SysAction::TypeChart,
+            _ => return None,
+        };
+        return Some((Key::Space, CustomMode::Action(action)))
+    }
+    let (key, mode) = match token.split_once(':') {
+        None => (token, CustomMode::Press),
+        Some((key, suffix)) => match suffix.trim().to_ascii_lowercase().as_str() {
+            "turbo" => (key, CustomMode::Turbo),
+            "lock" => (key, CustomMode::Lock),
+            _ => return None,
+        },
+    };
+    Some((parse_custom_key(key)?, mode))
+}
+
+/// How the button at `index` acts, if it is one of the player's own.
+pub fn custom_mode(index: usize) -> Option<CustomMode> {
+    custom_def(index).map(|def| def.mode)
+}
+
+/// Whether the lock at `index` still is what it was made as: still a lock, still on this key, and
+/// not hidden.
+pub fn lock_valid(index: usize, key: Key) -> bool {
+    custom_def(index).map_or(false, |def| def.mode == CustomMode::Lock && def.key == key)
+        && placement(CONTROLS[index].name).visible
+}
+
+static LOCKED: AtomicU32 = AtomicU32::new(0);
+
+/// Marks a button as switched on (a lock that is down), so it is drawn lit.
+pub fn set_locked(index: usize, locked: bool) {
+    if locked {
+        LOCKED.fetch_or(1 << index, Ordering::Relaxed);
+    } else {
+        LOCKED.fetch_and(!(1 << index), Ordering::Relaxed);
+    }
+}
+
+/// Whether a button is drawn lit: it is being touched, it is a lock that is on, or it is the speed
+/// button while the game runs at another speed.
+pub fn is_lit(index: usize) -> bool {
+    is_pressed(index)
+        || LOCKED.load(Ordering::Relaxed) & (1 << index) != 0
+        || (custom_mode(index) == Some(CustomMode::Action(SysAction::Speed)) && crate::extras::ffwd_on())
+}
+
+/// The table of types, over the game. The value is the screen it was opened on (0 = closed): the
+/// table closes by itself when the game moves to another one.
+static TYPE_CHART: AtomicU8 = AtomicU8::new(0);
+
+pub fn type_chart_open() -> bool {
+    TYPE_CHART.load(Ordering::Relaxed) != 0
+}
+
+pub fn open_type_chart() {
+    TYPE_CHART.store(current_context().max(1), Ordering::Relaxed);
+}
+
+pub fn close_type_chart() {
+    TYPE_CHART.store(0, Ordering::Relaxed);
+}
+
+/// Closes the table if the screen it was opened over is gone. Call every frame.
+pub fn type_chart_follow() {
+    let opened = TYPE_CHART.load(Ordering::Relaxed);
+    if opened != 0 && opened != current_context() {
+        close_type_chart();
+    }
 }
 
 /// A button the player made: the key it presses, its label and the screens it shows on.
 #[derive(Clone, Copy)]
 pub struct CustomDef {
     pub key: Key,
+    pub mode: CustomMode,
     pub label: &'static str,
     /// A picture instead of the label: the label is written `~name` (see `icon_named`).
     pub icon: Option<Icon>,
@@ -538,8 +640,8 @@ pub fn load_layout(text: &str) {
         // A custom button also says which key it presses, what it shows and where it appears:
         // `custom1=<cx>,<cy>,<scale>,<visible>,<key>,<label>,<contexts>`.
         if let Some(slot) = custom_slot(name) {
-            let (Some(key), Some(label), Some(Ok(contexts))) = (
-                parts.next().and_then(parse_custom_key),
+            let (Some((key, mode)), Some(label), Some(Ok(contexts))) = (
+                parts.next().and_then(parse_custom_token),
                 parts.next(),
                 parts.next().map(|v| v.parse::<u8>()),
             ) else {
@@ -549,7 +651,7 @@ pub fn load_layout(text: &str) {
             let icon = label.strip_prefix('~').and_then(icon_named);
             let text = if icon.is_some() { "" } else { label.trim_start_matches('~') };
             let label: &'static str = Box::leak(text.chars().take(3).collect::<String>().to_ascii_uppercase().into_boxed_str());
-            defs[slot] = Some(CustomDef { key, label, icon, contexts });
+            defs[slot] = Some(CustomDef { key, mode, label, icon, contexts });
         }
         entries.push((name.to_string(), Placement { moved: true, cx, cy, scale: scale.clamp(0.4, 2.5), visible }));
     }
@@ -626,10 +728,12 @@ pub enum Icon {
     /// The mega evolution. Only the game's own `M` wears it in battle; it draws like the star when
     /// there is no picture of the game to borrow.
     Mega,
+    /// Three bars: the table of types.
+    Chart,
 }
 
 /// How many pictures there are, for tables that hold one slot per icon.
-pub const ICON_COUNT: usize = Icon::Mega as usize + 1;
+pub const ICON_COUNT: usize = Icon::Chart as usize + 1;
 
 /// The pictures a custom button can wear, by the names the editor writes after a `~`.
 pub fn icon_named(name: &str) -> Option<Icon> {
@@ -665,6 +769,7 @@ pub fn icon_named(name: &str) -> Option<Icon> {
         "bolt" => Some(Icon::Bolt),
         "box" => Some(Icon::Box),
         "swap" => Some(Icon::Swap),
+        "chart" => Some(Icon::Chart),
         _ => None,
     }
 }
@@ -1072,7 +1177,7 @@ pub fn info_window_open() -> bool {
 }
 
 pub fn is_active(index: usize) -> bool {
-    if pad_active() || info_window_open() || contexts_of(index) & current_context() == 0 {
+    if pad_active() || info_window_open() || type_chart_open() || contexts_of(index) & current_context() == 0 {
         return false
     }
     if !placement(CONTROLS[index].name).visible {
@@ -1512,7 +1617,7 @@ mod tests {
     #[test]
     fn custom_buttons_can_wear_an_icon() {
         for name in [
-            "pause", "back", "ball", "save", "load", "forward", "up", "down", "left", "right", "star", "heart", "plus", "menu", "check",
+            "pause", "back", "ball", "save", "load", "forward", "up", "down", "left", "right", "star", "heart", "plus", "menu", "check", "chart",
         ] {
             assert!(icon_named(name).is_some(), "{name}");
         }
@@ -1541,6 +1646,56 @@ mod tests {
 
         load_layout("");
         assert!(icon_at(one).is_none());
+    }
+
+    #[test]
+    fn custom_keys_say_how_they_act() {
+        assert_eq!(parse_custom_token("z"), Some((Key::Z, CustomMode::Press)));
+        assert_eq!(parse_custom_token("Z:turbo"), Some((Key::Z, CustomMode::Turbo)));
+        assert_eq!(parse_custom_token("x:LOCK"), Some((Key::X, CustomMode::Lock)));
+        assert_eq!(parse_custom_token("F5:lock"), Some((Key::F5, CustomMode::Lock)));
+        assert_eq!(parse_custom_token("@speed"), Some((Key::Space, CustomMode::Action(SysAction::Speed))));
+        assert_eq!(parse_custom_token("@types"), Some((Key::Space, CustomMode::Action(SysAction::TypeChart))));
+        // Anything else is refused rather than guessed at.
+        assert_eq!(parse_custom_token("Z:"), None);
+        assert_eq!(parse_custom_token("Z:hold"), None);
+        assert_eq!(parse_custom_token("@nothing"), None);
+        assert_eq!(parse_custom_token("@"), None);
+        assert_eq!(parse_custom_token("Q:turbo:lock"), None);
+    }
+
+    #[test]
+    fn a_layout_carries_the_mode_of_each_custom_button() {
+        load_layout(
+            "custom1=0.5,0.5,1,1,X:lock,~run,2\ncustom2=0.5,0.5,1,1,Z:turbo,TUR,2\ncustom3=0.5,0.5,1,1,@types,TIP,4\n\
+             custom4=0.5,0.5,1,1,Z:fast,BAD,2\ncustom5=0.5,0.5,1,1,Z,PLN,2\n",
+        );
+        let at = |slot: usize| CUSTOM.lock().unwrap()[slot - 1];
+        assert_eq!(at(1).map(|d| (d.key, d.mode)), Some((Key::X, CustomMode::Lock)));
+        assert_eq!(at(2).map(|d| (d.key, d.mode)), Some((Key::Z, CustomMode::Turbo)));
+        assert_eq!(at(3).map(|d| d.mode), Some(CustomMode::Action(SysAction::TypeChart)));
+        assert!(at(4).is_none(), "an unknown way of acting makes no button");
+        assert_eq!(at(5).map(|d| d.mode), Some(CustomMode::Press));
+        let index = index_of("custom3").unwrap();
+        assert_eq!(sys_action(index), Some(SysAction::TypeChart));
+        assert_eq!(sys_action(index_of("custom5").unwrap()), None);
+        assert_eq!(custom_mode(index_of("z").unwrap()), None);
+        assert!(lock_valid(index_of("custom1").unwrap(), Key::X));
+        assert!(!lock_valid(index_of("custom1").unwrap(), Key::Z));
+        assert!(!lock_valid(index_of("custom2").unwrap(), Key::Z));
+        load_layout("");
+    }
+
+    #[test]
+    fn the_table_of_types_follows_its_screen() {
+        assert!(!type_chart_open());
+        open_type_chart();
+        assert!(type_chart_open());
+        // Nothing opened a screen in this test, so whatever the game is on now is what it was opened over.
+        type_chart_follow();
+        assert!(type_chart_open());
+        close_type_chart();
+        assert!(!type_chart_open());
     }
 
     #[test]

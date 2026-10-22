@@ -360,6 +360,13 @@ fn function_icon(c: &mut Canvas, kind: Icon, cx: f32, cy: f32, size: f32, col: C
                 c.smooth_disc(p(x, -0.07).0, p(x, -0.07).1, size * 0.04, col, col);
             }
         },
+        // Three bars of different heights standing on a line.
+        Icon::Chart => {
+            path(c, &[(-0.42, 0.40), (0.42, 0.40)], w * 0.8);
+            closed(c, &[(-0.32, 0.40), (-0.32, 0.06), (-0.14, 0.06), (-0.14, 0.40)], w * 0.7);
+            closed(c, &[(-0.09, 0.40), (-0.09, -0.16), (0.09, -0.16), (0.09, 0.40)], w * 0.7);
+            closed(c, &[(0.14, 0.40), (0.14, -0.38), (0.32, -0.38), (0.32, 0.40)], w * 0.7);
+        },
         Icon::Clock => {
             c.ring(cx, cy, size * 0.44, w * 0.7, col);
             path(c, &[(0.0, 0.0), (0.0, -0.26)], w * 0.7);

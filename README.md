@@ -386,6 +386,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.7.0** | Cinco funciones nuevas, todas **opcionales y apagadas por defecto**: **velocidad ajustable** (cámara lenta ×0,5 y ×0,75, además de ×1,5, ×2, ×3 y ×4), **tabla de tipos** en combate (la imagen de efectividades del propio juego, sin salir de la partida), **correr fijo** (un toque deja X pulsada y otro la suelta, y se libera sola al abrir un menú, un diálogo o un combate), **botón turbo** (mantenerlo pulsa Z unas 7 veces por segundo) y **atajos de Android** al mantener pulsado el icono (Continuar y Cargar guardado rápido). Se añaden desde Posición y tamaño de los botones > Botones especiales; los botones propios ganan un modo (normal, turbo, fijo) y la pantalla de Diálogos. |
 | **0.6.4** | **Z y X vuelven a ser letras** en todas las pantallas. Los dibujos de los botones se ven más nítidos: cada pixel del dibujo ocupa un número entero de pixeles de pantalla y el dibujo se alinea a la cuadrícula, con contorno oscuro si le falta y colores algo más vivos. La mochila es la **mochila roja con Poké Ball de la pantalla de objetos del juego**; el disquete y el regalo también son del juego. |
 | **0.6.3** | Los botones que el juego no tiene dibujados (acción, correr, huir, emoticonos, hablar, objeto asignado, cambiar, menú, guardar, cargar y avance rápido) llevan **iconos pixel-art de la app, pintados con el estilo del juego** (contorno oscuro y luz arriba a la izquierda). Esc usa la flecha de volver del propio juego. |
 | **0.6.2** | Los botónes usan el **arte del propio juego** donde existe: bici, caña, mapa, bola, Mega-Aro, reloj, lupa del Pokédex, mochila, equipo, medalla y disco de MO. Las imágenes se leen del juego ya instalado en el móvil al arrancarlo (no se incluyen en la app); si falta alguna, el botón conserva su icono dibujado. |
@@ -409,6 +410,8 @@ Cada versión, con su APK, está en [Releases](../../releases).
 - La versión **0.6.0** está verificada con pruebas automáticas y compilación, pero todavía no con
   uso real en el móvil: las copias de seguridad, los iconos de botones y los atajos de mando son
   nuevos. Si algo no va bien, comparte el informe de diagnóstico.
+- La versión **0.7.0** (velocidad ajustable, tabla de tipos, correr fijo, turbo y atajos de Android)
+  está verificada con pruebas automáticas y compilación, pero todavía no en el móvil.
 - La app sigue en desarrollo y puede fallar. Si ocurre, guarda un log desde **Ajustes → Logs** y
   abre un [issue](../../issues) con él.
 

@@ -1130,6 +1130,48 @@ fn build_icons(gl: &gl::Gl, old: GLuint) -> (GLuint, [Option<[f32; 7]>; crate::t
     }
 }
 
+/// The game's own table of what each type is strong and weak against, as a texture: (texture, width,
+/// height), or `None` once it has been tried and could not be read.
+#[cfg(target_os = "android")]
+static TYPE_CHART_TEXTURE: std::sync::Mutex<Option<Option<(GLuint, f32, f32)>>> = std::sync::Mutex::new(None);
+
+/// Reads the table out of the game's files into a texture. It is a big picture drawn small, so it is
+/// smoothed and mipmapped instead of left to alias.
+#[cfg(target_os = "android")]
+unsafe fn load_type_chart(gl: &gl::Gl) -> Option<(GLuint, f32, f32)> {
+    let path = format!("/data/data/{}/files/game/data/image/Efectividades.png", crate::android_main::PACKAGE_DIR);
+    let image = image::open(path).ok()?.to_rgba8();
+    let (width, height) = image.dimensions();
+    if width == 0 || height == 0 || width > 4096 || height > 4096 {
+        return None
+    }
+    let mut texture = 0;
+    gl.GenTextures(1, &mut texture);
+    gl.BindTexture(gl::TEXTURE_2D, texture);
+    gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as _);
+    gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as _);
+    gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as _);
+    gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as _);
+    gl.PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+    gl.TexImage2D(
+        gl::TEXTURE_2D,
+        0,
+        gl::RGBA as _,
+        width as _,
+        height as _,
+        0,
+        gl::RGBA,
+        gl::UNSIGNED_BYTE,
+        image.as_raw().as_ptr().cast(),
+    );
+    gl.GenerateMipmap(gl::TEXTURE_2D);
+    if gl.GetError() != 0 {
+        gl.DeleteTextures(1, &texture);
+        return None
+    }
+    Some((texture, width as f32, height as f32))
+}
+
 /// Creates the strip the party's six sprites go in: one square cell each, transparent to start with.
 #[cfg(target_os = "android")]
 unsafe fn create_party_texture(gl: &gl::Gl) -> GLuint {
@@ -1554,7 +1596,7 @@ impl RendererImpl {
                 continue
             }
             // The fast-forward button stays lit while it is on.
-            let pressed = touch_controls::is_pressed(i)
+            let pressed = touch_controls::is_lit(i)
                 || (c.name == touch_controls::SYS_FFWD && crate::extras::ffwd_on());
             let label_now = touch_controls::label_of(i);
             let (fill, border, ink) = if pressed {
@@ -1736,7 +1778,35 @@ impl RendererImpl {
             }
         }
 
-        if verts.is_empty() && sprites.is_empty() && party_sprites.is_empty() && icon_sprites.is_empty() {
+        // The table of types: the game dimmed, the table on top of it, as large as the screen allows.
+        let mut chart_sprites: Vec<f32> = Vec::new();
+        let mut chart_texture = 0;
+        if touch_controls::type_chart_open() {
+            let loaded = {
+                let mut slot = TYPE_CHART_TEXTURE.lock().unwrap();
+                *slot.get_or_insert_with(|| unsafe { load_type_chart(&self.gl) })
+            };
+            match loaded {
+                Some((texture, cw, ch)) => {
+                    let [il, it, ir, ib] = crate::extras::safe_insets();
+                    let (left, top) = (il as f32 + ww * 0.02, it as f32 + wh * 0.03);
+                    let (right, bottom) = (ww - ir as f32 - ww * 0.02, wh - ib as f32 - wh * 0.03);
+                    let (aw, ah) = ((right - left).max(1.0), (bottom - top).max(1.0));
+                    let scale = (aw / cw).min(ah / ch);
+                    let (dw, dh) = (cw * scale, ch * scale);
+                    let (x1, y1) = (left + (aw - dw) / 2.0, top + (ah - dh) / 2.0);
+                    push_quad(&mut verts, ww, wh, 0.0, 0.0, ww, wh, [0.0, 0.0, 0.0, 0.78]);
+                    push_sprite(&mut chart_sprites, ww, wh, x1, y1, x1 + dw, y1 + dh, 0.0, 0.0, 1.0, 1.0, 1.0);
+                    chart_texture = texture;
+                },
+                None => {
+                    touch_controls::close_type_chart();
+                    crate::android_main::toast("No se pudo leer la tabla de tipos");
+                },
+            }
+        }
+
+        if verts.is_empty() && sprites.is_empty() && party_sprites.is_empty() && icon_sprites.is_empty() && chart_sprites.is_empty() {
             return
         }
         unsafe {
@@ -1798,6 +1868,12 @@ impl RendererImpl {
                 gl.BindTexture(gl::TEXTURE_2D, overlay.icons);
                 gl.BufferData(gl::ARRAY_BUFFER, (icon_sprites.len() * 4) as _, icon_sprites.as_ptr().cast(), gl::STREAM_DRAW);
                 gl.DrawArrays(gl::TRIANGLES, 0, (icon_sprites.len() / 8) as i32);
+            }
+
+            if !chart_sprites.is_empty() && chart_texture != 0 {
+                gl.BindTexture(gl::TEXTURE_2D, chart_texture);
+                gl.BufferData(gl::ARRAY_BUFFER, (chart_sprites.len() * 4) as _, chart_sprites.as_ptr().cast(), gl::STREAM_DRAW);
+                gl.DrawArrays(gl::TRIANGLES, 0, (chart_sprites.len() / 8) as i32);
             }
 
             gl.BindVertexArray(prev_vao as u32);

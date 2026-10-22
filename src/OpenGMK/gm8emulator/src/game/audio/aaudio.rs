@@ -367,7 +367,7 @@ fn render_loop(mut mixer: Mixer, shared: &'static Shared) {
             let count = mixer.write_samples(&mut block).min(block.len());
             block[count..].iter_mut().for_each(|x| *x = 0.0);
             // Silence while the game runs fast-forward, eased in and out over a few blocks so it does not click.
-            let wanted = if crate::extras::ffwd_mute() && crate::extras::ffwd_factor() > 1 { 0.0 } else { 1.0 };
+            let wanted = if crate::extras::ffwd_mute() && crate::extras::speed_percent() != 100 { 0.0 } else { 1.0 };
             let next_gain = if gain < wanted { (gain + 0.25).min(wanted) } else { (gain - 0.25).max(wanted) };
             if gain != 1.0 || next_gain != 1.0 {
                 let len = block.len() as f32;
