@@ -60,7 +60,7 @@ private val TOPICS = listOf(
         "Controles en pantalla",
         listOf(
             "En Ajustes > Aspecto de los controles eliges entre Nativo y Pixel art clasico. En Controles tactiles ajustas opacidad, tamano, joystick flotante y zona muerta, y en Vibracion al tocar la respuesta tactil.",
-            "Los botones del juego muestran un icono de lo que hacen (mochila, mapa, bici, cana, huir...) en vez de la letra; en combate, Z X C V mantienen su letra porque ahi son los cuatro ataques. Siempre que el juego tiene el dibujo (bici, cana, mapa, bola, Mega-Aro, reloj, lupa, mochila...) se usa el suyo; el resto son iconos dibujados. Puedes volver a las letras con Iconos en los botones.",
+            "Los botones del juego muestran un icono de lo que hacen (mochila, mapa, bici, cana, huir...) en vez de la letra; en combate, Z X C V mantienen su letra porque ahi son los cuatro ataques. Siempre que el juego tiene el dibujo (bici, cana, mapa, bola, Mega-Aro, reloj, lupa, mochila...) se usa el suyo; los demas llevan iconos pixel-art pintados al estilo del juego. Puedes volver a las letras con Iconos en los botones.",
             "Posicion y tamano de los botones te deja arrastrar cada boton con el dedo y cambiar su tamano. Cada pestana (Mundo, Menus, Combate, Safari...) tiene sus propios botones.",
             "Los Preajustes (Zurdo, Compacto, Grande...) colocan todos los botones de golpe; son un buen punto de partida y despues puedes retocar. No tocan tus botones propios.",
             "En Botones propios puedes anadir hasta 8 botones: eliges que tecla pulsan, que muestran (texto o un icono) y en que pantallas salen. Los Disenos guardados te dejan tener varias disposiciones y cambiar entre ellas.",

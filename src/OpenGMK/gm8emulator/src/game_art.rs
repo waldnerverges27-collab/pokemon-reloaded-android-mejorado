@@ -18,6 +18,7 @@ use std::sync::{
 /// Which sprite frame stands for which icon: (icon, sprite name, frame). The big item pictures
 /// (`Spr_Objeto`, 28x27) are indexed by item number, which is how the frames were found.
 pub const SOURCES: &[(Icon, &str, usize)] = &[
+    (Icon::Back, "Spr_Objeto", 0),
     (Icon::Ball, "Spr_Objeto", 1),
     (Icon::Hook, "Spr_Objeto", 182),
     (Icon::Bike, "Spr_Objeto", 184),
@@ -29,6 +30,23 @@ pub const SOURCES: &[(Icon, &str, usize)] = &[
     (Icon::Person, "spr_MedallaKanto", 3),
     (Icon::Magnifier, "spr_buscarPokedex", 0),
     (Icon::Clock, "spr_clock", 0),
+];
+
+/// Pictures of our own, painted in the game's pixel-art style (a dark outline, light on top and left,
+/// dark underneath) for the buttons whose job the game has no sprite for. They are only used where
+/// the game gave none. The files are in `art/`, 24x24.
+const BUILTIN: &[(Icon, &[u8])] = &[
+    (Icon::Act, include_bytes!("art/act.png")),
+    (Icon::Run, include_bytes!("art/run.png")),
+    (Icon::Exit, include_bytes!("art/exit.png")),
+    (Icon::Smile, include_bytes!("art/smile.png")),
+    (Icon::Chat, include_bytes!("art/chat.png")),
+    (Icon::Box, include_bytes!("art/box.png")),
+    (Icon::Swap, include_bytes!("art/swap.png")),
+    (Icon::Menu, include_bytes!("art/menu.png")),
+    (Icon::Save, include_bytes!("art/save.png")),
+    (Icon::Load, include_bytes!("art/load.png")),
+    (Icon::Forward, include_bytes!("art/forward.png")),
 ];
 
 /// One picture, cropped to the pixels that are not transparent.
@@ -69,9 +87,29 @@ pub fn store(icon: Icon, width: u32, height: u32, data: &[u8]) {
     VERSION.fetch_add(1, Ordering::Release);
 }
 
-/// Everything kept so far.
+/// Our own pictures, decoded once.
+fn builtin() -> &'static [Picture] {
+    static ALL: std::sync::OnceLock<Vec<Picture>> = std::sync::OnceLock::new();
+    ALL.get_or_init(|| {
+        BUILTIN
+            .iter()
+            .filter_map(|&(icon, bytes)| {
+                let image = image::load_from_memory(bytes).ok()?.to_rgba8();
+                crop(icon, image.width(), image.height(), image.as_raw())
+            })
+            .collect()
+    })
+}
+
+/// Every picture there is: the ones taken from the game, and ours for the icons it gave none.
 pub fn pictures() -> Vec<Picture> {
-    STORE.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    let mut all = STORE.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    for own in builtin() {
+        if !all.iter().any(|p| p.icon == own.icon) {
+            all.push(own.clone());
+        }
+    }
+    all
 }
 
 /// Changes every time a picture is stored, so the renderer knows when to rebuild its texture.
@@ -125,8 +163,20 @@ mod tests {
     }
 
     #[test]
+    fn our_own_pictures_decode_and_never_replace_the_games() {
+        assert_eq!(builtin().len(), BUILTIN.len(), "every embedded picture must decode");
+        assert!(builtin().iter().all(|p| p.width <= 24 && p.height <= 24 && p.width >= 12));
+        // Before the game gives anything, ours are all there is.
+        assert!(pictures().iter().any(|p| p.icon == Icon::Act));
+        store(Icon::Act, 1, 1, &[1, 2, 3, 255]);
+        let acts: Vec<_> = pictures().into_iter().filter(|p| p.icon == Icon::Act).collect();
+        assert_eq!(acts.len(), 1);
+        assert_eq!(acts[0].rgba, vec![1, 2, 3, 255], "the game's own picture wins");
+    }
+
+    #[test]
     fn every_source_is_looked_up_by_its_sprite() {
-        assert_eq!(wanted(b"Spr_Objeto").len(), 5);
+        assert_eq!(wanted(b"Spr_Objeto").len(), 6);
         assert_eq!(wanted(b"spr_clock"), vec![(Icon::Clock, 0)]);
         assert!(wanted(b"nada").is_empty());
     }

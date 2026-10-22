@@ -386,6 +386,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.6.3** | Los botones que el juego no tiene dibujados (acción, correr, huir, emoticonos, hablar, objeto asignado, cambiar, menú, guardar, cargar y avance rápido) llevan **iconos pixel-art de la app, pintados con el estilo del juego** (contorno oscuro y luz arriba a la izquierda). Esc usa la flecha de volver del propio juego. |
 | **0.6.2** | Los botónes usan el **arte del propio juego** donde existe: bici, caña, mapa, bola, Mega-Aro, reloj, lupa del Pokédex, mochila, equipo, medalla y disco de MO. Las imágenes se leen del juego ya instalado en el móvil al arrancarlo (no se incluyen en la app); si falta alguna, el botón conserva su icono dibujado. |
 | **0.6.1** | Los botones del juego muestran un **icono de su función** (mochila, mapa, bici, caña, huir…) en lugar de la letra, con opción para volver a las letras. 16 iconos nuevos, también disponibles para los botones propios. |
 | **0.6.0** | **Copias de seguridad** automáticas y manuales de las partidas (restaurar, compartir, borrar), **informe de diagnóstico** de un toque, **guía de uso** en la app, cinco **colores de acento** y **negro puro AMOLED**, **iconos** para botones propios y **preajustes** de disposición (zurdo, compacto, grande), y nuevos atajos de mando (FPS y cambio de ranura). Pruebas automáticas nuevas. |
