@@ -40,6 +40,8 @@ fun Onboarding(
     repo: GameRepository,
     prefs: Preferences,
     onFinish: () -> Unit,
+    /** Changes whenever a zip opened from outside was imported, so the step reads the game again. */
+    refresh: Int = 0,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var step by remember { mutableStateOf(0) }
@@ -51,7 +53,7 @@ fun Onboarding(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) { post = Blog.latest().getOrNull() }
-    LaunchedEffect(step) { status = repo.status() }
+    LaunchedEffect(step, refresh) { status = repo.status() }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult

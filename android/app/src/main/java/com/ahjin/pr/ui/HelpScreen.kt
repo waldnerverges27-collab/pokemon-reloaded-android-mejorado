@@ -53,6 +53,7 @@ private val TOPICS = listOf(
         listOf(
             "La app no incluye el juego. En Inicio, pulsa Descargar para abrir el blog del juego y bajar el .zip, o ve directo a Importar si ya lo tienes en el telefono.",
             "Con Importar eliges el .zip. La primera vez se descomprime (unos 320 MB; necesitas unos 350 MB libres) y despues solo hay que pulsar Jugar.",
+            "Tambien puedes mantener pulsado el .zip en tu administrador de archivos y elegir Abrir con > Pokemon Reloaded (o Compartir). La app mira que trae, te lo dice y no cambia nada hasta que confirmes. Vale para el juego, para copias de seguridad y para una partida suelta.",
         ),
     ),
     HelpTopic(

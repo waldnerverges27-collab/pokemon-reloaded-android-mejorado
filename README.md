@@ -118,6 +118,11 @@ rendimiento (FPS, milisegundos por fotograma y memoria) activado.
 2. Abre la app y pulsa **Importar** para elegir el `.zip` del juego (o **Descargar** para abrir el blog).
 3. Pulsa **Jugar**.
 
+También puedes mantener pulsado el `.zip` en tu administrador de archivos y elegir **Abrir con →
+Pokemon Reloaded** (o **Compartir** con la app). La app mira dentro del zip, te dice si es el juego, un
+conjunto de partidas o una sola partida, y no cambia nada hasta que confirmas. Sirve igual para el
+juego, para las copias de seguridad y para una partida exportada (esta te deja elegir el slot).
+
 Si ya jugabas en PC, tu partida entra desde **Ajustes → Partidas → Importar**.
 
 > **Sobre el paquete.** La app usa el identificador `com.ahjin.pr`. Es independiente de cualquier
@@ -450,6 +455,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.7.3** | **Abrir el `.zip` directamente desde el administrador de archivos:** mantén pulsado el zip y elige **Abrir con → Pokemon Reloaded** (o **Compartir**). La app mira dentro del zip y te pregunta qué hacer según lo que trae: instalar o reemplazar el juego, restaurar partidas, equipos y personajes, o poner una partida suelta en el slot que elijas. No cambia nada hasta que confirmas, y el progreso sigue aunque gires el móvil. |
 | **0.7.2** | **Solo los botones necesarios en cada pantalla:** la mochila, el mapa, el equipo Pokémon, los datos del entrenador, la Pokédex, el móvil, las opciones, las misiones y las tiendas (comprar, vender, canjear y el PC) dejan de mostrar los botones del mundo; quedan el joystick, **Z** y **X**, más **C** donde sirve para ordenar la lista o mover el cursor del mapa. Los botones se mueven en Posición y tamaño de los botones > pestaña **Pantallas**. |
 | **0.7.1** | **Corrección de dos fallos de la 0.7.0:** con la tabla de tipos abierta el juego ahora **se detiene por completo** (el rival ya no ataca mientras la miras; también se cierra con cualquier botón del mando) y los **atajos de Android** ya abren el juego (fallaban al arrancarlo desde fuera de una actividad, y la app se cerraba). |
 | **0.7.0** | Cinco funciones nuevas, todas **opcionales y apagadas por defecto**: **velocidad ajustable** (cámara lenta ×0,5 y ×0,75, además de ×1,5, ×2, ×3 y ×4), **tabla de tipos** en combate (la imagen de efectividades del propio juego, sin salir de la partida), **correr fijo** (un toque deja X pulsada y otro la suelta, y se libera sola al abrir un menú, un diálogo o un combate), **botón turbo** (mantenerlo pulsa Z unas 7 veces por segundo) y **atajos de Android** al mantener pulsado el icono (Continuar y Cargar guardado rápido). Se añaden desde Posición y tamaño de los botones > Botones especiales; los botones propios ganan un modo (normal, turbo, fijo) y la pantalla de Diálogos. |
@@ -474,6 +480,9 @@ Cada versión, con su APK, está en [Releases](../../releases).
   probado en un **Samsung Galaxy S21 5G** y en un **Samsung Galaxy A53 5G**.
 - El motor de **32 bits (armeabi-v7a)** se compila y empaqueta, pero no se ha probado en ningún móvil de 32 bits.
 - El **guardado rápido** es una función experimental. Si algo falla, el log lo registrará.
+- **Abrir con** (0.7.3) se ha probado con pruebas automáticas sobre zips de ejemplo, pero no en
+  todos los administradores de archivos: cada uno describe el zip a su manera. Si el tuyo no muestra la
+  app al mantener pulsado el zip, usa **Compartir** o el botón **Importar**, y cuéntanos cuál es.
 - Los **botones por pantalla** de la 0.7.2 se han comprobado en el móvil con la mochila y el equipo; las
   demás pantallas (tiendas, Pokédex, móvil, misiones…) se detectan por los datos del propio juego, pero
   no se han recorrido una a una. Si alguna enseña botones de más o de menos, abre un log desde

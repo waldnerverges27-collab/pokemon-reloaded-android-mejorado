@@ -23,6 +23,69 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- "Abrir con" on a zip, from any file manager: the game's zip, or saves. Each manager
+                 describes a zip its own way, so the usual types are listed, then the extension for the
+                 ones that send a generic type or none. Content and file URIs both. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/x-zip-compressed" />
+                <data android:mimeType="application/x-zip" />
+                <data android:mimeType="multipart/x-zip" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:pathPattern=".*\\.zip" />
+                <data android:pathPattern=".*\\.ZIP" />
+                <data android:pathPattern=".*\\..*\\.zip" />
+                <data android:pathPattern=".*\\..*\\.ZIP" />
+                <data android:pathPattern=".*\\..*\\..*\\.zip" />
+                <data android:pathPattern=".*\\..*\\..*\\.ZIP" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.zip" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.ZIP" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\.zip" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\.ZIP" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\.zip" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\.ZIP" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\..*\\.zip" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\..*\\.ZIP" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.zip" />
+                <data android:pathPattern=".*\\.ZIP" />
+                <data android:pathPattern=".*\\..*\\.zip" />
+                <data android:pathPattern=".*\\..*\\.ZIP" />
+                <data android:pathPattern=".*\\..*\\..*\\.zip" />
+                <data android:pathPattern=".*\\..*\\..*\\.ZIP" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.zip" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.ZIP" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\.zip" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\.ZIP" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\.zip" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\.ZIP" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\..*\\.zip" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\..*\\.ZIP" />
+            </intent-filter>
+            <!-- "Compartir" a zip with the app. Only the zip types: a share has no name to check. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/x-zip-compressed" />
+            </intent-filter>
             <!-- The shortcuts of the launcher icon (hold it): continue, and load the quick save. -->
             <meta-data
                 android:name="android.app.shortcuts"

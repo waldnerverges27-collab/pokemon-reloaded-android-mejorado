@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +40,7 @@ import com.ahjin.pr.Emulator
 import com.ahjin.pr.GameRepository
 import com.ahjin.pr.Preferences
 import com.ahjin.pr.Update
+import com.ahjin.pr.ZipIntake
 import com.ahjin.pr.installUpdate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -49,7 +51,7 @@ private enum class Pushed { About, Controls, Layout, MySaves, Extras, Backups, H
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun App(repo: GameRepository, prefs: Preferences) {
+fun App(repo: GameRepository, prefs: Preferences, incoming: android.net.Uri? = null, onIncomingClosed: () -> Unit = {}) {
     var onboarded by remember { mutableStateOf(prefs.onboardingDone) }
     var tab by remember { mutableStateOf(Tab.Home) }
     var pushed by remember { mutableStateOf<Pushed?>(null) }
@@ -61,6 +63,12 @@ fun App(repo: GameRepository, prefs: Preferences) {
     // the launcher comes back to the front.
     var launching by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // A zip opened from a file manager ("Abrir con"). Its dialog sits above everything, the first-run
+    // screens included, and when an import ends the screens behind it read the game again.
+    val imports by ZipIntake.changes.collectAsState()
+    LaunchedEffect(imports) { if (imports > 0) revision++ }
+    incoming?.let { IncomingZipDialog(it, repo, onClose = onIncomingClosed) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -172,6 +180,7 @@ fun App(repo: GameRepository, prefs: Preferences) {
         Onboarding(
             repo = repo,
             prefs = prefs,
+            refresh = imports,
             onFinish = { onboarded = true },
         )
         return
