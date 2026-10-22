@@ -583,7 +583,7 @@ pub fn keeps_art(name: &str) -> bool {
     name == LEFT_ARROW_NAME || name == RIGHT_ARROW_NAME
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Icon {
     Pause,
     Back,
@@ -623,7 +623,13 @@ pub enum Icon {
     Box,
     /// Two opposite arrows: switch.
     Swap,
+    /// The mega evolution. Only the game's own `M` wears it in battle; it draws like the star when
+    /// there is no picture of the game to borrow.
+    Mega,
 }
+
+/// How many pictures there are, for tables that hold one slot per icon.
+pub const ICON_COUNT: usize = Icon::Mega as usize + 1;
 
 /// The pictures a custom button can wear, by the names the editor writes after a `~`.
 pub fn icon_named(name: &str) -> Option<Icon> {
@@ -673,6 +679,11 @@ pub fn icon_at(index: usize) -> Option<Icon> {
 
 static FUNCTION_ICONS: AtomicBool = AtomicBool::new(true);
 
+/// Whether the function pictures are on (the buttons borrow the game's own art only then).
+pub fn function_icons() -> bool {
+    FUNCTION_ICONS.load(Ordering::Relaxed)
+}
+
 /// Whether the game's own buttons wear a picture of what they do (otherwise, their letter).
 pub fn set_function_icons(value: bool) {
     FUNCTION_ICONS.store(value, Ordering::Relaxed);
@@ -699,7 +710,7 @@ pub fn icon_for(name: &str, context: u8) -> Option<Icon> {
         "v" if world => Some(Icon::Bike),
         "space" => Some(Icon::Team),
         "o" => Some(Icon::Bag),
-        "m" => Some(if context & BATTLE != 0 { Icon::Star } else { Icon::Map }),
+        "m" => Some(if context & BATTLE != 0 { Icon::Mega } else { Icon::Map }),
         "e" => Some(if fight { Icon::Exit } else { Icon::Smile }),
         "t" => Some(if context & BATTLE != 0 { Icon::Clock } else { Icon::Chat }),
         "l" => Some(Icon::Magnifier),
@@ -1547,7 +1558,7 @@ mod tests {
         assert!(matches!(icon_for("v", WORLD), Some(Icon::Bike)));
         assert!(icon_for("v", BATTLE).is_none());
         assert!(matches!(icon_for("m", WORLD), Some(Icon::Map)));
-        assert!(matches!(icon_for("m", BATTLE), Some(Icon::Star)));
+        assert!(matches!(icon_for("m", BATTLE), Some(Icon::Mega)));
         assert!(matches!(icon_for("e", WORLD), Some(Icon::Smile)));
         assert!(matches!(icon_for("e", SAFARI), Some(Icon::Exit)));
         assert!(matches!(icon_for("t", BATTLE), Some(Icon::Clock)));

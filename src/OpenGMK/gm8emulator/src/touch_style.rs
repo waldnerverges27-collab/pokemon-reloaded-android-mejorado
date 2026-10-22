@@ -229,7 +229,7 @@ fn icon(c: &mut Canvas, kind: Icon, cx: f32, cy: f32, size: f32, col: Color) {
             c.polyline(&[(cx - 0.06 * d * size, cy - 0.34 * size), (cx + 0.4 * d * size, cy), (cx - 0.06 * d * size, cy + 0.34 * size)], width, col);
         },
         // Five points, outline only.
-        Icon::Star => {
+        Icon::Star | Icon::Mega => {
             let mut points = Vec::with_capacity(11);
             for i in 0..=10 {
                 let angle = -std::f32::consts::FRAC_PI_2 + i as f32 * std::f32::consts::PI / 5.0;

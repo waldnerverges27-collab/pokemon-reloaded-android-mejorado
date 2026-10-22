@@ -30,6 +30,9 @@ mod touch_style;
 /// `dump_layout` example can turn the built-in layout into the file the launcher app draws.
 pub mod touch_controls;
 
+/// The pictures the on-screen buttons borrow from the game's own sprites.
+pub mod game_art;
+
 /// Settings and live state of the extras of the Android build (quick save, fast-forward, filters).
 pub mod extras;
 

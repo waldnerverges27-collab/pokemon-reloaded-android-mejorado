@@ -280,6 +280,12 @@ struct Overlay {
     /// The party's own sprite strip, one cell per slot, refilled when the game's party changes.
     party: GLuint,
     party_version: u64,
+    /// The pictures the buttons borrow from the game's own sprites, side by side in one texture
+    /// (0 until there are any), and where each icon's picture sits: its texture rectangle and its
+    /// width over height.
+    icons: GLuint,
+    icons_version: u64,
+    icon_slots: [Option<[f32; 5]>; crate::touch_controls::ICON_COUNT],
 }
 
 #[cfg(target_os = "android")]
@@ -292,6 +298,11 @@ impl Overlay {
     /// The shape of a control's artwork, so it can be drawn as it was painted.
     fn art_aspect(&self, name: &str) -> Option<f32> {
         self.slots.iter().flatten().find(|slot| slot.name == name).map(|slot| slot.aspect)
+    }
+
+    /// The game's own picture of an icon, if it was found.
+    fn icon_art(&self, icon: crate::touch_controls::Icon) -> Option<[f32; 5]> {
+        self.icon_slots[icon as usize]
     }
 }
 
@@ -1054,6 +1065,69 @@ fn load_skin(gl: &gl::Gl) -> (GLuint, [Option<SkinSlot>; MAX_SKIN_SLOTS]) {
     }
 }
 
+/// Puts the pictures the buttons borrow from the game in one small texture, side by side with a
+/// transparent column between them, and says where each sits. The previous texture is released.
+/// Returns 0 and no slots when nothing was kept (the buttons then keep their drawn icons).
+#[cfg(target_os = "android")]
+fn build_icons(gl: &gl::Gl, old: GLuint) -> (GLuint, [Option<[f32; 5]>; crate::touch_controls::ICON_COUNT]) {
+    let mut slots = [None; crate::touch_controls::ICON_COUNT];
+    unsafe {
+        if old != 0 {
+            gl.DeleteTextures(1, &old);
+        }
+    }
+    let pictures = crate::game_art::pictures();
+    if pictures.is_empty() {
+        return (0, slots)
+    }
+    let width: u32 = pictures.iter().map(|p| p.width + 1).sum();
+    let height: u32 = pictures.iter().map(|p| p.height).max().unwrap_or(1);
+    let mut pixels = vec![0u8; (width * height * 4) as usize];
+    let mut x = 0u32;
+    for picture in &pictures {
+        let row = (picture.width * 4) as usize;
+        for y in 0..picture.height as usize {
+            let dst = ((y as u32 * width + x) * 4) as usize;
+            pixels[dst..dst + row].copy_from_slice(&picture.rgba[y * row..(y + 1) * row]);
+        }
+        slots[picture.icon as usize] = Some([
+            x as f32 / width as f32,
+            0.0,
+            (x + picture.width) as f32 / width as f32,
+            picture.height as f32 / height as f32,
+            picture.width as f32 / picture.height as f32,
+        ]);
+        x += picture.width + 1;
+    }
+    unsafe {
+        let mut texture = 0;
+        gl.GenTextures(1, &mut texture);
+        gl.BindTexture(gl::TEXTURE_2D, texture);
+        gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+        gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+        gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as _);
+        gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as _);
+        gl.TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGBA as _,
+            width as _,
+            height as _,
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            pixels.as_ptr().cast(),
+        );
+        if gl.GetError() != 0 {
+            // Never leave the overlay without its controls over a picture that would not upload.
+            gl.DeleteTextures(1, &texture);
+            return (0, [None; crate::touch_controls::ICON_COUNT])
+        }
+        eprintln!("[overlay] {} imagenes del juego para los botones ({}x{})", pictures.len(), width, height);
+        (texture, slots)
+    }
+}
+
 /// Creates the strip the party's six sprites go in: one square cell each, transparent to start with.
 #[cfg(target_os = "android")]
 unsafe fn create_party_texture(gl: &gl::Gl) -> GLuint {
@@ -1290,6 +1364,9 @@ impl RendererImpl {
                 loc_tex: o.loc_tex,
                 party: o.party,
                 party_version: o.party_version,
+                icons: o.icons,
+                icons_version: o.icons_version,
+                icon_slots: o.icon_slots,
             }
         }
         unsafe {
@@ -1355,7 +1432,21 @@ impl RendererImpl {
             self.gl.GenBuffers(1, &mut vbo);
             // u64::MAX on purpose: it no longer matches the party's version, so the first frame
             // fills the strip.
-            let fields = Overlay { program, vao, vbo, white, skin, slots, loc_tex, party, party_version: u64::MAX };
+            // The same goes for the borrowed pictures: no texture yet, and a version nothing matches.
+            let fields = Overlay {
+                program,
+                vao,
+                vbo,
+                white,
+                skin,
+                slots,
+                loc_tex,
+                party,
+                party_version: u64::MAX,
+                icons: 0,
+                icons_version: u64::MAX,
+                icon_slots: [None; crate::touch_controls::ICON_COUNT],
+            };
             self.overlay = Some(fields);
             fields
         }
@@ -1422,6 +1513,21 @@ impl RendererImpl {
             }
         }
 
+        // The pictures borrowed from the game appear once its sprites are read: rebuild their
+        // texture when that changes.
+        let icons_version = crate::game_art::version();
+        if overlay.icons_version != icons_version {
+            let (texture, slots) = build_icons(&self.gl, overlay.icons);
+            overlay.icons = texture;
+            overlay.icon_slots = slots;
+            overlay.icons_version = icons_version;
+            if let Some(stored) = self.overlay.as_mut() {
+                stored.icons = texture;
+                stored.icon_slots = slots;
+                stored.icons_version = icons_version;
+            }
+        }
+
         let dt = touch_controls::anim_tick();
         let native = touch_controls::native_style();
         let fade = crate::extras::overlay_fade();
@@ -1434,6 +1540,8 @@ impl RendererImpl {
         let mut sprites: Vec<f32> = Vec::new();
         // The party's sprites come from a texture of their own, so they travel in their own batch.
         let mut party_sprites: Vec<f32> = Vec::new();
+        // The buttons' pictures taken from the game, in the texture built for them.
+        let mut icon_sprites: Vec<f32> = Vec::new();
         for (i, c) in touch_controls::CONTROLS.iter().enumerate() {
             if !touch_controls::is_active(i) {
                 continue
@@ -1464,6 +1572,32 @@ impl RendererImpl {
                     touch_controls::Label::Text(text) => text,
                     _ => "",
                 };
+                // The game's own picture of what the button does, when it has one: the disc is
+                // drawn without a symbol and the picture goes over it.
+                let icon = touch_controls::icon_at(i);
+                let art = match icon {
+                    Some(kind) if touch_controls::function_icons() => overlay.icon_art(kind),
+                    _ => None,
+                };
+                if let Some(uv) = art {
+                    // Fit the picture in a square, keeping its shape, and sink it with the button.
+                    let size = r * 0.66 * (1.0 - 0.09 * press.clamp(0.0, 1.0));
+                    let (half_w, half_h) = if uv[4] >= 1.0 { (size, size / uv[4]) } else { (size * uv[4], size) };
+                    push_sprite(
+                        &mut icon_sprites,
+                        ww,
+                        wh,
+                        cx - half_w,
+                        cy - half_h,
+                        cx + half_w,
+                        cy + half_h,
+                        uv[0],
+                        uv[1],
+                        uv[2],
+                        uv[3],
+                        opacity,
+                    );
+                }
                 crate::touch_style::draw_button(
                     &mut verts,
                     ww,
@@ -1476,8 +1610,8 @@ impl RendererImpl {
                         tinted,
                         press,
                         opacity,
-                        label,
-                        icon: touch_controls::icon_at(i),
+                        label: if art.is_some() { "" } else { label },
+                        icon: if art.is_some() { None } else { icon },
                     },
                 );
                 continue;
@@ -1608,7 +1742,7 @@ impl RendererImpl {
             }
         }
 
-        if verts.is_empty() && sprites.is_empty() && party_sprites.is_empty() {
+        if verts.is_empty() && sprites.is_empty() && party_sprites.is_empty() && icon_sprites.is_empty() {
             return
         }
         unsafe {
@@ -1663,6 +1797,13 @@ impl RendererImpl {
                 gl.BindTexture(gl::TEXTURE_2D, overlay.party);
                 gl.BufferData(gl::ARRAY_BUFFER, (party_sprites.len() * 4) as _, party_sprites.as_ptr().cast(), gl::STREAM_DRAW);
                 gl.DrawArrays(gl::TRIANGLES, 0, (party_sprites.len() / 8) as i32);
+            }
+
+            if !icon_sprites.is_empty() && overlay.icons != 0 {
+                // The pictures from the game go last, over their buttons.
+                gl.BindTexture(gl::TEXTURE_2D, overlay.icons);
+                gl.BufferData(gl::ARRAY_BUFFER, (icon_sprites.len() * 4) as _, icon_sprites.as_ptr().cast(), gl::STREAM_DRAW);
+                gl.DrawArrays(gl::TRIANGLES, 0, (icon_sprites.len() / 8) as i32);
             }
 
             gl.BindVertexArray(prev_vao as u32);

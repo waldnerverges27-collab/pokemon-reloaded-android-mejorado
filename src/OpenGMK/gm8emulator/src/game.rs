@@ -938,6 +938,15 @@ impl Game {
             })
             .collect::<Vec<_>>();
 
+        // Before the frames are packed away into the atlas, keep the few the touch buttons borrow.
+        for sprite in sprites.iter().flatten() {
+            for (icon, index) in crate::game_art::wanted(&sprite.name.0) {
+                if let Some(frame) = sprite.frames.get(index) {
+                    crate::game_art::store(icon, frame.width, frame.height, &frame.data);
+                }
+            }
+        }
+
         let sprites = sprites
             .into_iter()
             .map(|o| {
