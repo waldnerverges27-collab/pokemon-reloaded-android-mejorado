@@ -86,6 +86,7 @@ private val screens = listOf(
     Screen("Mundo", Layout.WORLD),
     Screen("Dialogos", Layout.DIALOG),
     Screen("Menus", Layout.MENU or Layout.MENU_NAV),
+    Screen("Pantallas", Layout.SCREEN or Layout.SCREEN_C),
     Screen("Combate", Layout.BATTLE),
     Screen("Safari", Layout.SAFARI),
     Screen("Elegir personaje", Layout.CHARACTER),

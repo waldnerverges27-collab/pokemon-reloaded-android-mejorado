@@ -2007,6 +2007,9 @@ impl Game {
         crate::touch_controls::set_room(self.room.id);
         crate::touch_controls::set_dialogue(self.dialogue_open());
         crate::touch_controls::set_box_open(self.inside_box());
+        crate::touch_controls::set_shop_open(
+            crate::touch_controls::SHOP_OBJECTS.iter().any(|&object| self.room.instance_list.count(object) != 0),
+        );
         crate::touch_controls::set_text_entry(self.text_entry_open());
         crate::touch_controls::set_picker_boxes(self.picker_boxes());
         crate::touch_controls::set_modal_open(self.modal_system() > 0);

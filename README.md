@@ -386,6 +386,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.7.2** | **Solo los botones necesarios en cada pantalla:** la mochila, el mapa, el equipo Pokémon, los datos del entrenador, la Pokédex, el móvil, las opciones, las misiones y las tiendas (comprar, vender, canjear y el PC) dejan de mostrar los botones del mundo; quedan el joystick, **Z** y **X**, más **C** donde sirve para ordenar la lista o mover el cursor del mapa. Los botones se mueven en Posición y tamaño de los botones > pestaña **Pantallas**. |
 | **0.7.1** | **Corrección de dos fallos de la 0.7.0:** con la tabla de tipos abierta el juego ahora **se detiene por completo** (el rival ya no ataca mientras la miras; también se cierra con cualquier botón del mando) y los **atajos de Android** ya abren el juego (fallaban al arrancarlo desde fuera de una actividad, y la app se cerraba). |
 | **0.7.0** | Cinco funciones nuevas, todas **opcionales y apagadas por defecto**: **velocidad ajustable** (cámara lenta ×0,5 y ×0,75, además de ×1,5, ×2, ×3 y ×4), **tabla de tipos** en combate (la imagen de efectividades del propio juego, sin salir de la partida), **correr fijo** (un toque deja X pulsada y otro la suelta, y se libera sola al abrir un menú, un diálogo o un combate), **botón turbo** (mantenerlo pulsa Z unas 7 veces por segundo) y **atajos de Android** al mantener pulsado el icono (Continuar y Cargar guardado rápido). Se añaden desde Posición y tamaño de los botones > Botones especiales; los botones propios ganan un modo (normal, turbo, fijo) y la pantalla de Diálogos. |
 | **0.6.4** | **Z y X vuelven a ser letras** en todas las pantallas. Los dibujos de los botones se ven más nítidos: cada pixel del dibujo ocupa un número entero de pixeles de pantalla y el dibujo se alinea a la cuadrícula, con contorno oscuro si le falta y colores algo más vivos. La mochila es la **mochila roja con Poké Ball de la pantalla de objetos del juego**; el disquete y el regalo también son del juego. |
@@ -411,7 +412,7 @@ Cada versión, con su APK, está en [Releases](../../releases).
 - La versión **0.6.0** está verificada con pruebas automáticas y compilación, pero todavía no con
   uso real en el móvil: las copias de seguridad, los iconos de botones y los atajos de mando son
   nuevos. Si algo no va bien, comparte el informe de diagnóstico.
-- La versión **0.7.1** (velocidad ajustable, tabla de tipos, correr fijo, turbo y atajos de Android)
+- La versión **0.7.2** (botones por pantalla, además de lo de la 0.7.0 y la 0.7.1)
   está verificada con pruebas automáticas y compilación, pero todavía no en el móvil.
 - La app sigue en desarrollo y puede fallar. Si ocurre, guarda un log desde **Ajustes → Logs** y
   abre un [issue](../../issues) con él.

@@ -19,7 +19,7 @@
 use ramen::input::Key;
 use std::{
     sync::{
-        atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64, AtomicU8, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU16, AtomicU64, AtomicUsize, Ordering},
         Mutex,
     },
     time::{Duration, Instant},
@@ -64,25 +64,33 @@ impl Sticky {
 }
 
 /// Which game states a control is shown in.
-pub const MENU: u8 = 1;
-pub const WORLD: u8 = 2;
-pub const BATTLE: u8 = 4;
+pub const MENU: u16 = 1;
+pub const WORLD: u16 = 2;
+pub const BATTLE: u16 = 4;
 /// A dialogue box is open: only the button that advances it is shown, so nothing covers the text.
-pub const DIALOG: u8 = 8;
+pub const DIALOG: u16 = 8;
 /// A new game asking you to pick your character. That screen is moved with the left and right keys,
 /// so it gets a pair of arrows and nothing else.
-pub const CHARACTER: u8 = 16;
+pub const CHARACTER: u16 = 16;
 /// A modal asking you to pick from a list of options - the preferences the new game asks about right
 /// after the character, drawn over that same screen. The list is walked with the movement keys and
 /// answered with Z and X, so it gets the joystick and those two buttons, and nothing else.
-pub const CHOICE: u8 = 32;
+pub const CHOICE: u16 = 32;
 /// The Safari Zone's catching room: everything the map shows, minus the movement stick and the
 /// attack diamond - none of your own Pokémon fights there - plus the ball, which is the key that
 /// room answers to for throwing. The flee (E), the bag and the rest stay where the map has them.
-pub const SAFARI: u8 = 64;
+pub const SAFARI: u16 = 64;
 /// One of the game's option lists (the start menu, the bag's action list, options...). They are
 /// walked with the movement keys and the entries are tapped directly, so only the joystick is left.
-pub const MENU_NAV: u8 = 128;
+pub const MENU_NAV: u16 = 128;
+/// One of the game's full-screen menus (the bag, the map, the team, the trainer card...) or one of its
+/// shops. They are walked with the movement keys and answered with Z and X, so those and the stick are
+/// all they get; everything the overworld has (the number keys, the bag and map shortcuts, the
+/// diamond's C and V...) would only cover the menu, and its keys do nothing there.
+pub const SCREEN: u16 = 256;
+/// Like [SCREEN], for the menus whose list or cursor has a third key of its own: C sorts the bag, the
+/// team and the Pokédex, and moves the map's cursor.
+pub const SCREEN_C: u16 = 512;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Shape {
@@ -113,7 +121,7 @@ pub struct Control {
     pub shape: Shape,
     pub label: Label,
     /// Bitmask of [MENU] / [WORLD] / [BATTLE] states this control belongs to.
-    pub contexts: u8,
+    pub contexts: u16,
 }
 
 /// The joystick is not a button but is customised (and saved) the same way.
@@ -139,9 +147,9 @@ pub const CONTROLS: &[Control] = &[
     // Main actions, in the diamond a gamepad's face buttons use: the main one at the bottom, cancel
     // to the right, and the other two on the left and on top. The cluster is about the size of the
     // movement joystick and sits at the same height, so the two thumbs fall in the same place.
-    Control { name: "z", key: Key::Z, shape: Shape::Circle { cx: 0.865, cy: 0.851, r: 0.033 }, label: Label::Text("Z"), contexts: WORLD | BATTLE | CHOICE },
-    Control { name: "x", key: Key::X, shape: Shape::Circle { cx: 0.933, cy: 0.700, r: 0.033 }, label: Label::Text("X"), contexts: WORLD | BATTLE | CHOICE | MENU_NAV },
-    Control { name: "c", key: Key::C, shape: Shape::Circle { cx: 0.797, cy: 0.700, r: 0.033 }, label: Label::Text("C"), contexts: WORLD | BATTLE },
+    Control { name: "z", key: Key::Z, shape: Shape::Circle { cx: 0.865, cy: 0.851, r: 0.033 }, label: Label::Text("Z"), contexts: WORLD | BATTLE | CHOICE | SCREEN | SCREEN_C },
+    Control { name: "x", key: Key::X, shape: Shape::Circle { cx: 0.933, cy: 0.700, r: 0.033 }, label: Label::Text("X"), contexts: WORLD | BATTLE | CHOICE | MENU_NAV | SCREEN | SCREEN_C },
+    Control { name: "c", key: Key::C, shape: Shape::Circle { cx: 0.797, cy: 0.700, r: 0.033 }, label: Label::Text("C"), contexts: WORLD | BATTLE | SCREEN_C },
     Control { name: "v", key: Key::V, shape: Shape::Circle { cx: 0.865, cy: 0.549, r: 0.033 }, label: Label::Text("V"), contexts: WORLD | BATTLE },
     // Secondary.
     Control { name: "b", key: Key::B, shape: Shape::Circle { cx: 0.712, cy: 0.840, r: 0.026 }, label: Label::Text("B"), contexts: BATTLE | SAFARI },
@@ -296,7 +304,7 @@ pub fn is_lit(index: usize) -> bool {
 
 /// The table of types, over the game. The value is the screen it was opened on (0 = closed): the
 /// table closes by itself when the game moves to another one.
-static TYPE_CHART: AtomicU8 = AtomicU8::new(0);
+static TYPE_CHART: AtomicU16 = AtomicU16::new(0);
 
 pub fn type_chart_open() -> bool {
     TYPE_CHART.load(Ordering::Relaxed) != 0
@@ -326,7 +334,7 @@ pub struct CustomDef {
     pub label: &'static str,
     /// A picture instead of the label: the label is written `~name` (see `icon_named`).
     pub icon: Option<Icon>,
-    pub contexts: u8,
+    pub contexts: u16,
 }
 
 pub const CUSTOM_SLOTS: usize = 8;
@@ -343,7 +351,7 @@ fn custom_def(index: usize) -> Option<CustomDef> {
 }
 
 /// The screens a control belongs to: its own, or the ones the player gave a custom button.
-pub fn contexts_of(index: usize) -> u8 {
+pub fn contexts_of(index: usize) -> u16 {
     if custom_slot(CONTROLS[index].name).is_some() {
         return custom_def(index).map(|def| def.contexts).unwrap_or(0)
     }
@@ -643,7 +651,7 @@ pub fn load_layout(text: &str) {
             let (Some((key, mode)), Some(label), Some(Ok(contexts))) = (
                 parts.next().and_then(parse_custom_token),
                 parts.next(),
-                parts.next().map(|v| v.parse::<u8>()),
+                parts.next().map(|v| v.parse::<u16>()),
             ) else {
                 continue
             };
@@ -799,7 +807,7 @@ pub fn set_function_icons(value: bool) {
 /// The same key does different things in different places (`M` is the map out of battle and the
 /// mega evolution in it), so the picture follows the state. In battle `Z X C V` are the four
 /// attacks, whose slot is what matters there, so they keep their letters.
-pub fn icon_for(name: &str, context: u8) -> Option<Icon> {
+pub fn icon_for(name: &str, context: u16) -> Option<Icon> {
     if let Some(icon) = icon_of(name) {
         return Some(icon)
     }
@@ -1084,7 +1092,7 @@ fn log_state_change(room: i32) {
 fn log_state_change(_room: i32) {}
 
 /// Which group of controls the current game state needs.
-pub fn current_context() -> u8 {
+pub fn current_context() -> u16 {
     // A dialogue box takes over the overlay: only the buttons that go with it are shown, so the text
     // and the portrait stay readable.
     if dialogue_open() {
@@ -1141,14 +1149,58 @@ pub fn current_context() -> u8 {
         },
         // BattleROOM, BattleROOMAqua, BattleROOMLava.
         47 | 191 | 709 => BATTLE,
+        // The full-screen menus: each is a room of its own, entered from the map or from a battle.
+        room if screen_of(room).is_some() => screen_of(room).unwrap_or(WORLD),
         // The Safari Zone's catching room. Confirmed on the device: it reports room 715 while the
         // ball is being thrown there. It keeps the map's buttons bar the stick and the attacks.
         715 => SAFARI,
         // Before the first frame we don't know the room yet; show nothing rather than flashing the
         // whole overlay for one frame.
         -1 => MENU,
+        // A shop, or the screen that stores or takes an item at the PC, is not a room but an object
+        // the game puts over the map; it is walked the same way as the menus.
+        _ if shop_open() => SCREEN,
         _ => WORLD,
     }
+}
+
+/// The controls one of the game's full-screen menus needs, by the room it is in. `None` for any other
+/// room. The rooms are the ones the game names `PokemonMenu`, `PkmnHabMenu`, `PkmnMovMenu`,
+/// `PkmnInfoMenu`, `PokedexMenu`, `Pokedex2Menu`, `MapaMenu`, `OpcionesMenu`, `MochilaMenu`,
+/// `PersonajeMenu`, `HuevoMenu`, `MovilMenu`, `Pokedex3Menu`, `XpodMenu`, `LogrosMenu`,
+/// `TorneoEliminatoriasMenu`, `ComandosMenu`, `MisionesMenu` and `PokedexLugarMenu`.
+///
+/// The keys behind each screen are the ones its own key script reads (`MenuMochilaKeyActions`,
+/// `MainMenuPokemonKeyActions`, `ControlMapaKeyActions`...): Z and X and the arrows everywhere, and
+/// C where it sorts the list (the bag, the team, the Pokédex, the missions) or moves the map's cursor.
+/// The other keys those scripts read are shortcuts to entries of the list that Z opens.
+pub fn screen_of(room: i32) -> Option<u16> {
+    match room {
+        // PokemonMenu, MochilaMenu, PokedexMenu, Pokedex2Menu, Pokedex3Menu, MapaMenu, MisionesMenu.
+        4 | 32 | 17 | 18 | 266 | 21 | 516 => Some(SCREEN_C),
+        // PkmnHabMenu, PkmnMovMenu, PkmnInfoMenu, OpcionesMenu, PersonajeMenu, HuevoMenu, MovilMenu,
+        // XpodMenu, LogrosMenu, TorneoEliminatoriasMenu, ComandosMenu, PokedexLugarMenu.
+        5 | 6 | 7 | 31 | 44 | 117 | 212 | 410 | 436 | 449 | 514 | 525 => Some(SCREEN),
+        _ => None,
+    }
+}
+
+/// The ids of the game's objects that are a shop (`obj_compra`, `obj_venta`, `obj_venta_decoracion`)
+/// or the screens that exchange items (`obj_canjea_obj`, `obj_canjea_tutor`, `obj_canjea_mun`) or
+/// keep them at the PC (`obj_guardarObjetoPC`, `obj_sacarObjetoPC`). The game creates one of them
+/// over the map when it opens and destroys it when it closes.
+pub const SHOP_OBJECTS: [i32; 8] = [180, 181, 1282, 1181, 1182, 1288, 446, 447];
+
+static SHOP_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn set_shop_open(open: bool) {
+    if SHOP_OPEN.swap(open, Ordering::Relaxed) != open {
+        eprintln!("[overlay] tienda {}", if open { "abierta" } else { "cerrada" });
+    }
+}
+
+pub fn shop_open() -> bool {
+    SHOP_OPEN.load(Ordering::Relaxed)
 }
 
 /// True while the player is on a pad. The on-screen controls then step aside, because somebody
@@ -1216,7 +1268,7 @@ pub fn joystick_active() -> bool {
     !pad_active()
         && !info_window_open()
         && joystick_visible()
-        && current_context() & (WORLD | BATTLE | CHOICE | MENU_NAV) != 0
+        && current_context() & (WORLD | BATTLE | CHOICE | MENU_NAV | SCREEN | SCREEN_C) != 0
 }
 
 /// Returns the index of the control containing the point, if any. The point is normalised, but the
@@ -1696,6 +1748,34 @@ mod tests {
         assert!(type_chart_open());
         close_type_chart();
         assert!(!type_chart_open());
+    }
+
+    /// Which of the built-in buttons a screen shows, by name.
+    fn shown_on(context: u16) -> Vec<&'static str> {
+        CONTROLS
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| contexts_of(*index) & context != 0)
+            .map(|(_, control)| control.name)
+            .collect()
+    }
+
+    #[test]
+    fn the_menus_show_only_the_buttons_they_need() {
+        // The bag, the team, the map: the stick, Z, X and C. Nothing of the overworld.
+        for room in [32, 4, 21, 17, 516] {
+            assert_eq!(screen_of(room), Some(SCREEN_C), "room {room}");
+        }
+        assert_eq!(shown_on(SCREEN_C), ["z", "x", "c"]);
+        // The sub-screens and the plain menus have no use for C.
+        for room in [5, 6, 7, 31, 44, 212, 436] {
+            assert_eq!(screen_of(room), Some(SCREEN), "room {room}");
+        }
+        assert_eq!(shown_on(SCREEN), ["z", "x"]);
+        // The overworld, a battle, a title screen and the Safari are not menus.
+        for room in [0, 2, 47, 191, 715, 22, 465, 8] {
+            assert_eq!(screen_of(room), None, "room {room}");
+        }
     }
 
     #[test]

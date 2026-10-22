@@ -54,6 +54,10 @@ object Layout {
     const val CHARACTER = 16
     const val CHOICE = 32
     const val SAFARI = 64
+    /** The full-screen menus (bag, map, team...) and the shops: the stick, Z and X. */
+    const val SCREEN = 256
+    /** The same, for the ones whose list also uses C (to sort it, or to move the map's cursor). */
+    const val SCREEN_C = 512
 
     class Defaults(val controls: List<ControlSpec>, val joystick: ControlSpec)
 
@@ -72,7 +76,7 @@ object Layout {
         val j = root.getJSONObject("joystick")
         val stick = ControlSpec(
             JOYSTICK, "", j.getDouble("cx").toFloat(), j.getDouble("cy").toFloat(), j.getDouble("r").toFloat(),
-            WORLD or BATTLE or CHOICE,
+            WORLD or BATTLE or CHOICE or SCREEN or SCREEN_C,
         )
         return Defaults(controls, stick)
     }
@@ -237,7 +241,7 @@ object Layout {
                 // A custom button without its key, label and screens is no button at all.
                 val key = parts.getOrNull(4)?.let { normalizeKey(it) } ?: continue
                 val label = parts.getOrNull(5) ?: continue
-                val contexts = parts.getOrNull(6)?.toIntOrNull()?.takeIf { it in 1..255 } ?: continue
+                val contexts = parts.getOrNull(6)?.toIntOrNull()?.takeIf { it in 1..65535 } ?: continue
                 customs[slot] = CustomButton(slot, key, cleanLabel(label).ifEmpty { defaultLabel(key) }, contexts)
             }
             placements[name] = Placement(cx, cy, scale, visible)
