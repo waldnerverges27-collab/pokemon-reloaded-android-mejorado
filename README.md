@@ -59,7 +59,7 @@ de audio, controles, rendimiento y extras. Los controles táctiles cambian solos
 
 ## Capturas
 
-Capturas reales de la versión **0.7.2** en un RedMagic 8S Pro. En las de juego se ve el indicador de
+Capturas reales de la versión **0.7.2** en un RedMagic 8S Pro. La app también se ha probado en un Samsung Galaxy S21 5G y en un Samsung Galaxy A53 5G. En las de juego se ve el indicador de
 rendimiento (FPS, milisegundos por fotograma y memoria) activado.
 
 ### En el juego
@@ -107,6 +107,7 @@ rendimiento (FPS, milisegundos por fotograma y memoria) activado.
 ### Requisitos
 
 - Android 10 o superior (API 29).
+- Probado en RedMagic 8S Pro, Samsung Galaxy S21 5G y Samsung Galaxy A53 5G.
 - Un procesador de 64 bits (arm64-v8a). El APK incluye también el motor de 32 bits (armeabi-v7a).
 - El juego en un `.zip`, disponible en el [blog de F3R](https://pokemon-reloaded.blogspot.com/).
 - Unos 350 MB libres para el juego descomprimido (el `.zip` pesa unos 200 MB).
@@ -469,7 +470,8 @@ Cada versión, con su APK, está en [Releases](../../releases).
 
 ## Estado y problemas conocidos
 
-- Desarrollado y probado en un **RedMagic 8S Pro** (Snapdragon 8 Gen 2, Android 13, arm64).
+- Desarrollado y probado en un **RedMagic 8S Pro** (Snapdragon 8 Gen 2, Android 13, arm64). También se ha
+  probado en un **Samsung Galaxy S21 5G** y en un **Samsung Galaxy A53 5G**.
 - El motor de **32 bits (armeabi-v7a)** se compila y empaqueta, pero no se ha probado en ningún móvil de 32 bits.
 - El **guardado rápido** es una función experimental. Si algo falla, el log lo registrará.
 - Los **botones por pantalla** de la 0.7.2 se han comprobado en el móvil con la mochila y el equipo; las
