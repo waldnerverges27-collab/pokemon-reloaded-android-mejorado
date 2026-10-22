@@ -130,8 +130,6 @@ object Layout {
         val fight = context and (BATTLE or SAFARI) != 0
         val world = context and WORLD != 0
         return when (name) {
-            "z" -> "act".takeIf { world }
-            "x" -> "run".takeIf { world }
             "c" -> "hook".takeIf { world }
             "v" -> "bike".takeIf { world }
             "space" -> "team"

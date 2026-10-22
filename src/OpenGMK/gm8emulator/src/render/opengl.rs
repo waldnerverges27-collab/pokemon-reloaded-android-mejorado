@@ -282,10 +282,10 @@ struct Overlay {
     party_version: u64,
     /// The pictures the buttons borrow from the game's own sprites, side by side in one texture
     /// (0 until there are any), and where each icon's picture sits: its texture rectangle and its
-    /// width over height.
+    /// width over height and its size in pixels.
     icons: GLuint,
     icons_version: u64,
-    icon_slots: [Option<[f32; 5]>; crate::touch_controls::ICON_COUNT],
+    icon_slots: [Option<[f32; 7]>; crate::touch_controls::ICON_COUNT],
 }
 
 #[cfg(target_os = "android")]
@@ -301,7 +301,7 @@ impl Overlay {
     }
 
     /// The game's own picture of an icon, if it was found.
-    fn icon_art(&self, icon: crate::touch_controls::Icon) -> Option<[f32; 5]> {
+    fn icon_art(&self, icon: crate::touch_controls::Icon) -> Option<[f32; 7]> {
         self.icon_slots[icon as usize]
     }
 }
@@ -1069,7 +1069,7 @@ fn load_skin(gl: &gl::Gl) -> (GLuint, [Option<SkinSlot>; MAX_SKIN_SLOTS]) {
 /// transparent column between them, and says where each sits. The previous texture is released.
 /// Returns 0 and no slots when nothing was kept (the buttons then keep their drawn icons).
 #[cfg(target_os = "android")]
-fn build_icons(gl: &gl::Gl, old: GLuint) -> (GLuint, [Option<[f32; 5]>; crate::touch_controls::ICON_COUNT]) {
+fn build_icons(gl: &gl::Gl, old: GLuint) -> (GLuint, [Option<[f32; 7]>; crate::touch_controls::ICON_COUNT]) {
     let mut slots = [None; crate::touch_controls::ICON_COUNT];
     unsafe {
         if old != 0 {
@@ -1096,6 +1096,8 @@ fn build_icons(gl: &gl::Gl, old: GLuint) -> (GLuint, [Option<[f32; 5]>; crate::t
             (x + picture.width) as f32 / width as f32,
             picture.height as f32 / height as f32,
             picture.width as f32 / picture.height as f32,
+            picture.width as f32,
+            picture.height as f32,
         ]);
         x += picture.width + 1;
     }
@@ -1580,23 +1582,15 @@ impl RendererImpl {
                     _ => None,
                 };
                 if let Some(uv) = art {
-                    // Fit the picture in a square, keeping its shape, and sink it with the button.
-                    let size = r * 0.66 * (1.0 - 0.09 * press.clamp(0.0, 1.0));
-                    let (half_w, half_h) = if uv[4] >= 1.0 { (size, size / uv[4]) } else { (size * uv[4], size) };
-                    push_sprite(
-                        &mut icon_sprites,
-                        ww,
-                        wh,
-                        cx - half_w,
-                        cy - half_h,
-                        cx + half_w,
-                        cy + half_h,
-                        uv[0],
-                        uv[1],
-                        uv[2],
-                        uv[3],
-                        opacity,
-                    );
+                    // Every pixel of the picture is a whole number of screen pixels, and the picture
+                    // sits on the pixel grid: that is what keeps pixel art sharp (a fractional scale
+                    // makes some pixels wider than others and the edges look smeared). The size
+                    // aims at two thirds of the button, leaning to the smaller step.
+                    let target = r * 1.34;
+                    let scale = ((target / uv[5].max(uv[6])) + 0.35).floor().max(1.0);
+                    let (pw, ph) = (uv[5] * scale, uv[6] * scale);
+                    let (x1, y1) = ((cx - pw / 2.0).round(), (cy - ph / 2.0).round());
+                    push_sprite(&mut icon_sprites, ww, wh, x1, y1, x1 + pw, y1 + ph, uv[0], uv[1], uv[2], uv[3], opacity);
                 }
                 crate::touch_style::draw_button(
                     &mut verts,

@@ -1002,6 +1002,15 @@ impl Game {
             .collect::<Result<Vec<_>, ()>>()
             .expect("failed to pack sprites");
 
+        // Some pictures the touch buttons borrow are cut out of a background (the backpack).
+        for background in backgrounds.iter().flatten() {
+            if let Some(data) = &background.data {
+                if crate::game_art::wants_background(&background.name.0) {
+                    crate::game_art::store_background(&background.name.0, background.width, background.height, data);
+                }
+            }
+        }
+
         let backgrounds = backgrounds
             .into_iter()
             .map(|o| {

@@ -223,7 +223,7 @@ fun SettingsScreen(
                 SwitchRow(
                     icon = Icons.Filled.TouchApp,
                     title = "Iconos en los botones",
-                    subtitle = "Cada boton muestra lo que hace (mochila, mapa, bici...) con arte del juego en vez de su letra. En combate, Z X C V siguen con letra",
+                    subtitle = "Cada boton muestra lo que hace (mochila, mapa, bici...) con arte del juego en vez de su letra. Z y X siempre llevan su letra, y en combate tambien C y V",
                     checked = functionIcons,
                     items = 4,
                     index = 2,

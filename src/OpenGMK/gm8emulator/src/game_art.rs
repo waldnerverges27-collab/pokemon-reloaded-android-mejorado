@@ -25,12 +25,19 @@ pub const SOURCES: &[(Icon, &str, usize)] = &[
     (Icon::Map, "Spr_Objeto", 186),
     (Icon::Mega, "Spr_Objeto", 193),
     (Icon::Bolt, "Spr_ObjetoMT", 2),
-    (Icon::Bag, "spr_megaSack", 0),
+    (Icon::Save, "spr_save", 0),
+    (Icon::Box, "spr_regalo", 0),
     (Icon::Team, "IconosPokemon", 1),
     (Icon::Person, "spr_MedallaKanto", 3),
     (Icon::Magnifier, "spr_buscarPokedex", 0),
     (Icon::Clock, "spr_clock", 0),
 ];
+
+/// Pictures that are not sprites but part of a background of the game, cut out of it: (icon,
+/// background, left, top, width, height, the backdrop colours to make transparent). The backpack is
+/// painted on the bag screen and exists nowhere else.
+const CUTOUTS: &[(Icon, &str, u32, u32, u32, u32, &[[u8; 3]])] =
+    &[(Icon::Bag, "MenuMochila", 24, 40, 60, 60, &[[65, 176, 160], [53, 145, 131]])];
 
 /// Pictures of our own, painted in the game's pixel-art style (a dark outline, light on top and left,
 /// dark underneath) for the buttons whose job the game has no sprite for. They are only used where
@@ -66,6 +73,30 @@ pub fn wanted(sprite: &[u8]) -> Vec<(Icon, usize)> {
     SOURCES.iter().filter(|(_, name, _)| name.as_bytes() == sprite).map(|&(icon, _, frame)| (icon, frame)).collect()
 }
 
+/// Whether a background of the game has a picture cut out of it.
+pub fn wants_background(name: &[u8]) -> bool {
+    CUTOUTS.iter().any(|c| c.1.as_bytes() == name)
+}
+
+/// Cuts the wanted pictures out of a background (`data` is its raw BGRA pixels).
+pub fn store_background(name: &[u8], width: u32, height: u32, data: &[u8]) {
+    for &(icon, bg, left, top, w, h, keys) in CUTOUTS {
+        if bg.as_bytes() != name || data.len() != (width * height * 4) as usize || left + w > width || top + h > height {
+            continue
+        }
+        let mut rgba = Vec::with_capacity((w * h * 4) as usize);
+        for y in top..top + h {
+            for x in left..left + w {
+                let i = ((y * width + x) * 4) as usize;
+                let (b, g, r) = (data[i], data[i + 1], data[i + 2]);
+                let backdrop = keys.iter().any(|k| *k == [r, g, b]);
+                rgba.extend_from_slice(&[r, g, b, if backdrop { 0 } else { 255 }]);
+            }
+        }
+        store(icon, w, h, &rgba);
+    }
+}
+
 /// Keeps one frame (straight RGBA, `width * height * 4` bytes) as the picture of an icon.
 pub fn store(icon: Icon, width: u32, height: u32, data: &[u8]) {
     // The magnifier was drawn on a flat backdrop of its own: that colour is not part of the picture.
@@ -81,6 +112,7 @@ pub fn store(icon: Icon, width: u32, height: u32, data: &[u8]) {
         data
     };
     let Some(picture) = crop(icon, width, height, data) else { return };
+    let picture = finish(picture);
     let mut all = STORE.lock().unwrap_or_else(|e| e.into_inner());
     all.retain(|p| p.icon != icon);
     all.push(picture);
@@ -115,6 +147,93 @@ pub fn pictures() -> Vec<Picture> {
 /// Changes every time a picture is stored, so the renderer knows when to rebuild its texture.
 pub fn version() -> u64 {
     VERSION.load(Ordering::Acquire)
+}
+
+/// Makes a picture borrowed from the game read well over a button: bigger ones are halved so every
+/// pixel ends up a whole number of screen pixels, the colours get a little more life, and a picture
+/// whose edge is light gets the thin dark outline the game's own art has.
+fn finish(mut p: Picture) -> Picture {
+    while p.width.max(p.height) > 40 {
+        p = halve(&p);
+    }
+    for px in p.rgba.chunks_exact_mut(4) {
+        if px[3] == 0 {
+            continue
+        }
+        let mean = (u32::from(px[0]) + u32::from(px[1]) + u32::from(px[2])) as f32 / 3.0;
+        for c in &mut px[..3] {
+            *c = (mean + (f32::from(*c) - mean) * 1.18).clamp(0.0, 255.0) as u8;
+        }
+    }
+    let (w, h) = (p.width as usize, p.height as usize);
+    let opaque = |x: isize, y: isize| x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h && p.rgba[(y as usize * w + x as usize) * 4 + 3] > 8;
+    let (mut sum, mut count) = (0.0f32, 0.0f32);
+    for y in 0..h as isize {
+        for x in 0..w as isize {
+            if opaque(x, y) && [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(dx, dy)| !opaque(x + dx, y + dy)) {
+                let i = (y as usize * w + x as usize) * 4;
+                sum += 0.3 * f32::from(p.rgba[i]) + 0.59 * f32::from(p.rgba[i + 1]) + 0.11 * f32::from(p.rgba[i + 2]);
+                count += 1.0;
+            }
+        }
+    }
+    if count == 0.0 || sum / count < 70.0 {
+        return p
+    }
+    // One transparent pixel all round, then the outline in the pixels that touch the picture.
+    let (nw, nh) = (w + 2, h + 2);
+    let mut out = vec![0u8; nw * nh * 4];
+    for y in 0..h {
+        for x in 0..w {
+            let (src, dst) = ((y * w + x) * 4, ((y + 1) * nw + x + 1) * 4);
+            out[dst..dst + 4].copy_from_slice(&p.rgba[src..src + 4]);
+        }
+    }
+    for y in 0..nh as isize {
+        for x in 0..nw as isize {
+            if opaque(x - 1, y - 1) {
+                continue
+            }
+            if [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(dx, dy)| opaque(x - 1 + dx, y - 1 + dy)) {
+                let i = (y as usize * nw + x as usize) * 4;
+                out[i..i + 4].copy_from_slice(&[34, 30, 52, 255]);
+            }
+        }
+    }
+    Picture { icon: p.icon, width: nw as u32, height: nh as u32, rgba: out }
+}
+
+/// A picture at half the size, each pixel the average of four (weighted by how opaque they are).
+fn halve(p: &Picture) -> Picture {
+    let (w, h) = (p.width as usize, p.height as usize);
+    let (nw, nh) = ((w + 1) / 2, (h + 1) / 2);
+    let mut rgba = vec![0u8; nw * nh * 4];
+    for y in 0..nh {
+        for x in 0..nw {
+            let (mut acc, mut alpha, mut n) = ([0f32; 3], 0f32, 0f32);
+            for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                let (sx, sy) = (x * 2 + dx, y * 2 + dy);
+                n += 1.0;
+                if sx < w && sy < h {
+                    let i = (sy * w + sx) * 4;
+                    let a = f32::from(p.rgba[i + 3]);
+                    for c in 0..3 {
+                        acc[c] += f32::from(p.rgba[i + c]) * a;
+                    }
+                    alpha += a;
+                }
+            }
+            let i = (y * nw + x) * 4;
+            if alpha > 0.0 {
+                for c in 0..3 {
+                    rgba[i + c] = (acc[c] / alpha) as u8;
+                }
+                // A pixel that is mostly empty stays empty, so the outline does not thicken.
+                rgba[i + 3] = if alpha / n >= 128.0 { 255 } else { 0 };
+            }
+        }
+    }
+    Picture { icon: p.icon, width: nw as u32, height: nh as u32, rgba }
 }
 
 /// Cuts away the transparent border, so the picture fills the space it is given. None when the
@@ -171,12 +290,43 @@ mod tests {
         store(Icon::Act, 1, 1, &[1, 2, 3, 255]);
         let acts: Vec<_> = pictures().into_iter().filter(|p| p.icon == Icon::Act).collect();
         assert_eq!(acts.len(), 1);
-        assert_eq!(acts[0].rgba, vec![1, 2, 3, 255], "the game's own picture wins");
+        assert_eq!((acts[0].width, acts[0].height), (1, 1), "the game's own picture wins");
+    }
+
+    #[test]
+    fn a_light_edge_gets_an_outline_and_a_dark_one_does_not() {
+        // 6x6 light square: it ends up 8x8 with a dark ring.
+        let light: Vec<u8> = (0..36).flat_map(|_| [240, 240, 240, 255]).collect();
+        let p = finish(Picture { icon: Icon::Bike, width: 6, height: 6, rgba: light });
+        assert_eq!((p.width, p.height), (8, 8));
+        assert_eq!(&p.rgba[..4], &[0, 0, 0, 0], "the corners stay empty");
+        assert_eq!(&p.rgba[4..8], &[34, 30, 52, 255], "the pixel above the square is the outline");
+        // A square that already has a dark border is left as it is.
+        let dark: Vec<u8> = (0..36).flat_map(|_| [30, 30, 40, 255]).collect();
+        let p = finish(Picture { icon: Icon::Bike, width: 6, height: 6, rgba: dark });
+        assert_eq!((p.width, p.height), (6, 6));
+    }
+
+    #[test]
+    fn big_pictures_are_halved_and_cutouts_drop_their_backdrop() {
+        let p = Picture { icon: Icon::Bag, width: 56, height: 56, rgba: vec![200; 56 * 56 * 4] };
+        assert_eq!(finish(p).width.max(1), 28 + 2, "halved once, then outlined");
+        // A background of 8x8 BGRA pixels with the teal backdrop everywhere except one red pixel.
+        let mut bg = Vec::new();
+        for i in 0..64 {
+            bg.extend_from_slice(if i == 9 { &[10, 20, 200, 255] } else { &[160, 176, 65, 255] });
+        }
+        assert!(wants_background(b"MenuMochila"));
+        // The cut-out rectangle is bigger than this background, so nothing is stored.
+        let before = version();
+        store_background(b"MenuMochila", 8, 8, &bg);
+        assert_eq!(version(), before);
     }
 
     #[test]
     fn every_source_is_looked_up_by_its_sprite() {
         assert_eq!(wanted(b"Spr_Objeto").len(), 6);
+        assert_eq!(wanted(b"spr_save"), vec![(Icon::Save, 0)]);
         assert_eq!(wanted(b"spr_clock"), vec![(Icon::Clock, 0)]);
         assert!(wanted(b"nada").is_empty());
     }

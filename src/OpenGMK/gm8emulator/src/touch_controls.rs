@@ -704,8 +704,6 @@ pub fn icon_for(name: &str, context: u8) -> Option<Icon> {
     let fight = context & (BATTLE | SAFARI) != 0;
     let world = context & WORLD != 0;
     match name {
-        "z" if world => Some(Icon::Act),
-        "x" if world => Some(Icon::Run),
         "c" if world => Some(Icon::Hook),
         "v" if world => Some(Icon::Bike),
         "space" => Some(Icon::Team),
@@ -1557,6 +1555,9 @@ mod tests {
         // The main four are actions out of battle and attacks in it, where they keep their letters.
         assert!(matches!(icon_for("v", WORLD), Some(Icon::Bike)));
         assert!(icon_for("v", BATTLE).is_none());
+        // Z and X stay Z and X everywhere: they are the buttons the player presses most.
+        assert!(icon_for("z", WORLD).is_none());
+        assert!(icon_for("x", WORLD).is_none());
         assert!(matches!(icon_for("m", WORLD), Some(Icon::Map)));
         assert!(matches!(icon_for("m", BATTLE), Some(Icon::Mega)));
         assert!(matches!(icon_for("e", WORLD), Some(Icon::Smile)));
