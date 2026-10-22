@@ -51,7 +51,7 @@ private val TOPICS = listOf(
         Icons.Filled.PlayArrow,
         "Primeros pasos",
         listOf(
-            "La app no incluye el juego. En Inicio, pulsa Descargar para abrir el blog del juego y bajar el .zip, o ve directo a Importar si ya lo tienes en el telefono.",
+            "La app no incluye el juego. En Inicio, pulsa Descargar: te lleva directo al enlace de la ultima version del juego que ha publicado el autor, aunque la entrada mas reciente del blog sea solo noticias. Baja el .zip o ve directo a Importar si ya lo tienes en el telefono.",
             "Con Importar eliges el .zip. La primera vez se descomprime (unos 320 MB; necesitas unos 350 MB libres) y despues solo hay que pulsar Jugar.",
             "Tambien puedes mantener pulsado el .zip en tu administrador de archivos y elegir Abrir con > Pokemon Reloaded (o Compartir). La app mira que trae, te lo dice y no cambia nada hasta que confirmes. Vale para el juego, para copias de seguridad y para una partida suelta.",
         ),
@@ -90,6 +90,7 @@ private val TOPICS = listOf(
         Icons.Filled.Backup,
         "Copias de seguridad",
         listOf(
+            "Instalar una version nueva del juego (con Importar o con Abrir con) no borra tus partidas: los slots, los equipos y los personajes personalizados pasan a la instalacion nueva. Si el zip trae una partida en un slot que ya tienes, se queda la tuya.",
             "La app guarda copias de tus partidas por su cuenta: al abrir el juego (si han cambiado) y siempre antes de importar, borrar, reinstalar el juego o actualizar la app.",
             "Estan en Ajustes > Copias de seguridad. Desde ahi puedes restaurar una, compartirla o guardarla fuera del telefono. Restaurar guarda antes lo que tengas, asi que se puede deshacer.",
             "Las copias viven aparte del juego: borrar o reinstalar el juego no las toca. Desinstalar la app si las borra, asi que comparte una copia si vas a cambiar de telefono.",

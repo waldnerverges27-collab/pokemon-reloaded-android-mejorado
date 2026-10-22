@@ -54,8 +54,8 @@ android {
         applicationId = "com.ahjin.pr"
         minSdk = 29
         targetSdk = 36
-        versionCode = 24
-        versionName = "0.7.3"
+        versionCode = 25
+        versionName = "0.7.4"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
@@ -108,4 +108,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     testImplementation("junit:junit:4.13.2")
+    // The Android stubs of org.json do nothing in a plain JVM test, so the real library is used there.
+    testImplementation("org.json:json:20240303")
 }

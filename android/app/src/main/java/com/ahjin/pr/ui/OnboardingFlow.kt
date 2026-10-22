@@ -67,8 +67,9 @@ fun Onboarding(
     }
 
     val installed = status as? GameRepository.Status.Ready
-    val downloadUrl = post?.postUrl ?: post?.links?.firstOrNull()?.url
-    val postVersion = post?.version
+    val download = post?.download
+    val downloadUrl = download?.url ?: post?.postUrl ?: post?.links?.firstOrNull()?.url
+    val postVersion = download?.version
 
     fun finish() {
         prefs.onboardingDone = true
@@ -133,7 +134,7 @@ fun Onboarding(
             BigActionRow(
                 icon = Icons.Filled.Download,
                 title = "Descargar del blog",
-                subtitle = if (postVersion != null) "Version $postVersion" else "Abre la pagina de descarga",
+                subtitle = if (postVersion != null) "Version $postVersion, enlace directo" else "Abre la pagina de descarga",
                 items = 2,
                 index = 0,
                 enabled = downloadUrl != null && !busy,

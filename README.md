@@ -115,7 +115,7 @@ rendimiento (FPS, milisegundos por fotograma y memoria) activado.
 ### Instalación
 
 1. Descarga el APK de la [última versión](../../releases/latest) e instálalo.
-2. Abre la app y pulsa **Importar** para elegir el `.zip` del juego (o **Descargar** para abrir el blog).
+2. Abre la app y pulsa **Importar** para elegir el `.zip` del juego (o **Descargar**, que abre el enlace de la última versión del juego).
 3. Pulsa **Jugar**.
 
 También puedes mantener pulsado el `.zip` en tu administrador de archivos y elegir **Abrir con →
@@ -455,6 +455,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.7.4** | **Descargar va al enlace del juego, y instalar encima no toca tus partidas.** El botón **Descargar** ya no abre la última entrada del blog (que a veces es solo una noticia sin enlace): busca la entrada más reciente que trae el juego y abre directamente su enlace de MEGA (con el de Gofile como alternativo), con el número de versión de esa descarga. Se ignoran la carpeta de librerías y los parches «Delta». Al **importar o abrir con** un zip del juego sobre uno ya instalado, tus **partidas, equipos y personajes** se copian a la instalación nueva antes del cambio (si un slot existe en los dos, se queda el tuyo), y el juego anterior solo se retira cuando el nuevo está colocado: si algo falla, no se pierde nada. La copia de seguridad previa se sigue haciendo. |
 | **0.7.3** | **Abrir el `.zip` directamente desde el administrador de archivos:** mantén pulsado el zip y elige **Abrir con → Pokemon Reloaded** (o **Compartir**). La app mira dentro del zip y te pregunta qué hacer según lo que trae: instalar o reemplazar el juego, restaurar partidas, equipos y personajes, o poner una partida suelta en el slot que elijas. No cambia nada hasta que confirmas, y el progreso sigue aunque gires el móvil. |
 | **0.7.2** | **Solo los botones necesarios en cada pantalla:** la mochila, el mapa, el equipo Pokémon, los datos del entrenador, la Pokédex, el móvil, las opciones, las misiones y las tiendas (comprar, vender, canjear y el PC) dejan de mostrar los botones del mundo; quedan el joystick, **Z** y **X**, más **C** donde sirve para ordenar la lista o mover el cursor del mapa. Los botones se mueven en Posición y tamaño de los botones > pestaña **Pantallas**. |
 | **0.7.1** | **Corrección de dos fallos de la 0.7.0:** con la tabla de tipos abierta el juego ahora **se detiene por completo** (el rival ya no ataca mientras la miras; también se cierra con cualquier botón del mando) y los **atajos de Android** ya abren el juego (fallaban al arrancarlo desde fuera de una actividad, y la app se cerraba). |

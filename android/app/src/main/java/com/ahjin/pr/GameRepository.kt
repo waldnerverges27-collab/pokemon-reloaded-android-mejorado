@@ -323,15 +323,16 @@ class GameRepository(private val context: Context) {
     }
 
     /** Imports a zip picked with the system file chooser. */
-    suspend fun import(uri: Uri, onProgress: (Int) -> Unit): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun import(uri: Uri, onProgress: (Int) -> Unit): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
             val temp = File(files, "import.zip")
             try {
                 trace("import: uri=$uri")
                 copyFromUri(uri, temp, onProgress)
                 trace("import: copiado a $temp (${temp.length()} bytes, libre ${files.usableSpace})")
-                installZip(temp, version = null, source = "manual", onProgress = onProgress).getOrThrow()
+                val kept = installZip(temp, version = null, source = "manual", onProgress = onProgress).getOrThrow()
                 prepare()
+                kept
             } catch (e: Throwable) {
                 trace("import: FALLO ${e::class.java.simpleName}: ${e.message}")
                 throw e
@@ -426,7 +427,11 @@ class GameRepository(private val context: Context) {
     }
 
     /** Validates, inflates and swaps in a game zip. Mirrors the emulator's own requirements. */
-    private fun installZip(zip: File, version: String?, source: String, onProgress: (Int) -> Unit): Result<Unit> = runCatching {
+    private fun installZip(zip: File, version: String?, source: String, onProgress: (Int) -> Unit): Result<Int> = runCatching {
+        val aside = File(files, "game.old")
+        // A swap that was cut short (the app killed between the two renames) leaves the old game here
+        // and no game folder: put it back instead of throwing the player's install away.
+        if (!gameDir.exists() && aside.isDirectory) aside.renameTo(gameDir) else aside.deleteRecursively()
         foldZipNamesToAscii(zip)
         requireGameZip(zip)
         val staging = File(files, "game.staging")
@@ -483,13 +488,28 @@ class GameRepository(private val context: Context) {
             error("El zip no trae el .exe y la carpeta data/.")
         }
 
-        // Replacing the game replaces its data folder, saves included.
+        // The saves are carried over into the new folder before anything is swapped, so replacing the
+        // game keeps the player's slots, teams and characters. A copy is made as well, just in case.
         safetyCopy(SaveBackups.Reason.BEFORE_INSTALL)
-        gameDir.deleteRecursively()
+        val kept = try {
+            SaveCarryOver.merge(File(gameDir, "data"), File(staging, "data"), saveFolders)
+        } catch (e: Throwable) {
+            staging.deleteRecursively()
+            throw IllegalStateException("No pude conservar tus partidas, asi que no he tocado el juego instalado. ${e.message}")
+        }
+        trace("import: partidas conservadas: $kept")
+        // Swap by renaming, keeping the old game until the new one is in place: if the second rename
+        // fails the old one goes back, rather than the player being left with no game at all.
+        if (gameDir.exists() && !gameDir.renameTo(aside)) {
+            staging.deleteRecursively()
+            error("No pude apartar el juego anterior.")
+        }
         if (!staging.renameTo(gameDir)) {
+            aside.renameTo(gameDir)
             staging.deleteRecursively()
             error("No pude mover el juego a su carpeta definitiva.")
         }
+        aside.deleteRecursively()
         metaFile.writeText(
             JSONObject()
                 .put("version", version ?: "")
@@ -499,6 +519,7 @@ class GameRepository(private val context: Context) {
                 .toString(),
         )
         onProgress(100)
+        kept
     }
 
     /** Cheap structural check before doing the expensive extraction. */

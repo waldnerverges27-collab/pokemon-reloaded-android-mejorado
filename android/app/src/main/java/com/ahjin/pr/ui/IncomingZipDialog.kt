@@ -150,13 +150,22 @@ private fun Ask(step: Step.Ask, label: String, repo: GameRepository, uri: Uri, o
                                 "\n\nSe descomprime en la app; tarda un rato."
                             } else {
                                 "\n\nYa hay un juego instalado${installed.version?.let { " (version $it)" } ?: ""}. " +
-                                    "Se reemplaza, y con el sus partidas. Antes se guarda una copia en Ajustes > Copias de seguridad."
+                                    "Se reemplaza por esta version, pero tus partidas, equipos y personajes se conservan. " +
+                                    "Ademas se guarda antes una copia en Ajustes > Copias de seguridad."
                             },
                     )
                 },
                 confirmButton = {
                     Button(onClick = {
-                        ZipIntake.start("Instalando el juego") { progress -> repo.import(uri, progress).map { "Juego instalado." } }
+                        ZipIntake.start("Instalando el juego") { progress ->
+                            repo.import(uri, progress).map { kept ->
+                                when (kept) {
+                                    0 -> "Juego instalado."
+                                    1 -> "Juego instalado. Se conservo tu partida."
+                                    else -> "Juego instalado. Se conservaron tus $kept partidas."
+                                }
+                            }
+                        }
                     }) { Text(if (installed == null) "Instalar" else "Reemplazar") }
                 },
                 dismissButton = { TextButton(onClick = onClose) { Text("Cancelar") } },

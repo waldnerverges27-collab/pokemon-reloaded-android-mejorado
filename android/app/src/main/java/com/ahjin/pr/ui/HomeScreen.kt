@@ -115,15 +115,23 @@ fun HomeScreen(
             busy = false
             progress = null
             status = repo.status()
-            snackbar.showSnackbar(result.fold({ "Juego instalado." }, { it.message ?: "No pude importar el juego." }))
+            snackbar.showSnackbar(
+                result.fold(
+                    { kept -> if (kept > 0) "Juego instalado. Tus partidas se conservaron." else "Juego instalado." },
+                    { it.message ?: "No pude importar el juego." },
+                ),
+            )
         }
     }
 
     val installed = status as? GameRepository.Status.Ready
     // The post page is loaded rather than the mirror directly: the mirror renders as a blank page
     // when opened cold, but its link works when followed from the post, which the auto-click does.
-    val downloadUrl = post?.postUrl ?: post?.links?.firstOrNull()?.url
-    val postVersion = post?.version
+    // The link to the game itself, taken from the newest post that has one; the newest post of all is
+    // often only news. The page of a post is the fallback when no link can be found.
+    val download = post?.download
+    val downloadUrl = download?.url ?: post?.postUrl ?: post?.links?.firstOrNull()?.url
+    val postVersion = download?.version
 
     Scaffold(
         topBar = {
