@@ -51,32 +51,54 @@ adaptados a cada pantalla, gestión de partidas, ajustes, actualizaciones y regi
 Este proyecto parte del port de [@Klisee](https://github.com/Klisee)
 ([pokemon-reloaded-android](https://github.com/Klisee/pokemon-reloaded-android)) y lo desarrolla en una
 línea propia, con otro paquete (`com.ahjin.pr`), firma propia, nueva interfaz y numerosas mejoras
-de audio, controles, rendimiento y extras.
+de audio, controles, rendimiento y extras. Los controles táctiles cambian solos según la pantalla
+(mochila, mapa, equipo, combate…) y muestran solo los botones que hacen falta.
 
 > **El juego no está incluido.** El repositorio no contiene ningún recurso de Pokémon Reloaded; lo
 > importas tú a partir del `.zip` oficial.
 
 ## Capturas
 
-Capturas reales en un RedMagic 8S Pro. En las de juego se ve el indicador de rendimiento
-(FPS, milisegundos por fotograma y memoria) activado.
+Capturas reales de la versión **0.7.2** en un RedMagic 8S Pro. En las de juego se ve el indicador de
+rendimiento (FPS, milisegundos por fotograma y memoria) activado.
+
+### En el juego
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/juego-mundo.jpg" alt="Exploración con joystick y botones nativos"><br><sub><b>Exploración.</b> Joystick de 8 direcciones y botones nativos translúcidos.</sub></td>
-    <td width="50%"><img src="docs/screenshots/juego-combate.jpg" alt="Combate con la capa táctil de combate"><br><sub><b>Combate.</b> La capa táctil cambia sola y muestra solo lo necesario.</sub></td>
+    <td width="50%"><img src="docs/screenshots/juego-mundo.jpg" alt="Exploración con joystick, botones nativos e iconos"><br><sub><b>Exploración.</b> Joystick de 8 direcciones, botones translúcidos con el arte del propio juego y los accesos del sistema (guardar, cargar y avance rápido) a la izquierda.</sub></td>
+    <td width="50%"><img src="docs/screenshots/juego-combate.jpg" alt="Combate con la capa táctil de combate"><br><sub><b>Combate.</b> Atacar con Z X C V, la rueda <b>SEL</b> para cambiar de Pokémon, bola, huir y reloj. El botón de la derecha abre la tabla de tipos.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/juego-laboratorio.jpg" alt="Interior del laboratorio con escala de píxeles perfectos"><br><sub><b>Píxeles perfectos.</b> Escala entera para un píxel nítido y uniforme.</sub></td>
-    <td width="50%"><img src="docs/screenshots/juego-dialogo.jpg" alt="Diálogo con el botón de acción contextual"><br><sub><b>Diálogos.</b> Solo aparece el botón de acción, sin ocupar la pantalla.</sub></td>
+    <td width="50%"><img src="docs/screenshots/juego-tabla-tipos.jpg" alt="Tabla de tipos sobre el combate"><br><sub><b>Tabla de tipos.</b> La imagen de efectividades del propio juego, con el juego detenido; un toque la cierra.</sub></td>
+    <td width="50%"><img src="docs/screenshots/juego-equipo.jpg" alt="Pantalla del equipo Pokémon con joystick, Z, X y C"><br><sub><b>Equipo Pokémon.</b> Solo joystick, <b>Z</b>, <b>X</b> y <b>C</b> (ordenar): nada del mapa encima.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/juego-mochila.jpg" alt="Mochila con joystick, Z, X y C"><br><sub><b>Mochila.</b> Misma idea: los botones del mundo desaparecen y quedan los que se usan.</sub></td>
+    <td width="50%"></td>
   </tr>
 </table>
 
+### La aplicación
+
 <table>
   <tr>
-    <td width="33%"><img src="docs/screenshots/ajustes-controles.jpg" alt="Ajustes: aspecto de los controles"><br><sub><b>Ajustes.</b> Aspecto de los controles y tema «Obsidiana y oro».</sub></td>
-    <td width="33%"><img src="docs/screenshots/editor-botones.jpg" alt="Editor de posición de los botones"><br><sub><b>Editor de controles.</b> Posición y tamaño por pantalla, botones propios y diseños guardados.</sub></td>
-    <td width="33%"><img src="docs/screenshots/ajustes-resolucion.jpg" alt="Ajustes: vibración y resolución"><br><sub><b>Vibración y resolución.</b> Incluye la escala de píxeles perfectos.</sub></td>
+    <td width="25%"><img src="docs/screenshots/app-inicio.jpg" alt="Pantalla de inicio de la app"><br><sub><b>Inicio.</b> Noticias del juego, <b>Jugar</b>, descargar o importar el .zip.</sub></td>
+    <td width="25%"><img src="docs/screenshots/ajustes-juego.jpg" alt="Ajustes: juego y partidas"><br><sub><b>Juego y partidas.</b> Versión instalada, espacio, <i>Mis partidas</i> y copias de seguridad.</sub></td>
+    <td width="25%"><img src="docs/screenshots/ajustes-controles.jpg" alt="Ajustes: aspecto de los controles"><br><sub><b>Controles.</b> Aspecto nativo o pixel art, iconos en los botones y posición y tamaño.</sub></td>
+    <td width="25%"><img src="docs/screenshots/editor-botones.jpg" alt="Editor de posición de los botones"><br><sub><b>Editor.</b> Una pestaña por pantalla (Mundo, Diálogos, Menús, Pantallas…), botones propios y especiales.</sub></td>
+  </tr>
+  <tr>
+    <td width="25%"><img src="docs/screenshots/extras-guardado.jpg" alt="Extras: guardado rápido"><br><sub><b>Guardado rápido.</b> Tres ranuras, con fecha y tamaño.</sub></td>
+    <td width="25%"><img src="docs/screenshots/extras-velocidad.jpg" alt="Extras: velocidad del juego"><br><sub><b>Velocidad.</b> De cámara lenta ×0,5 a avance rápido ×4, con sonido silenciable.</sub></td>
+    <td width="25%"><img src="docs/screenshots/extras-imagen.jpg" alt="Extras: imagen"><br><sub><b>Imagen.</b> Suavizado, rejilla LCD, líneas CRT y respeto de la cámara.</sub></td>
+    <td width="25%"><img src="docs/screenshots/extras-mando.jpg" alt="Extras: vibración y rendimiento"><br><sub><b>Mando y rendimiento.</b> Vibración, indicador de FPS y ahorro de batería.</sub></td>
+  </tr>
+  <tr>
+    <td width="25%"><img src="docs/screenshots/ajustes-resolucion.jpg" alt="Ajustes: resolución y extras"><br><sub><b>Resolución.</b> Rellenar, mantener la proporción o píxeles perfectos.</sub></td>
+    <td width="25%"><img src="docs/screenshots/ajustes-apariencia.jpg" alt="Ajustes: apariencia y colores"><br><sub><b>Apariencia.</b> Oscuro, claro o sistema; acento de color y negro puro AMOLED.</sub></td>
+    <td width="25%"><img src="docs/screenshots/ajustes-ayuda.jpg" alt="Ajustes: actualizaciones y ayuda"><br><sub><b>Actualizaciones y ayuda.</b> Versión, guía de uso, informe de diagnóstico y logs.</sub></td>
+    <td width="25%"></td>
   </tr>
 </table>
 
@@ -107,7 +129,7 @@ Si ya jugabas en PC, tu partida entra desde **Ajustes → Partidas → Importar*
 
 - **Se adaptan al juego.** La capa táctil cambia según lo que ocurre en pantalla (mapa, combate,
   diálogos, menús, elecciones, Zona Safari), de modo que cada situación muestra solo los botones
-  que hacen falta.
+  que hacen falta. Detalle en [Botones según la pantalla](#botones-según-la-pantalla).
 - **Aspecto nativo.** Botones translúcidos con borde suave, iconos y letras vectoriales,
   animación al pulsar y brillo del color de cada botón. Se puede volver al pixel art clásico del juego.
 - **Iconos según la función.** Cada botón del juego muestra lo que hace en vez de su letra:
@@ -115,19 +137,49 @@ Si ya jugabas en PC, tu partida entra desde **Ajustes → Partidas → Importar*
   El icono sigue a la situación (la tecla `M` es el mapa fuera de combate y la megaevolución en combate) y en
   combate `Z X C V` conservan su letra, porque ahí son los cuatro ataques. Se puede volver a las letras en
   **Ajustes → Aspecto de los controles → Iconos en los botones**.
+- **Botones especiales** (se añaden en el editor): **correr fijo** (un toque deja `X` pulsada y otro la suelta),
+  **turbo** (mantenerlo pulsa `Z` unas 7 veces por segundo), **velocidad del juego** (pasa de una velocidad a la
+  siguiente) y **tabla de tipos**. Los botones propios pueden ser normales, turbo o fijos.
 - **Joystick de 8 direcciones** en todo el juego, con diagonales con histéresis, zona muerta
   ajustable y modo flotante que sigue al pulgar.
 - **Editor de posiciones y tamaños.** Arrastra, redimensiona u oculta cada botón por pantalla del
   juego. Admite **diseños guardados** con nombre.
-- **Botones propios:** hasta 8, con la tecla, el texto de 3 letras **o uno de 31 iconos** (los de arriba,
-  flechas, estrella, corazón, pausa…) y las pantallas que elijas.
+- **Botones propios:** hasta 8, con la tecla, el texto de 3 letras **o uno de 32 iconos** (los de arriba,
+  flechas, estrella, corazón, pausa, tabla…) y las pantallas que elijas.
 - **Preajustes de disposición:** Estándar, Zurdo, Compacto, Grande y Zurdo compacto, con
   confirmación antes de aplicarlos. No tocan los botones propios ni los que hayas ocultado.
 - **Respuesta táctil cuidada:** deslizar de un botón a otro sin levantar el dedo, vibración
   ajustable (apagada, ligera, fuerte), difuminado de los botones cuando no se usan y bordes de la
   pantalla excluidos del gesto «atrás» del sistema.
+- **Tamaño y opacidad global** de los botones, joystick flotante y zona muerta del joystick desde
+  **Ajustes**.
 - **Mandos físicos:** detección automática, reasignación de teclas, vibración y atajos propios:
   guardado rápido, cargar, avance rápido, mostrar u ocultar los FPS y cambiar de ranura de guardado rápido.
+
+### Botones según la pantalla
+
+Cada pantalla enseña solo lo que sirve en ella. La app lee del juego en qué pantalla está (la sala, el
+tipo de ventana que dibuja y los objetos que ha creado, como una tienda) y cambia la capa táctil sola.
+
+| Pantalla | Botones |
+| --- | --- |
+| **Mundo** | Joystick, `Z`, `X`, `C` (caña), `V` (bici), números `1 2 3 5 7` (MO), equipo, mochila, mapa, `E`, `T`, `L`, `P`, `A`, `N`, OK, ESC y los accesos del sistema |
+| **Combate** | Joystick, ataques `Z X C V`, `B` (bola), `S` (cambiar), rueda **SEL** (elegir Pokémon), equipo, mochila, mega, huir, reloj, `L`, `P`, OK, ESC y los accesos del sistema |
+| **Zona Safari** | Como el mundo, más la bola, sin los ataques |
+| **Mochila, equipo, Pokédex, mapa y misiones** | Joystick, `Z`, `X` y `C` (ordena la lista, o mueve el cursor del mapa) |
+| **Movimientos, habilidades e información del Pokémon, entrenador, opciones, móvil, huevos, logros y torneo** | Joystick, `Z` y `X` |
+| **Tiendas** (comprar, vender, canjear) **y PC de objetos** | Joystick, `Z` y `X` |
+| **Diálogos** | Solo el botón que avanza (`Z`), para no tapar el texto |
+| **Listas de opciones** | Joystick y `X`; las entradas se tocan directamente |
+| **Preguntas Sí/No, caja del PC, teclado y menús del título** | Ninguno: se tocan directamente |
+| **Elegir personaje** | Dos flechas, OK y `X` |
+| **Preferencias del juego nuevo** | Joystick, `Z` y `X` |
+
+Los botones de cada grupo se colocan en **Posición y tamaño de los botones**, una pestaña por grupo
+(**Mundo**, **Diálogos**, **Menús**, **Pantallas**, **Combate**, **Safari**…). Un botón tiene una sola posición:
+si lo mueves en una pestaña se mueve en todas en las que aparece.
+
+Las minijuegos (casino, cartas, tragaperras) conservan de momento los botones del mundo.
 
 ### Audio
 
@@ -140,7 +192,8 @@ Si ya jugabas en PC, tu partida entra desde **Ajustes → Partidas → Importar*
 
 ### Imagen
 
-- **Escala de píxeles perfectos** (múltiplos enteros), para un píxel nítido y uniforme.
+- **Resolución:** rellenar la pantalla, mantener la proporción del PC con bandas o **píxeles perfectos**
+  (múltiplos enteros, para un píxel nítido y uniforme).
 - Filtro suave opcional, **rejilla LCD** y **líneas CRT**.
 - Respeto de la muesca y la cámara frontal.
 
@@ -151,9 +204,19 @@ Se configuran en **Ajustes → Extras**.
 | Extra | Descripción |
 | --- | --- |
 | **Guardado rápido** | Tres ranuras independientes del guardado del juego. Guardar es un toque; cargar exige pulsar dos veces seguidas, para no perder progreso por error. El archivo se escribe aparte y se renombra, de modo que un fallo nunca estropea la ranura anterior. La música en bucle vuelve a empezar al cargar. |
-| **Avance rápido** | x2, x3 o x4, con sonido silenciable. Solo acorta la espera entre fotogramas: la lógica del juego no cambia. Se desactiva solo si el móvil se calienta mucho. |
+| **Velocidad del juego** | **Cámara lenta** ×0,5 y ×0,75 y **avance rápido** ×1,5, ×2, ×3 y ×4, con el sonido silenciable fuera de la velocidad normal. Solo cambia la espera entre fotogramas: la lógica del juego no cambia. Se puede fijar en Extras o alternar con un botón especial. Si el móvil no llega, va a la máxima que pueda; el avance rápido se desactiva solo si se calienta mucho. |
+| **Tabla de tipos** | Botón especial para combate que muestra la imagen de efectividades **del propio juego** sobre la partida. El juego se **detiene** mientras está abierta (el rival no ataca) y se cierra con un toque en la pantalla o con cualquier botón del mando. |
+| **Correr fijo** | Botón especial: un toque deja `X` pulsada y otro la suelta. Se libera solo al abrir un menú, un diálogo o un combate. |
+| **Botón turbo** | Botón especial: mientras lo mantienes, pulsa `Z` unas 7 veces por segundo (textos y menús a toda prisa). |
+| **Atajos de Android** | Al mantener pulsado el icono de la app: **Continuar** (abre el juego directamente) y **Guardado rápido** (abre el juego y carga el guardado rápido; si el juego ya estaba abierto, solo lo trae al frente). |
+| **Imagen** | Suavizado opcional, rejilla LCD, líneas CRT y respeto de la cámara frontal. |
+| **Botones táctiles** | Ocultarse solos tras unos segundos sin tocar, vibración (apagada, ligera o fuerte). |
 | **Indicador de rendimiento** | FPS, tiempo por fotograma y memoria residente en una esquina. |
-| **Ahorro de batería** | Manual, o automático con el ahorro del sistema o el móvil caliente. |
+| **Ahorro de batería** | Desactivado, siempre, o automático con el ahorro del sistema o el móvil caliente. |
+
+Las funciones de la 0.7 (velocidad ajustable, tabla de tipos, correr fijo, turbo y atajos) son
+**opcionales**: los botones especiales se añaden desde **Ajustes → Controles → Posición y tamaño de los
+botones → Botones especiales**, y sin ellos el juego se comporta como siempre.
 
 ### Apariencia de la aplicación
 
@@ -228,7 +291,7 @@ caché de sprites en disco, que habría sido más lenta que regenerarlos.
 
 > **Avance rápido.** El juego vigila el reloj real (`CheckDaySpeed`, que ejecuta
 > `obj_DayNightControl`) y baja `room_speed` si considera que el tiempo pasa demasiado deprisa, que es
-> justo lo que ve cuando se avanza rápido. Para que x2, x3 y x4 signifiquen lo que dicen, durante el
+> justo lo que ve cuando se avanza rápido. Para que ×2, ×3 y ×4 signifiquen lo que dicen, durante el
 > avance rápido la room recupera la velocidad con la que fue diseñada.
 
 ## Arquitectura
@@ -409,11 +472,13 @@ Cada versión, con su APK, está en [Releases](../../releases).
 - Desarrollado y probado en un **RedMagic 8S Pro** (Snapdragon 8 Gen 2, Android 13, arm64).
 - El motor de **32 bits (armeabi-v7a)** se compila y empaqueta, pero no se ha probado en ningún móvil de 32 bits.
 - El **guardado rápido** es una función experimental. Si algo falla, el log lo registrará.
-- La versión **0.6.0** está verificada con pruebas automáticas y compilación, pero todavía no con
-  uso real en el móvil: las copias de seguridad, los iconos de botones y los atajos de mando son
-  nuevos. Si algo no va bien, comparte el informe de diagnóstico.
-- La versión **0.7.2** (botones por pantalla, además de lo de la 0.7.0 y la 0.7.1)
-  está verificada con pruebas automáticas y compilación, pero todavía no en el móvil.
+- Los **botones por pantalla** de la 0.7.2 se han comprobado en el móvil con la mochila y el equipo; las
+  demás pantallas (tiendas, Pokédex, móvil, misiones…) se detectan por los datos del propio juego, pero
+  no se han recorrido una a una. Si alguna enseña botones de más o de menos, abre un log desde
+  **Ajustes → Logs**: registra la pantalla que detecta en cada momento.
+- Los **atajos de Android** y la tabla de tipos se corrigieron en la 0.7.1; si algo falla, comparte el
+  informe de diagnóstico.
+- Las minijuegos (casino, cartas, tragaperras) todavía no tienen botones propios.
 - La app sigue en desarrollo y puede fallar. Si ocurre, guarda un log desde **Ajustes → Logs** y
   abre un [issue](../../issues) con él.
 
@@ -428,7 +493,7 @@ Problemas ya resueltos en el camino:
 Ideas para más adelante:
 
 - Imágenes propias (pixel art) para más botones táctiles.
-- Más ajustes de rendimiento para móviles modestos.
+- Botones propios para las minijuegos.
 - Revisar la compatibilidad con mandos de todo tipo.
 
 ## Licencia y créditos
