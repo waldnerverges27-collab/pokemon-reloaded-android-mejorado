@@ -169,6 +169,15 @@ impl Pacing {
     }
 }
 
+/// The game's key variables the buttons have borrowed, with what each held and what it holds now:
+/// (variable id, original code, written code).
+#[cfg(target_os = "android")]
+static TAKEN: std::sync::Mutex<Vec<(usize, i32, i32)>> = std::sync::Mutex::new(Vec::new());
+/// Whether [TAKEN] has anything in it, for the places that ask on every script the game runs.
+#[cfg(target_os = "android")]
+static ANY_TAKEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+
 /// Structure which contains all the components of a game.
 pub struct Game {
     pub compiler: Compiler,
@@ -2015,114 +2024,161 @@ impl Game {
         crate::touch_controls::set_modal_open(self.modal_system() > 0);
         crate::touch_controls::set_modal_id(self.modal_system());
         crate::touch_controls::set_party(self.party_species());
-        self.sync_direction_keys();
     }
 
-    /// Binds the joystick to the game's movement action instead of to a key.
+    /// Binds the buttons, the joystick and the pad to the game's actions instead of to keys.
     ///
     /// A save file brings its own key bindings, so a game made on a PC with other keys no longer
-    /// answers to the arrows the joystick presses. The bindings are variables of the game's
-    /// settings object (3), one family per screen. While the joystick (or a pad) holds a direction,
-    /// every variable for that direction is set to the arrow, and when it lets go each one is put
-    /// back as it was, so the player's own keys are never lost and are what gets saved.
+    /// answers to the keys the buttons press. The bindings are variables of the game's settings
+    /// object (3), one per action. While a button holds its key, every variable whose action has
+    /// that key by default is set to it, and any other variable the save put on that key is switched
+    /// off; when the button lets go, each one is put back as it was, so the player's own keys are
+    /// never lost and are what gets saved (see [Game::release_touch_keys]). A game with its keys as
+    /// they come is never touched.
+    ///
+    /// Called once per poll of the window's events, right after they are applied: the swap has to be
+    /// in place before the game looks at the key that just went down.
     ///
     /// While the game's key-assignment screen waits for a key nothing is taken over, so that
-    /// pushing the joystick there binds the arrow, which is how the player gets the arrows back.
+    /// pushing a button there binds its key, which is how the player gets the usual keys back.
     #[cfg(target_os = "android")]
-    fn sync_direction_keys(&self) {
-        use crate::touch_controls::{takeover, Takeover, ARROW_CODES};
+    fn sync_touch_keys(&self) {
+        use crate::touch_controls::{plan, Plan};
         use std::sync::{atomic::AtomicU32, atomic::Ordering, Mutex};
 
         /// The settings object and the screen that assigns keys.
         const SETTINGS: i32 = 3;
         const KEY_SCREEN: i32 = 1323;
-        /// Marks the id of the "waiting for a key" flag among the direction variables.
-        const WAITING: usize = 4;
 
-        // The search for a variable's id walks every name the game has, so it is done once. A search
-        // that came up short is tried again now and then rather than on every draw.
-        static FIELDS: Mutex<Vec<(usize, usize)>> = Mutex::new(Vec::new());
-        static TRIES: AtomicU32 = AtomicU32::new(0);
-        /// What each taken-over variable held: (variable id, original code).
-        static SAVED: Mutex<Vec<(usize, i32)>> = Mutex::new(Vec::new());
-
-        let held = crate::touch_controls::directions_held();
-        let mut saved = SAVED.lock().unwrap();
-        // Nothing held and nothing to put back: the common case costs a lock and four loads.
-        if saved.is_empty() && !held.iter().any(|&on| on) {
+        let held = crate::touch_controls::held_for_sync();
+        let mut saved = TAKEN.lock().unwrap();
+        // Nothing held and nothing to put back: the common case costs a lock and a flag.
+        if held.is_empty() && saved.is_empty() {
             return
         }
 
+        // The search for the variables' ids walks every name the game has, so it is done once. A
+        // search that found nothing is tried again now and then, not on every poll.
+        static FIELDS: Mutex<Vec<(usize, i32)>> = Mutex::new(Vec::new());
+        static WAITING_FIELD: Mutex<Option<usize>> = Mutex::new(None);
+        static TRIES: AtomicU32 = AtomicU32::new(0);
         let mut fields = FIELDS.lock().unwrap();
-        let wanted = crate::touch_controls::DIRECTION_FAMILIES.len() * 4 + 1;
-        if fields.len() < wanted {
-            if TRIES.fetch_add(1, Ordering::Relaxed) % 240 == 0 {
-                fields.clear();
-                for family in crate::touch_controls::DIRECTION_FAMILIES {
-                    for (dir, word) in crate::touch_controls::DIRECTION_WORDS.iter().enumerate() {
-                        let name = format!("{}{}", family, word);
-                        if let Some(id) = self.compiler.find_field_id(name.as_bytes()) {
-                            fields.push((dir, id));
-                        }
-                    }
-                }
-                if let Some(id) = self.compiler.find_field_id(b"ESPERANDO_TECLA") {
-                    fields.push((WAITING, id));
+        if fields.is_empty() && TRIES.fetch_add(1, Ordering::Relaxed) % 240 == 0 {
+            let mut names: Vec<&[u8]> = crate::key_defaults::KEY_DEFAULTS.iter().map(|(name, _)| name.as_bytes()).collect();
+            names.push(b"ESPERANDO_TECLA");
+            let ids = self.compiler.find_field_ids(&names);
+            for (&(_, default), id) in crate::key_defaults::KEY_DEFAULTS.iter().zip(&ids) {
+                if let Some(id) = id {
+                    fields.push((*id, default));
                 }
             }
-            if fields.is_empty() {
-                return
-            }
+            *WAITING_FIELD.lock().unwrap() = ids.last().copied().flatten();
+        }
+        if fields.is_empty() {
+            return
         }
 
         let list = &self.room.instance_list;
         let Some(settings) = list.iter_by_identity(SETTINGS).next(list) else { return };
-        let read = |object: i32, id: usize| -> Option<i32> {
-            let handle = list.iter_by_identity(object).next(list)?;
+        let waiting = WAITING_FIELD.lock().unwrap().is_some_and(|id| {
+            let Some(handle) = list.iter_by_identity(KEY_SCREEN).next(list) else { return false };
             let instance_fields = list.get(handle).fields.borrow();
-            let value = match instance_fields.get(&id)?.get(0)? {
-                crate::gml::Value::Real(n) => Some(n.into_inner() as i32),
-                _ => None,
+            let value = match instance_fields.get(&id).and_then(|field| field.get(0)) {
+                Some(crate::gml::Value::Real(n)) => n.into_inner() != 0.0,
+                _ => false,
             };
             value
-        };
+        });
+        let held = if waiting { Vec::new() } else { held };
 
-        let waiting = fields
-            .iter()
-            .find(|(dir, _)| *dir == WAITING)
-            .and_then(|&(_, id)| read(KEY_SCREEN, id))
-            .is_some_and(|value| value != 0);
-
+        // The game's key screen is room 514: it refuses to be left while an action has no key.
+        let may_switch_off = self.room.id != 514;
         let mut settings_fields = list.get(settings).fields.borrow_mut();
         let was_empty = saved.is_empty();
-        for &(dir, id) in fields.iter().filter(|(dir, _)| *dir < 4) {
+        for &(id, default) in fields.iter() {
             let Some(field) = settings_fields.get_mut(&id) else { continue };
             let current = match field.get(0) {
                 Some(crate::gml::Value::Real(n)) => n.into_inner() as i32,
                 _ => continue,
             };
-            let arrow = ARROW_CODES[dir];
-            let before = saved.iter().position(|&(saved_id, _)| saved_id == id);
-            let action = takeover(current, arrow, held[dir] && !waiting, before.map(|at| saved[at].1));
-            match action {
-                Takeover::Nothing => {},
-                Takeover::Take { original } => {
-                    field.set(0, crate::gml::Value::Real(f64::from(arrow).into()));
-                    saved.push((id, original));
+            let before = saved.iter().position(|entry| entry.0 == id);
+            let entry = before.map(|at| (saved[at].1, saved[at].2));
+            let set = |field: &mut crate::instance::Field, code: i32| {
+                field.set(0, crate::gml::Value::Real(f64::from(code).into()));
+            };
+            match plan(current, default, &held, entry, may_switch_off) {
+                Plan::Nothing => {},
+                Plan::Take { original, written } => {
+                    set(field, written);
+                    saved.push((id, original, written));
                 },
-                Takeover::Restore { original } => {
-                    field.set(0, crate::gml::Value::Real(f64::from(original).into()));
+                Plan::Change { written } => {
+                    set(field, written);
+                    saved[before.unwrap()].2 = written;
+                },
+                Plan::Restore { original } => {
+                    set(field, original);
                     saved.remove(before.unwrap());
                 },
-                Takeover::Forget => {
+                Plan::Forget => {
                     saved.remove(before.unwrap());
                 },
             }
         }
+        ANY_TAKEN.store(!saved.is_empty(), Ordering::Relaxed);
         if was_empty && !saved.is_empty() {
-            // Once per push, not per frame.
-            eprintln!("[teclas] el joystick sustituye {} teclas de la partida por flechas mientras se mantiene", saved.len());
+            // Only for the first few: a game with other keys does this on every press.
+            static LOGGED: AtomicU32 = AtomicU32::new(0);
+            if LOGGED.fetch_add(1, Ordering::Relaxed) < 12 {
+                eprintln!("[teclas] los botones sustituyen {} teclas de la partida mientras se mantienen ({:?})", saved.len(), held);
+            }
         }
+    }
+
+    /// Gives every taken-over key variable back its own value. Done before the game saves, so that
+    /// a save never carries a key a button had borrowed for a moment. The next poll takes them again
+    /// if the button is still held.
+    #[cfg(target_os = "android")]
+    pub(crate) fn release_touch_keys(&self) {
+        let mut saved = TAKEN.lock().unwrap();
+        if saved.is_empty() {
+            return
+        }
+        let list = &self.room.instance_list;
+        if let Some(settings) = list.iter_by_identity(3).next(list) {
+            let mut settings_fields = list.get(settings).fields.borrow_mut();
+            for &(id, original, written) in saved.iter() {
+                let Some(field) = settings_fields.get_mut(&id) else { continue };
+                if matches!(field.get(0), Some(crate::gml::Value::Real(n)) if n.into_inner() as i32 == written) {
+                    field.set(0, crate::gml::Value::Real(f64::from(original).into()));
+                }
+            }
+        }
+        saved.clear();
+        ANY_TAKEN.store(false, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Whether a script is one of the two that write the game's key bindings into a save file.
+    #[cfg(target_os = "android")]
+    pub(crate) fn is_key_saving_script(&self, script_id: i32) -> bool {
+        use std::sync::atomic::{AtomicI32, Ordering};
+        // Nothing is borrowed, so nothing to protect: the usual answer costs one load.
+        if !ANY_TAKEN.load(Ordering::Relaxed) {
+            return false
+        }
+        static IDS: [AtomicI32; 2] = [AtomicI32::new(-2), AtomicI32::new(-2)];
+        if IDS[0].load(Ordering::Relaxed) == -2 {
+            for (at, name) in [&b"SaveFileSav"[..], &b"OptSaveFS"[..]].into_iter().enumerate() {
+                let id = self
+                    .assets
+                    .scripts
+                    .iter()
+                    .position(|script| script.as_ref().is_some_and(|script| { let have: &[u8] = script.name.as_ref(); have == name }))
+                    .map_or(-1, |id| id as i32);
+                IDS[at].store(id, Ordering::Relaxed);
+            }
+        }
+        script_id >= 0 && IDS.iter().any(|id| id.load(Ordering::Relaxed) == script_id)
     }
 
     /// Each party slot's stored species value (0 = empty) straight from `global.pkmn1[0..5]`.
@@ -2549,6 +2605,9 @@ impl Game {
             _ => (),
         }
         self.input.apply_pending_input();
+        // The keys of the buttons are swapped in before the game looks at what just went down.
+        #[cfg(target_os = "android")]
+        self.sync_touch_keys();
     }
 
     pub fn call_external(&mut self, id: i32, context: &mut Context, args: &[gml::Value]) -> gml::Result<gml::Value> {

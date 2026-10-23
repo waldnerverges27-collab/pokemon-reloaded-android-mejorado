@@ -12,6 +12,8 @@ mod handleman;
 mod imgui_key_utils;
 mod imgui_utils;
 mod input;
+#[allow(dead_code)]
+mod key_defaults;
 mod instance;
 mod instancelist;
 mod math;

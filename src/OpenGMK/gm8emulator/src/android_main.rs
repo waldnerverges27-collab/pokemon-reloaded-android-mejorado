@@ -387,6 +387,13 @@ fn tap_key(key: ramen::input::Key) {
     android::push_input(ramen::platform::android::InputEvent::KeyUp { key });
 }
 
+/// The same quick tap for a button of the app (turbo, the party wheel): noted as held, so the game's
+/// key for that action follows the button (see [push_key]).
+fn tap_button(key: ramen::input::Key) {
+    push_key(key, true);
+    push_key(key, false);
+}
+
 fn control_key_down(index: usize) {
     crate::touch_controls::set_pressed(index, true);
     haptic(HapticKind::Press);
@@ -408,7 +415,7 @@ fn control_key_down(index: usize) {
     match crate::touch_controls::custom_mode(index) {
         // Held: the first tap goes out now and the rest follow from `input_tick`.
         Some(CustomMode::Turbo) => {
-            tap_key(key);
+            tap_button(key);
             let mut turbo = TURBO.lock().unwrap();
             turbo.retain(|(held, _, _)| *held != index);
             turbo.push((index, key, TICKS.load(std::sync::atomic::Ordering::Relaxed) + TURBO_PERIOD));
@@ -480,7 +487,7 @@ fn toggle_lock(index: usize, key: Key) {
             Some(at) => {
                 let lock = locks.remove(at);
                 if lock.down {
-                    android::push_input(ramen::platform::android::InputEvent::KeyUp { key: lock.key });
+                    push_key(lock.key, false);
                 }
                 crate::touch_controls::set_locked(index, false);
             },
@@ -501,7 +508,7 @@ fn sync_locks() {
     locks.retain_mut(|lock| {
         if !crate::touch_controls::lock_valid(lock.index, lock.key) {
             if lock.down {
-                android::push_input(ramen::platform::android::InputEvent::KeyUp { key: lock.key });
+                push_key(lock.key, false);
             }
             crate::touch_controls::set_locked(lock.index, false);
             return false
@@ -509,12 +516,7 @@ fn sync_locks() {
         let should = crate::touch_controls::is_active(lock.index) && !crate::touch_controls::modal_open();
         if should != lock.down {
             lock.down = should;
-            let event = if should {
-                ramen::platform::android::InputEvent::KeyDown { key: lock.key, text: None }
-            } else {
-                ramen::platform::android::InputEvent::KeyUp { key: lock.key }
-            };
-            android::push_input(event);
+            push_key(lock.key, should);
         }
         true
     });
@@ -527,7 +529,7 @@ fn release_holds() {
     let mut locks = LOCKS.lock().unwrap();
     for lock in locks.drain(..) {
         if lock.down {
-            android::push_input(ramen::platform::android::InputEvent::KeyUp { key: lock.key });
+            push_key(lock.key, false);
         }
         crate::touch_controls::set_locked(lock.index, false);
     }
@@ -547,7 +549,7 @@ pub fn input_tick() {
         let mut turbo = TURBO.lock().unwrap();
         for (_, key, next) in turbo.iter_mut() {
             if frame >= *next {
-                tap_key(*key);
+                tap_button(*key);
                 *next = frame + TURBO_PERIOD;
             }
         }
@@ -645,7 +647,7 @@ fn pointer_up(id: i32, x: f32, y: f32) {
         // the middle of the wheel, or letting go without moving at all, sends nothing.
         let selected = crate::touch_controls::wheel_selected();
         if selected >= 0 {
-            tap_key(crate::touch_controls::PICKER_KEYS[selected as usize]);
+            tap_button(crate::touch_controls::PICKER_KEYS[selected as usize]);
         }
         crate::touch_controls::set_wheel_open(false);
         return
@@ -890,16 +892,30 @@ static JOYSTICK_STATE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU
 
 const JOYSTICK_KEYS: [Key; 4] = [Key::UpArrow, Key::DownArrow, Key::LeftArrow, Key::RightArrow];
 
-/// Presses or releases a key. For an arrow it also notes that the direction is held: the game's own
-/// movement keys are swapped for the arrows while it is (see `Game::sync_direction_keys`), so a game
-/// loaded from a PC with other movement keys still answers to the joystick.
+/// Presses or releases a key for a button of the app, a pad or the joystick, and notes it.
+///
+/// A save file brings its own key bindings, so a game made on a PC with other keys no longer
+/// answers to the keys the buttons press. The note is what lets the game side bind the button to
+/// the action instead of to a key: while the key is held, the game's variables for that action are
+/// set to it and put back afterwards (see `Game::sync_touch_keys`).
 fn push_key(key: Key, down: bool) {
     crate::touch_controls::note_key(key, down);
+    push_raw(key, down);
+}
+
+/// A key as it is, without noting it: what a real keyboard types is the player's own binding and
+/// must reach the game untouched.
+fn push_raw(key: Key, down: bool) {
     if down {
         android::push_input(ramen::platform::android::InputEvent::KeyDown { key, text: None });
     } else {
         android::push_input(ramen::platform::android::InputEvent::KeyUp { key });
     }
+}
+
+/// Whether an Android key code is a pad button or its d-pad (as opposed to a key of a keyboard).
+fn is_pad_code(code: i32) -> bool {
+    (19..=23).contains(&code) || (96..=110).contains(&code)
 }
 
 fn is_joystick_pointer(id: i32) -> bool {
@@ -1018,15 +1034,16 @@ fn translate(event: &InputEvent) {
                     crate::touch_controls::set_pad_active(true);
                     pad_rumble();
                     eprintln!("[pad] tecla {} -> {:?}", code, k);
-                    push_key(k, true);
+                    if is_pad_code(code) { push_key(k, true) } else { push_raw(k, true) }
                 }
             },
             KeyAction::Up => {
                 if pad_action(key_code_value(&key.key_code())).is_some() {
                     return
                 }
-                if let Some(k) = mapped_key(key_code_value(&key.key_code())) {
-                    push_key(k, false);
+                let code = key_code_value(&key.key_code());
+                if let Some(k) = mapped_key(code) {
+                    if is_pad_code(code) { push_key(k, false) } else { push_raw(k, false) }
                 }
             },
             _ => {},

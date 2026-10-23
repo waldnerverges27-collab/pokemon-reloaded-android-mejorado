@@ -85,6 +85,9 @@ impl Game {
             return Err("el juego está cambiando de sala".into())
         }
 
+        // A button held right now has borrowed some of the game's keys; the saved state must not.
+        #[cfg(target_os = "android")]
+        self.release_touch_keys();
         let renderer_state = self.renderer.state();
         let sounds = std::mem::take(&mut self.assets.sounds);
         let files = std::mem::take(&mut self.included_files);

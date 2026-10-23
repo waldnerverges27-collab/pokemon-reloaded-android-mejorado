@@ -9599,6 +9599,10 @@ impl Game {
     pub fn script_execute(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         if let Some(script_id) = args.get(0) {
             let script_id = script_id.round();
+            #[cfg(target_os = "android")]
+            if self.is_key_saving_script(script_id) {
+                self.release_touch_keys();
+            }
             if let Some(script) = self.assets.scripts.get_asset(script_id) {
                 let instructions = script.compiled.clone();
                 let mut new_args: [Value; 16] = Default::default();

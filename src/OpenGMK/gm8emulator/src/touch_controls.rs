@@ -1702,84 +1702,107 @@ pub fn box_hold_slop(width: f32, height: f32) -> f32 {
     (width.min(height) * 0.03).max(10.0)
 }
 
-// --- Movement keys the game is listening to -------------------------------------------------------
+// --- Buttons bound to the game's actions ------------------------------------------------------------
 
 /// Every key the game reads is a variable of its own, and a save file carries them all: loading a
-/// game made on a PC with other keys (WASD, say) replaces the arrows the joystick presses. The
-/// joystick is bound to the action, not to a key: while it holds a direction, the game's variables
-/// for that direction are set to the arrow for as long as it is held, and put back afterwards.
+/// game made on a PC with other keys (WASD, ZQSD, swapped Z and X...) replaces the keys the buttons
+/// press, and the buttons stop working. The buttons are bound to the action, not to a key: while a
+/// button holds its key, every game variable whose action that key stands for is set to it, and put
+/// back afterwards. See `Game::sync_touch_keys`.
 ///
-/// The variables that name the key for a direction, one family per screen of the game. The second
-/// player's keys are not here: they are somebody else's.
-pub const DIRECTION_FAMILIES: [&str; 15] = [
-    "key_ex_",
-    "key_bt_mov_",
-    "key_menu_mov_",
-    "key_menump_mov_",
-    "key_caja_mov_",
-    "key_eliminatorias_mov_",
-    "key_entrenador_mov_",
-    "key_movil_mov_",
-    "key_obj_mov_",
-    "key_opciones_mov_",
-    "key_p1_mov_",
-    "key_pkdex_mov_",
-    "key_pkmn_mov_",
-    "key_prestamo_mov_",
-    "key_vuelo_mov_",
-];
-
-/// How the game spells each direction in those names, in the order up, down, left, right.
-pub const DIRECTION_WORDS: [&str; 4] = ["arriba", "abajo", "izquierda", "derecha"];
-
-/// The arrow keys the joystick presses, in the same order.
-pub const ARROWS: [Key; 4] = [Key::UpArrow, Key::DownArrow, Key::LeftArrow, Key::RightArrow];
-
-/// The game's code for each of those arrows (Windows virtual-key codes).
-pub const ARROW_CODES: [i32; 4] = [38, 40, 37, 39];
-
-/// Which arrows are down right now, however they got there.
-static DIRECTIONS_HELD: [AtomicBool; 4] =
-    [AtomicBool::new(false), AtomicBool::new(false), AtomicBool::new(false), AtomicBool::new(false)];
-
-/// Which direction an arrow key is, if it is one.
-pub fn arrow_direction(key: Key) -> Option<usize> {
-    ARROWS.iter().position(|&arrow| arrow == key)
+/// The game's code for a key (Windows virtual-key codes, what its variables hold). The left and
+/// right modifiers are the one code the game uses for both.
+pub fn vk_of(key: Key) -> Option<i32> {
+    let code = crate::input::Button::try_from(key).ok()? as i32;
+    Some(match code {
+        0xA0 | 0xA1 => 16,
+        0xA2 | 0xA3 => 17,
+        0xA4 | 0xA5 => 18,
+        other => other,
+    })
 }
 
-/// Notes that an arrow went down or up. Anything else is ignored.
+/// One key the app is holding for the player.
+struct TouchKey {
+    vk: i32,
+    down: bool,
+    /// Whether the game side has looked at it since it went down. A tap can go down and up before
+    /// the game polls, and it still has to count as held for that one look.
+    seen: bool,
+}
+
+static TOUCH_KEYS: Mutex<Vec<TouchKey>> = Mutex::new(Vec::new());
+
+/// Notes that a key of the app (a button, the joystick, a pad) went down or up.
 pub fn note_key(key: Key, down: bool) {
-    if let Some(dir) = arrow_direction(key) {
-        DIRECTIONS_HELD[dir].store(down, Ordering::Relaxed);
+    let Some(vk) = vk_of(key) else { return };
+    let mut keys = TOUCH_KEYS.lock().unwrap();
+    match keys.iter_mut().find(|held| held.vk == vk) {
+        Some(held) if down => {
+            held.down = true;
+            held.seen = false;
+        },
+        Some(held) => held.down = false,
+        None if down => keys.push(TouchKey { vk, down: true, seen: false }),
+        None => {},
     }
 }
 
-/// The directions held now: up, down, left, right.
-pub fn directions_held() -> [bool; 4] {
-    std::array::from_fn(|dir| DIRECTIONS_HELD[dir].load(Ordering::Relaxed))
+/// The keys the app is holding, as the game side looks at them. Each call counts as a look: a key
+/// that already went up is reported once more if nobody had seen it down, and then forgotten.
+pub fn held_for_sync() -> Vec<i32> {
+    let mut keys = TOUCH_KEYS.lock().unwrap();
+    keys.retain(|held| held.down || !held.seen);
+    let held = keys.iter().map(|held| held.vk).collect();
+    for key in keys.iter_mut() {
+        key.seen = true;
+    }
+    held
 }
 
-/// What to do with one of the game's direction variables, given what it holds and whether its
-/// direction is being held. `saved` is what the variable held before it was taken over, if it was.
+/// What to do with one of the game's key variables.
 #[derive(Debug, PartialEq)]
-pub enum Takeover {
+pub enum Plan {
     /// Leave it alone.
     Nothing,
-    /// Set it to the arrow, remembering what it held.
-    Take { original: i32 },
+    /// Set it to `written`, remembering that it held `original`.
+    Take { original: i32, written: i32 },
+    /// It is taken, and now has to hold something else.
+    Change { written: i32 },
     /// Put back what it held.
     Restore { original: i32 },
     /// The game changed it behind our back (a load, an assignment): forget what was saved.
     Forget,
 }
 
-pub fn takeover(current: i32, arrow: i32, want: bool, saved: Option<i32>) -> Takeover {
-    match (saved, want) {
-        (Some(_), true) if current == arrow => Takeover::Nothing,
-        (Some(original), false) if current == arrow => Takeover::Restore { original },
-        (Some(_), _) => Takeover::Forget,
-        (None, true) if current != arrow => Takeover::Take { original: current },
-        (None, _) => Takeover::Nothing,
+/// Decides what a variable should hold while the keys `held` are down.
+///
+/// - `current`: what it holds now.
+/// - `default`: the key its action has in a game nobody has touched.
+/// - `saved`: `(original, written)` if it is already taken over.
+/// - `may_switch_off`: false on the game's own key-assignment screen, which complains about an action
+///   with no key, so there the actions are only ever given a key, never left without one.
+///
+/// The button for a key stands for the actions that have it by default, so those hold it. Any other
+/// action the player's game has also put on that key would fire along with it, so it is switched off
+/// (-1, no key) for as long as the button is held. A game with its keys as they come is never
+/// touched.
+pub fn plan(current: i32, default: i32, held: &[i32], saved: Option<(i32, i32)>, may_switch_off: bool) -> Plan {
+    let base = saved.map_or(current, |(original, _)| original);
+    let wanted = if held.contains(&default) {
+        default
+    } else if may_switch_off && held.contains(&base) {
+        -1
+    } else {
+        base
+    };
+    match saved {
+        Some((_, written)) if current != written => Plan::Forget,
+        Some((original, _)) if wanted == original => Plan::Restore { original },
+        Some((_, written)) if wanted == written => Plan::Nothing,
+        Some(_) => Plan::Change { written: wanted },
+        None if wanted == current => Plan::Nothing,
+        None => Plan::Take { original: current, written: wanted },
     }
 }
 
@@ -1787,30 +1810,78 @@ pub fn takeover(current: i32, arrow: i32, want: bool, saved: Option<i32>) -> Tak
 mod tests {
     use super::*;
 
-    /// One test, because the held directions are global state shared by every test of the process.
+    /// One test, because the held keys are global state shared by every test of the process.
     #[test]
-    fn the_joystick_takes_over_the_games_direction_keys_while_held() {
-        // Arrows are noted, other keys are not.
-        note_key(Key::LeftArrow, true);
-        note_key(Key::Z, true);
-        assert_eq!(directions_held(), [false, false, true, false]);
-        note_key(Key::LeftArrow, false);
-        assert_eq!(directions_held(), [false; 4]);
+    fn buttons_are_bound_to_the_games_actions_while_held() {
+        // Keys are known by the code the game stores.
+        assert_eq!(vk_of(Key::Z), Some(90));
+        assert_eq!(vk_of(Key::LeftArrow), Some(37));
+        assert_eq!(vk_of(Key::LeftControl), Some(17));
+        assert_eq!(vk_of(Key::LeftShift), Some(16));
+        assert_eq!(vk_of(Key::Space), Some(32));
 
-        let left = ARROW_CODES[2];
-        let a = 65;
-        // A PC save with A for left: taken while the stick is held, put back after.
-        assert_eq!(takeover(a, left, true, None), Takeover::Take { original: a });
-        assert_eq!(takeover(left, left, true, Some(a)), Takeover::Nothing, "already taken");
-        assert_eq!(takeover(left, left, false, Some(a)), Takeover::Restore { original: a });
-        assert_eq!(takeover(a, left, false, None), Takeover::Nothing, "idle: not touched");
-        // A game that kept its arrows is never touched.
-        assert_eq!(takeover(left, left, true, None), Takeover::Nothing);
-        // The game rewrote it while it was held (a save loaded, a key assigned): do not undo that.
-        assert_eq!(takeover(87, left, true, Some(a)), Takeover::Forget);
-        assert_eq!(takeover(87, left, false, Some(a)), Takeover::Forget);
-        // Unassigned keys (-1) are taken too, so the joystick still moves a player with no key bound.
-        assert_eq!(takeover(-1, left, true, None), Takeover::Take { original: -1 });
+        // A tap that went down and up before the game looked still counts, once.
+        note_key(Key::Z, true);
+        note_key(Key::Z, false);
+        assert_eq!(held_for_sync(), vec![90]);
+        assert_eq!(held_for_sync(), Vec::<i32>::new());
+        // A key held across looks stays until it goes up, and then one look more is not needed.
+        note_key(Key::LeftArrow, true);
+        assert_eq!(held_for_sync(), vec![37]);
+        assert_eq!(held_for_sync(), vec![37]);
+        note_key(Key::LeftArrow, false);
+        assert_eq!(held_for_sync(), Vec::<i32>::new());
+
+        let (z, x, w, a, left) = (90, 88, 87, 65, 37);
+        // A game with its keys as they come is never touched, held or not.
+        assert_eq!(plan(z, z, &[z], None, true), Plan::Nothing);
+        assert_eq!(plan(x, x, &[z], None, true), Plan::Nothing);
+        assert_eq!(plan(left, left, &[left, z], None, true), Plan::Nothing);
+        // A PC save with W for up: the action holds its default key while that is held...
+        assert_eq!(plan(w, 38, &[38], None, true), Plan::Take { original: w, written: 38 });
+        assert_eq!(plan(38, 38, &[38], Some((w, 38)), true), Plan::Nothing);
+        // ...and gets its own key back when it is not.
+        assert_eq!(plan(38, 38, &[], Some((w, 38)), true), Plan::Restore { original: w });
+        // Idle: not touched.
+        assert_eq!(plan(w, 38, &[], None, true), Plan::Nothing);
+        assert_eq!(plan(w, 38, &[z], None, true), Plan::Nothing);
+        // Z and X swapped: holding Z binds the action that is Z by default, and switches off the one
+        // that the save put on Z.
+        assert_eq!(plan(z, x, &[z], None, true), Plan::Take { original: z, written: -1 });
+        assert_eq!(plan(x, z, &[z], None, true), Plan::Take { original: x, written: z });
+        assert_eq!(plan(-1, x, &[z], Some((z, -1)), true), Plan::Nothing);
+        assert_eq!(plan(-1, x, &[], Some((z, -1)), true), Plan::Restore { original: z });
+        // Two buttons at once, then one goes: the variable follows.
+        assert_eq!(plan(z, z, &[z, x], Some((a, z)), true), Plan::Nothing);
+        assert_eq!(plan(z, z, &[x], Some((a, z)), true), Plan::Restore { original: a });
+        assert_eq!(plan(-1, x, &[z], Some((z, -1)), true), Plan::Nothing);
+        assert_eq!(plan(-1, x, &[z, x], Some((z, -1)), true), Plan::Change { written: x });
+        // An action nobody had assigned still follows the button.
+        assert_eq!(plan(-1, z, &[z], None, true), Plan::Take { original: -1, written: z });
+        // On the game's key screen an action is never left without a key.
+        assert_eq!(plan(z, x, &[z], None, false), Plan::Nothing);
+        assert_eq!(plan(w, 38, &[38], None, false), Plan::Take { original: w, written: 38 });
+        // The game rewrote it while taken (a save loaded, a key assigned): do not undo that.
+        assert_eq!(plan(87, z, &[z], Some((a, z)), true), Plan::Forget);
+        assert_eq!(plan(87, z, &[], Some((a, z)), true), Plan::Forget);
+    }
+
+    #[test]
+    fn the_table_of_default_keys_has_what_the_buttons_need() {
+        use crate::key_defaults::KEY_DEFAULTS;
+        let find = |name: &str| KEY_DEFAULTS.iter().find(|(n, _)| *n == name).map(|&(_, code)| code);
+        assert_eq!(find("key_ex_arriba"), Some(38));
+        assert_eq!(find("key_ex_izquierda"), Some(37));
+        assert_eq!(find("key_menu_accion"), Some(90));
+        assert_eq!(find("key_ex_correr"), Some(88));
+        assert_eq!(find("key_bt_tiempo"), Some(17));
+        assert_eq!(find("key_menu_principal"), Some(13));
+        assert_eq!(find("key_p2_mov_arriba"), None, "the second player's keys are not ours");
+        assert!(KEY_DEFAULTS.len() > 200);
+        let mut names: Vec<_> = KEY_DEFAULTS.iter().map(|(n, _)| *n).collect();
+        names.sort();
+        names.dedup();
+        assert_eq!(names.len(), KEY_DEFAULTS.len(), "each variable once");
     }
 
     /// One test, because the layout is global state shared by every test of the process.

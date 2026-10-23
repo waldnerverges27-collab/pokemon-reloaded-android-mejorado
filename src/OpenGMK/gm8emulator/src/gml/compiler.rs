@@ -428,6 +428,19 @@ impl Compiler {
         self.fields.iter().position(|x| x.as_ref() == name)
     }
 
+    /// Searches for the ids of many fieldnames in one pass over the names the game has.
+    pub fn find_field_ids(&self, names: &[&[u8]]) -> Vec<Option<usize>> {
+        let wanted: std::collections::HashMap<&[u8], usize> =
+            names.iter().enumerate().map(|(at, name)| (*name, at)).collect();
+        let mut found = vec![None; names.len()];
+        for (id, field) in self.fields.iter().enumerate() {
+            if let Some(&at) = wanted.get(field.as_ref()) {
+                found[at].get_or_insert(id);
+            }
+        }
+        found
+    }
+
     /// Gets the unique id of a fieldname, registering one if it doesn't already exist.
     pub fn get_field_id(&mut self, name: &[u8]) -> usize {
         if let Some(i) = self.find_field_id(name) {

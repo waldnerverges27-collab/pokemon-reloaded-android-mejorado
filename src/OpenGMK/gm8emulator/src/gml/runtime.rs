@@ -642,6 +642,10 @@ impl Game {
                 function.0(&arg_values[..args.len()])
             },
             Node::Script { args, script_id } => {
+                #[cfg(target_os = "android")]
+                if self.is_key_saving_script(*script_id as i32) {
+                    self.release_touch_keys();
+                }
                 if let Some(Some(script)) = self.assets.scripts.get(*script_id) {
                     let instructions = script.compiled.clone();
 
