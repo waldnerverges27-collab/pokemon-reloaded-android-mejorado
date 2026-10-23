@@ -1034,7 +1034,12 @@ fn translate(event: &InputEvent) {
                     crate::touch_controls::set_pad_active(true);
                     pad_rumble();
                     eprintln!("[pad] tecla {} -> {:?}", code, k);
-                    if is_pad_code(code) { push_key(k, true) } else { push_raw(k, true) }
+                    if is_pad_code(code) {
+                        push_key(k, true)
+                    } else {
+                        crate::touch_controls::note_keyboard();
+                        push_raw(k, true)
+                    }
                 }
             },
             KeyAction::Up => {

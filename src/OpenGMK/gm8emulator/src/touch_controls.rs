@@ -1735,6 +1735,7 @@ static TOUCH_KEYS: Mutex<Vec<TouchKey>> = Mutex::new(Vec::new());
 
 /// Notes that a key of the app (a button, the joystick, a pad) went down or up.
 pub fn note_key(key: Key, down: bool) {
+    KEYBOARD_LAST.store(false, Ordering::Relaxed);
     let Some(vk) = vk_of(key) else { return };
     let mut keys = TOUCH_KEYS.lock().unwrap();
     match keys.iter_mut().find(|held| held.vk == vk) {
@@ -1760,6 +1761,19 @@ pub fn held_for_sync() -> Vec<i32> {
     held
 }
 
+/// Whether the last key that reached the game came from a real keyboard (as opposed to a button of
+/// the app or a pad). A keyboard plays with the player's own keys; everything else with the usual ones.
+static KEYBOARD_LAST: AtomicBool = AtomicBool::new(false);
+
+/// Notes that a real keyboard key went down.
+pub fn note_keyboard() {
+    KEYBOARD_LAST.store(true, Ordering::Relaxed);
+}
+
+pub fn keyboard_in_use() -> bool {
+    KEYBOARD_LAST.load(Ordering::Relaxed)
+}
+
 /// What to do with one of the game's key variables.
 #[derive(Debug, PartialEq)]
 pub enum Plan {
@@ -1767,40 +1781,34 @@ pub enum Plan {
     Nothing,
     /// Set it to `written`, remembering that it held `original`.
     Take { original: i32, written: i32 },
-    /// It is taken, and now has to hold something else.
-    Change { written: i32 },
     /// Put back what it held.
     Restore { original: i32 },
     /// The game changed it behind our back (a load, an assignment): forget what was saved.
     Forget,
 }
 
-/// Decides what a variable should hold while the keys `held` are down.
+/// Decides what a variable should hold.
 ///
 /// - `current`: what it holds now.
-/// - `default`: the key its action has in a game nobody has touched.
+/// - `default`: the key its action has in a game nobody has touched, which is the key the buttons press.
+/// - `held`: the keys the app is holding right now.
 /// - `saved`: `(original, written)` if it is already taken over.
-/// - `may_switch_off`: false on the game's own key-assignment screen, which complains about an action
-///   with no key, so there the actions are only ever given a key, never left without one.
+/// - `always`: the variable holds the usual key all the time, not only while its button is down.
 ///
-/// The button for a key stands for the actions that have it by default, so those hold it. Any other
-/// action the player's game has also put on that key would fire along with it, so it is switched off
-/// (-1, no key) for as long as the button is held. A game with its keys as they come is never
-/// touched.
-pub fn plan(current: i32, default: i32, held: &[i32], saved: Option<(i32, i32)>, may_switch_off: bool) -> Plan {
+/// Many of the game's screens read the keys once, when they start, and then wait for them: swapping
+/// a key after the button went down is too late for them. So while the app's buttons are what plays
+/// (`always`), every variable holds the usual key from the start, and what the save had goes back in
+/// before the game writes a save, or when a keyboard takes over. Without `always`, a variable holds
+/// the usual key only while its button is down. A game with its keys as they come is never touched.
+pub fn plan(current: i32, default: i32, held: &[i32], saved: Option<(i32, i32)>, always: bool) -> Plan {
     let base = saved.map_or(current, |(original, _)| original);
-    let wanted = if held.contains(&default) {
-        default
-    } else if may_switch_off && held.contains(&base) {
-        -1
-    } else {
-        base
-    };
+    let wanted = if always || held.contains(&default) { default } else { base };
     match saved {
         Some((_, written)) if current != written => Plan::Forget,
         Some((original, _)) if wanted == original => Plan::Restore { original },
         Some((_, written)) if wanted == written => Plan::Nothing,
-        Some(_) => Plan::Change { written: wanted },
+        // Taken, and now it has to be the usual key and it already is: nothing to do.
+        Some(_) => Plan::Nothing,
         None if wanted == current => Plan::Nothing,
         None => Plan::Take { original: current, written: wanted },
     }
@@ -1834,36 +1842,30 @@ mod tests {
 
         let (z, x, w, a, left) = (90, 88, 87, 65, 37);
         // A game with its keys as they come is never touched, held or not.
-        assert_eq!(plan(z, z, &[z], None, true), Plan::Nothing);
-        assert_eq!(plan(x, x, &[z], None, true), Plan::Nothing);
-        assert_eq!(plan(left, left, &[left, z], None, true), Plan::Nothing);
-        // A PC save with W for up: the action holds its default key while that is held...
-        assert_eq!(plan(w, 38, &[38], None, true), Plan::Take { original: w, written: 38 });
-        assert_eq!(plan(38, 38, &[38], Some((w, 38)), true), Plan::Nothing);
-        // ...and gets its own key back when it is not.
-        assert_eq!(plan(38, 38, &[], Some((w, 38)), true), Plan::Restore { original: w });
-        // Idle: not touched.
-        assert_eq!(plan(w, 38, &[], None, true), Plan::Nothing);
-        assert_eq!(plan(w, 38, &[z], None, true), Plan::Nothing);
-        // Z and X swapped: holding Z binds the action that is Z by default, and switches off the one
-        // that the save put on Z.
-        assert_eq!(plan(z, x, &[z], None, true), Plan::Take { original: z, written: -1 });
-        assert_eq!(plan(x, z, &[z], None, true), Plan::Take { original: x, written: z });
-        assert_eq!(plan(-1, x, &[z], Some((z, -1)), true), Plan::Nothing);
-        assert_eq!(plan(-1, x, &[], Some((z, -1)), true), Plan::Restore { original: z });
-        // Two buttons at once, then one goes: the variable follows.
-        assert_eq!(plan(z, z, &[z, x], Some((a, z)), true), Plan::Nothing);
-        assert_eq!(plan(z, z, &[x], Some((a, z)), true), Plan::Restore { original: a });
-        assert_eq!(plan(-1, x, &[z], Some((z, -1)), true), Plan::Nothing);
-        assert_eq!(plan(-1, x, &[z, x], Some((z, -1)), true), Plan::Change { written: x });
-        // An action nobody had assigned still follows the button.
-        assert_eq!(plan(-1, z, &[z], None, true), Plan::Take { original: -1, written: z });
-        // On the game's key screen an action is never left without a key.
-        assert_eq!(plan(z, x, &[z], None, false), Plan::Nothing);
+        for always in [true, false] {
+            assert_eq!(plan(z, z, &[z], None, always), Plan::Nothing);
+            assert_eq!(plan(x, x, &[z], None, always), Plan::Nothing);
+            assert_eq!(plan(left, left, &[left, z], None, always), Plan::Nothing);
+        }
+        // A PC save with W for up, played with the buttons: up holds the arrow from the start...
+        assert_eq!(plan(w, 38, &[], None, true), Plan::Take { original: w, written: 38 });
+        assert_eq!(plan(38, 38, &[], Some((w, 38)), true), Plan::Nothing);
+        // ...until a keyboard takes over (or the game is about to save): then it has its own key back.
+        assert_eq!(plan(38, 38, &[], Some((w, 38)), false), Plan::Restore { original: w });
+        // On the key screen only the button that is down gets the usual key.
+        assert_eq!(plan(w, 38, &[], None, false), Plan::Nothing);
+        assert_eq!(plan(w, 38, &[z], None, false), Plan::Nothing);
         assert_eq!(plan(w, 38, &[38], None, false), Plan::Take { original: w, written: 38 });
+        assert_eq!(plan(38, 38, &[38], Some((w, 38)), false), Plan::Nothing);
+        assert_eq!(plan(38, 38, &[z], Some((w, 38)), false), Plan::Restore { original: w });
+        // Z and X swapped: every action gets its usual key, so Z is Z and X is X.
+        assert_eq!(plan(z, x, &[], None, true), Plan::Take { original: z, written: x });
+        assert_eq!(plan(x, z, &[], None, true), Plan::Take { original: x, written: z });
+        // An action nobody had assigned still follows the button.
+        assert_eq!(plan(-1, z, &[], None, true), Plan::Take { original: -1, written: z });
         // The game rewrote it while taken (a save loaded, a key assigned): do not undo that.
         assert_eq!(plan(87, z, &[z], Some((a, z)), true), Plan::Forget);
-        assert_eq!(plan(87, z, &[], Some((a, z)), true), Plan::Forget);
+        assert_eq!(plan(87, z, &[], Some((a, z)), false), Plan::Forget);
     }
 
     #[test]

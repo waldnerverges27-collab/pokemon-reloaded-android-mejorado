@@ -9600,9 +9600,7 @@ impl Game {
         if let Some(script_id) = args.get(0) {
             let script_id = script_id.round();
             #[cfg(target_os = "android")]
-            if self.is_key_saving_script(script_id) {
-                self.release_touch_keys();
-            }
+            let guarded = self.begin_key_save(script_id);
             if let Some(script) = self.assets.scripts.get_asset(script_id) {
                 let instructions = script.compiled.clone();
                 let mut new_args: [Value; 16] = Default::default();
@@ -9610,7 +9608,12 @@ impl Game {
                     *dest = src.clone();
                 }
                 let mut new_context = Context::copy_with_args(context, new_args, args.len() - 1);
-                self.execute(&instructions, &mut new_context)?;
+                let result = self.execute(&instructions, &mut new_context);
+                #[cfg(target_os = "android")]
+                if guarded {
+                    self.end_key_save();
+                }
+                result?;
                 Ok(new_context.return_value)
             } else {
                 Err(gml::Error::NonexistentAsset(asset::Type::Script, script_id))

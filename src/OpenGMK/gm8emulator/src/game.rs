@@ -176,6 +176,9 @@ static TAKEN: std::sync::Mutex<Vec<(usize, i32, i32)>> = std::sync::Mutex::new(V
 /// Whether [TAKEN] has anything in it, for the places that ask on every script the game runs.
 #[cfg(target_os = "android")]
 static ANY_TAKEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// True while a script that writes the key bindings into a save is running.
+#[cfg(target_os = "android")]
+static SAVING_KEYS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 
 /// Structure which contains all the components of a game.
@@ -2030,30 +2033,40 @@ impl Game {
     ///
     /// A save file brings its own key bindings, so a game made on a PC with other keys no longer
     /// answers to the keys the buttons press. The bindings are variables of the game's settings
-    /// object (3), one per action. While a button holds its key, every variable whose action has
-    /// that key by default is set to it, and any other variable the save put on that key is switched
-    /// off; when the button lets go, each one is put back as it was, so the player's own keys are
-    /// never lost and are what gets saved (see [Game::release_touch_keys]). A game with its keys as
-    /// they come is never touched.
+    /// object (3), one per action. While the app's buttons are what plays, each of those variables
+    /// holds the usual key of its action, and what the save had is kept aside; it goes back in when a
+    /// real keyboard takes over, and before the game writes a save (see [Game::begin_key_save]), so
+    /// the player's own keys are never lost and are what gets saved.
     ///
-    /// Called once per poll of the window's events, right after they are applied: the swap has to be
-    /// in place before the game looks at the key that just went down.
+    /// It is done all the time rather than when a button goes down because many of the game's
+    /// screens (the main menu, the lists, the dialogs) read the keys once, when they open, and then
+    /// wait for them: a key swapped after that is too late for them.
     ///
-    /// While the game's key-assignment screen waits for a key nothing is taken over, so that
-    /// pushing a button there binds its key, which is how the player gets the usual keys back.
+    /// On the game's key screen (room 514) it is only done for the buttons held, so that the screen
+    /// shows and edits the real keys, and nothing is taken over while the screen waits for a key:
+    /// pushing a button there binds its usual key, which is how the player gets those back.
+    ///
+    /// Called once per poll of the window's events, right after they are applied. A game with its
+    /// keys as they come is never touched.
     #[cfg(target_os = "android")]
     fn sync_touch_keys(&self) {
         use crate::touch_controls::{plan, Plan};
         use std::sync::{atomic::AtomicU32, atomic::Ordering, Mutex};
 
-        /// The settings object and the screen that assigns keys.
+        /// The settings object, the screen that assigns keys and the object that screen waits in.
         const SETTINGS: i32 = 3;
+        const KEY_ROOM: i32 = 514;
         const KEY_SCREEN: i32 = 1323;
 
         let held = crate::touch_controls::held_for_sync();
+        if SAVING_KEYS.load(Ordering::Relaxed) {
+            return
+        }
+        let on_key_screen = self.room.id == KEY_ROOM;
+        let always = !on_key_screen && !crate::touch_controls::keyboard_in_use();
         let mut saved = TAKEN.lock().unwrap();
-        // Nothing held and nothing to put back: the common case costs a lock and a flag.
-        if held.is_empty() && saved.is_empty() {
+        // Nothing to take, nothing held and nothing to put back.
+        if !always && held.is_empty() && saved.is_empty() {
             return
         }
 
@@ -2080,19 +2093,18 @@ impl Game {
 
         let list = &self.room.instance_list;
         let Some(settings) = list.iter_by_identity(SETTINGS).next(list) else { return };
-        let waiting = WAITING_FIELD.lock().unwrap().is_some_and(|id| {
-            let Some(handle) = list.iter_by_identity(KEY_SCREEN).next(list) else { return false };
-            let instance_fields = list.get(handle).fields.borrow();
-            let value = match instance_fields.get(&id).and_then(|field| field.get(0)) {
-                Some(crate::gml::Value::Real(n)) => n.into_inner() != 0.0,
-                _ => false,
-            };
-            value
-        });
+        let waiting = on_key_screen
+            && WAITING_FIELD.lock().unwrap().is_some_and(|id| {
+                let Some(handle) = list.iter_by_identity(KEY_SCREEN).next(list) else { return false };
+                let instance_fields = list.get(handle).fields.borrow();
+                let value = match instance_fields.get(&id).and_then(|field| field.get(0)) {
+                    Some(crate::gml::Value::Real(n)) => n.into_inner() != 0.0,
+                    _ => false,
+                };
+                value
+            });
         let held = if waiting { Vec::new() } else { held };
 
-        // The game's key screen is room 514: it refuses to be left while an action has no key.
-        let may_switch_off = self.room.id != 514;
         let mut settings_fields = list.get(settings).fields.borrow_mut();
         let was_empty = saved.is_empty();
         for &(id, default) in fields.iter() {
@@ -2106,15 +2118,11 @@ impl Game {
             let set = |field: &mut crate::instance::Field, code: i32| {
                 field.set(0, crate::gml::Value::Real(f64::from(code).into()));
             };
-            match plan(current, default, &held, entry, may_switch_off) {
+            match plan(current, default, &held, entry, always && !waiting) {
                 Plan::Nothing => {},
                 Plan::Take { original, written } => {
                     set(field, written);
                     saved.push((id, original, written));
-                },
-                Plan::Change { written } => {
-                    set(field, written);
-                    saved[before.unwrap()].2 = written;
                 },
                 Plan::Restore { original } => {
                     set(field, original);
@@ -2127,17 +2135,17 @@ impl Game {
         }
         ANY_TAKEN.store(!saved.is_empty(), Ordering::Relaxed);
         if was_empty && !saved.is_empty() {
-            // Only for the first few: a game with other keys does this on every press.
+            // Only for the first few: a game with other keys does this on every load.
             static LOGGED: AtomicU32 = AtomicU32::new(0);
             if LOGGED.fetch_add(1, Ordering::Relaxed) < 12 {
-                eprintln!("[teclas] los botones sustituyen {} teclas de la partida mientras se mantienen ({:?})", saved.len(), held);
+                eprintln!("[teclas] la partida trae {} teclas distintas de las de siempre: los botones usan las de siempre y las de la partida se guardan aparte", saved.len());
             }
         }
     }
 
-    /// Gives every taken-over key variable back its own value. Done before the game saves, so that
-    /// a save never carries a key a button had borrowed for a moment. The next poll takes them again
-    /// if the button is still held.
+    /// Gives every taken-over key variable back its own value, and keeps them that way until
+    /// [Game::end_key_save]. Done before the game writes its key bindings into a save, so that a save
+    /// never carries a key the buttons had put there.
     #[cfg(target_os = "android")]
     pub(crate) fn release_touch_keys(&self) {
         let mut saved = TAKEN.lock().unwrap();
@@ -2158,9 +2166,12 @@ impl Game {
         ANY_TAKEN.store(false, std::sync::atomic::Ordering::Relaxed);
     }
 
-    /// Whether a script is one of the two that write the game's key bindings into a save file.
+    /// Called as a script is about to run. If it is one of the two that write the game's key
+    /// bindings into a file, the player's own keys go back in and stay there until it ends (the
+    /// script lets the game poll its input along the way, which would take them again). True when
+    /// that was done, and then [Game::end_key_save] has to follow.
     #[cfg(target_os = "android")]
-    pub(crate) fn is_key_saving_script(&self, script_id: i32) -> bool {
+    pub(crate) fn begin_key_save(&self, script_id: i32) -> bool {
         use std::sync::atomic::{AtomicI32, Ordering};
         // Nothing is borrowed, so nothing to protect: the usual answer costs one load.
         if !ANY_TAKEN.load(Ordering::Relaxed) {
@@ -2178,7 +2189,18 @@ impl Game {
                 IDS[at].store(id, Ordering::Relaxed);
             }
         }
-        script_id >= 0 && IDS.iter().any(|id| id.load(Ordering::Relaxed) == script_id)
+        if script_id < 0 || !IDS.iter().any(|id| id.load(Ordering::Relaxed) == script_id) {
+            return false
+        }
+        self.release_touch_keys();
+        SAVING_KEYS.store(true, Ordering::Relaxed);
+        true
+    }
+
+    /// The save script is done: the buttons get their usual keys again at the next poll.
+    #[cfg(target_os = "android")]
+    pub(crate) fn end_key_save(&self) {
+        SAVING_KEYS.store(false, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Each party slot's stored species value (0 = empty) straight from `global.pkmn1[0..5]`.

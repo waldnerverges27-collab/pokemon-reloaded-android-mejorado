@@ -54,8 +54,8 @@ android {
         applicationId = "com.ahjin.pr"
         minSdk = 29
         targetSdk = 36
-        versionCode = 29
-        versionName = "0.7.8"
+        versionCode = 30
+        versionName = "0.7.9"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
