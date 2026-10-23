@@ -91,6 +91,7 @@ private val TOPICS = listOf(
         "Copias de seguridad",
         listOf(
             "En las cajas del PC, manten pulsado un Pokemon (algo mas de un tercio de segundo): es el clic derecho del juego y abre su menu con Datos, Mover, Soltar y Quitar objeto. Un toque normal sigue cogiendo y dejando Pokemon como siempre.",
+            "Si importas una partida hecha en PC con otras teclas de movimiento (WASD, por ejemplo), el joystick las sigue: la app lee del propio juego que teclas usa para cada direccion. Si quieres volver a las flechas, en Comandos del juego empuja el joystick cuando te pida la tecla.",
             "Instalar una version nueva del juego (con Importar o con Abrir con) no borra tus partidas: los slots, los equipos y los personajes personalizados pasan a la instalacion nueva. Si el zip trae una partida en un slot que ya tienes, se queda la tuya.",
             "La app guarda copias de tus partidas por su cuenta: al abrir el juego (si han cambiado) y siempre antes de importar, borrar, reinstalar el juego o actualizar la app.",
             "Estan en Ajustes > Copias de seguridad. Desde ahi puedes restaurar una, compartirla o guardarla fuera del telefono. Restaurar guarda antes lo que tengas, asi que se puede deshacer.",

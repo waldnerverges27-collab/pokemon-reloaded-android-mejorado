@@ -1702,9 +1702,189 @@ pub fn box_hold_slop(width: f32, height: f32) -> f32 {
     (width.min(height) * 0.03).max(10.0)
 }
 
+// --- Movement keys the game is listening to -------------------------------------------------------
+
+/// Every key the game reads is a variable of its own, and a save file carries them all: loading a
+/// game made on a PC with other keys (WASD, say) replaces the arrows the joystick presses. So the
+/// joystick asks the game which keys mean "up" and the rest, and presses those.
+///
+/// The variables that name the key for a direction, one family per screen of the game. The second
+/// player's keys are not here: they are somebody else's.
+pub const DIRECTION_FAMILIES: [&str; 15] = [
+    "key_ex_",
+    "key_bt_mov_",
+    "key_menu_mov_",
+    "key_menump_mov_",
+    "key_caja_mov_",
+    "key_eliminatorias_mov_",
+    "key_entrenador_mov_",
+    "key_movil_mov_",
+    "key_obj_mov_",
+    "key_opciones_mov_",
+    "key_p1_mov_",
+    "key_pkdex_mov_",
+    "key_pkmn_mov_",
+    "key_prestamo_mov_",
+    "key_vuelo_mov_",
+];
+
+/// How the game spells each direction in those names, in the order up, down, left, right.
+pub const DIRECTION_WORDS: [&str; 4] = ["arriba", "abajo", "izquierda", "derecha"];
+
+/// The key the on-screen joystick presses for each direction when the game has not been told
+/// anything else.
+pub const ARROWS: [Key; 4] = [Key::UpArrow, Key::DownArrow, Key::LeftArrow, Key::RightArrow];
+
+/// The key a Windows virtual-key code (what the game stores) stands for, when there is one the
+/// engine can press.
+pub fn key_for_vk(vk: i32) -> Option<Key> {
+    const LETTERS: [Key; 26] = [
+        Key::A, Key::B, Key::C, Key::D, Key::E, Key::F, Key::G, Key::H, Key::I, Key::J, Key::K, Key::L, Key::M,
+        Key::N, Key::O, Key::P, Key::Q, Key::R, Key::S, Key::T, Key::U, Key::V, Key::W, Key::X, Key::Y, Key::Z,
+    ];
+    const DIGITS: [Key; 10] = [
+        Key::Alpha0, Key::Alpha1, Key::Alpha2, Key::Alpha3, Key::Alpha4, Key::Alpha5, Key::Alpha6, Key::Alpha7,
+        Key::Alpha8, Key::Alpha9,
+    ];
+    const KEYPAD: [Key; 10] = [
+        Key::Keypad0, Key::Keypad1, Key::Keypad2, Key::Keypad3, Key::Keypad4, Key::Keypad5, Key::Keypad6,
+        Key::Keypad7, Key::Keypad8, Key::Keypad9,
+    ];
+    const FUNCTION: [Key; 12] = [
+        Key::F1, Key::F2, Key::F3, Key::F4, Key::F5, Key::F6, Key::F7, Key::F8, Key::F9, Key::F10, Key::F11, Key::F12,
+    ];
+    Some(match vk {
+        65..=90 => LETTERS[(vk - 65) as usize],
+        48..=57 => DIGITS[(vk - 48) as usize],
+        96..=105 => KEYPAD[(vk - 96) as usize],
+        112..=123 => FUNCTION[(vk - 112) as usize],
+        8 => Key::Backspace,
+        9 => Key::Tab,
+        13 => Key::Return,
+        16 => Key::LeftShift,
+        17 => Key::LeftControl,
+        18 => Key::LeftAlt,
+        27 => Key::Escape,
+        32 => Key::Space,
+        33 => Key::PageUp,
+        34 => Key::PageDown,
+        35 => Key::End,
+        36 => Key::Home,
+        37 => Key::LeftArrow,
+        38 => Key::UpArrow,
+        39 => Key::RightArrow,
+        40 => Key::DownArrow,
+        45 => Key::Insert,
+        46 => Key::Delete,
+        106 => Key::KeypadMultiply,
+        107 => Key::KeypadAdd,
+        109 => Key::KeypadSubtract,
+        110 => Key::KeypadDecimal,
+        111 => Key::KeypadDivide,
+        187 => Key::Plus,
+        188 => Key::Comma,
+        189 => Key::Minus,
+        190 => Key::Period,
+        _ => return None,
+    })
+}
+
+/// The extra keys the game wants for each direction right now.
+static DIRECTION_KEYS: Mutex<[Vec<Key>; 4]> = Mutex::new([Vec::new(), Vec::new(), Vec::new(), Vec::new()]);
+/// What each direction pressed when it went down, so it lets go of exactly those.
+static DIRECTION_HELD: Mutex<[Vec<Key>; 4]> = Mutex::new([Vec::new(), Vec::new(), Vec::new(), Vec::new()]);
+
+/// Notes which keys the game is listening to for up, down, left and right (virtual-key codes).
+/// True when that changed.
+pub fn set_direction_keys(codes: [Vec<i32>; 4]) -> bool {
+    let mut keys: [Vec<Key>; 4] = Default::default();
+    for (dir, list) in codes.iter().enumerate() {
+        for key in list.iter().filter_map(|&vk| key_for_vk(vk)) {
+            if key != ARROWS[dir] && !keys[dir].contains(&key) {
+                keys[dir].push(key);
+            }
+        }
+    }
+    let mut current = DIRECTION_KEYS.lock().unwrap();
+    let changed = *current != keys;
+    *current = keys;
+    changed
+}
+
+/// Which direction an arrow key is, if it is one.
+pub fn arrow_direction(key: Key) -> Option<usize> {
+    ARROWS.iter().position(|&arrow| arrow == key)
+}
+
+/// The keys to press when `key` goes down. Anything but an arrow is itself. An arrow is itself plus
+/// whatever the game has bound to that direction, so a game that still reads the arrows keeps
+/// working and one that was set up with other keys works too.
+pub fn direction_down(key: Key) -> Vec<Key> {
+    let Some(dir) = arrow_direction(key) else { return vec![key] };
+    let mut held = DIRECTION_HELD.lock().unwrap();
+    if held[dir].is_empty() {
+        let mut keys = vec![key];
+        keys.extend(DIRECTION_KEYS.lock().unwrap()[dir].iter().copied());
+        held[dir] = keys;
+    }
+    held[dir].clone()
+}
+
+/// The keys to let go of when `key` goes up: the ones its press went out as.
+pub fn direction_up(key: Key) -> Vec<Key> {
+    let Some(dir) = arrow_direction(key) else { return vec![key] };
+    let keys = std::mem::take(&mut DIRECTION_HELD.lock().unwrap()[dir]);
+    if keys.is_empty() {
+        vec![key]
+    } else {
+        keys
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// One test, because the direction keys are global state shared by every test of the process.
+    #[test]
+    fn the_joystick_presses_the_keys_the_game_listens_to() {
+        use crate::input::Button;
+        // Every code the table knows becomes a key the engine turns back into that same code.
+        for vk in 0..=255 {
+            if let Some(key) = key_for_vk(vk) {
+                let button = Button::try_from(key).unwrap_or_else(|_| panic!("{vk}"));
+                let code = button as i32;
+                let modifier = matches!((vk, code), (16, 0xA0) | (17, 0xA2) | (18, 0xA4));
+                assert!(code == vk || modifier, "vk {vk} -> {key:?} -> {code}");
+            }
+        }
+        assert_eq!(key_for_vk(87), Some(Key::W));
+        assert_eq!(key_for_vk(38), Some(Key::UpArrow));
+        assert_eq!(key_for_vk(-1), None);
+        assert_eq!(key_for_vk(0), None);
+
+        // A game that kept its arrows: nothing but the arrows go out.
+        let arrows = [vec![38, 38], vec![40], vec![37], vec![39]];
+        assert!(!set_direction_keys(arrows.clone()));
+        assert_eq!(direction_down(Key::UpArrow), vec![Key::UpArrow]);
+        assert_eq!(direction_up(Key::UpArrow), vec![Key::UpArrow]);
+
+        // A game loaded from a PC with WASD: the joystick presses those too, and lets go of the same
+        // ones even if the game changes its mind while the stick is held.
+        let wasd = [vec![87, 38], vec![83], vec![65, 65], vec![68, -1]];
+        assert!(set_direction_keys(wasd));
+        assert_eq!(direction_down(Key::UpArrow), vec![Key::UpArrow, Key::W]);
+        assert_eq!(direction_down(Key::LeftArrow), vec![Key::LeftArrow, Key::A]);
+        assert_eq!(direction_down(Key::RightArrow), vec![Key::RightArrow, Key::D]);
+        assert!(set_direction_keys(arrows));
+        assert_eq!(direction_up(Key::UpArrow), vec![Key::UpArrow, Key::W]);
+        assert_eq!(direction_up(Key::UpArrow), vec![Key::UpArrow], "a second release has nothing left");
+        assert_eq!(direction_up(Key::LeftArrow), vec![Key::LeftArrow, Key::A]);
+        assert_eq!(direction_up(Key::RightArrow), vec![Key::RightArrow, Key::D]);
+        // Buttons that are not arrows are never touched.
+        assert_eq!(direction_down(Key::Z), vec![Key::Z]);
+        assert_eq!(direction_up(Key::Z), vec![Key::Z]);
+    }
 
     /// One test, because the layout is global state shared by every test of the process.
     #[test]

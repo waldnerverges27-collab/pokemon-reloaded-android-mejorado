@@ -2015,6 +2015,80 @@ impl Game {
         crate::touch_controls::set_modal_open(self.modal_system() > 0);
         crate::touch_controls::set_modal_id(self.modal_system());
         crate::touch_controls::set_party(self.party_species());
+        self.sync_direction_keys();
+    }
+
+    /// Tells the touch controls which keys the game is listening to for each direction.
+    ///
+    /// A save file brings its own key bindings, so a game made on a PC with other keys no longer
+    /// answers to the arrows the joystick presses. The bindings live in variables of the game's
+    /// settings object (3), one family per screen; every one of them is read here.
+    ///
+    /// While the game's key-assignment screen waits for a key, nothing is reported, so that pushing
+    /// the joystick there binds the arrow, which is how the player gets the arrows back.
+    #[cfg(target_os = "android")]
+    fn sync_direction_keys(&self) {
+        use std::sync::{atomic::AtomicU32, atomic::Ordering, Mutex};
+
+        /// The settings object and the screen that assigns keys.
+        const SETTINGS: i32 = 3;
+        const KEY_SCREEN: i32 = 1323;
+        /// Marks the id of the "waiting for a key" flag among the direction variables.
+        const WAITING: usize = 4;
+
+        // The search for a variable's id walks every name the game has, so it is done once. A search
+        // that came up short is tried again now and then rather than on every draw.
+        static FIELDS: Mutex<Vec<(usize, usize)>> = Mutex::new(Vec::new());
+        static TRIES: AtomicU32 = AtomicU32::new(0);
+        let mut fields = FIELDS.lock().unwrap();
+        let wanted = crate::touch_controls::DIRECTION_FAMILIES.len() * 4 + 1;
+        if fields.len() < wanted {
+            if TRIES.fetch_add(1, Ordering::Relaxed) % 240 == 0 {
+                fields.clear();
+                for family in crate::touch_controls::DIRECTION_FAMILIES {
+                    for (dir, word) in crate::touch_controls::DIRECTION_WORDS.iter().enumerate() {
+                        let name = format!("{}{}", family, word);
+                        if let Some(id) = self.compiler.find_field_id(name.as_bytes()) {
+                            fields.push((dir, id));
+                        }
+                    }
+                }
+                if let Some(id) = self.compiler.find_field_id(b"ESPERANDO_TECLA") {
+                    fields.push((WAITING, id));
+                }
+            }
+            if fields.is_empty() {
+                return
+            }
+        }
+
+        let read = |object: i32, id: usize| -> Option<f64> {
+            let list = &self.room.instance_list;
+            let handle = list.iter_by_identity(object).next(list)?;
+            let instance_fields = list.get(handle).fields.borrow();
+            let value = match instance_fields.get(&id)?.get(0)? {
+                crate::gml::Value::Real(n) => Some(n.into_inner()),
+                _ => None,
+            };
+            value
+        };
+
+        let waiting = fields
+            .iter()
+            .find(|(dir, _)| *dir == WAITING)
+            .and_then(|&(_, id)| read(KEY_SCREEN, id))
+            .is_some_and(|value| value >= 0.5);
+        let mut codes: [Vec<i32>; 4] = Default::default();
+        if !waiting {
+            for &(dir, id) in fields.iter().filter(|(dir, _)| *dir < 4) {
+                if let Some(code) = read(SETTINGS, id) {
+                    codes[dir].push(code as i32);
+                }
+            }
+        }
+        if crate::touch_controls::set_direction_keys(codes.clone()) {
+            eprintln!("[teclas] direcciones del juego (arriba, abajo, izquierda, derecha): {:?}", codes);
+        }
     }
 
     /// Each party slot's stored species value (0 = empty) straight from `global.pkmn1[0..5]`.

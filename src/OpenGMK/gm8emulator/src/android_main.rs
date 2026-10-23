@@ -331,9 +331,9 @@ fn stick_update(x: f32, y: f32) {
         let bit = 1u32 << index;
         let was = state & bit != 0;
         if *held && !was {
-            android::push_input(ramen::platform::android::InputEvent::KeyDown { key: JOYSTICK_KEYS[index], text: None });
+            push_key(JOYSTICK_KEYS[index], true);
         } else if !*held && was {
-            android::push_input(ramen::platform::android::InputEvent::KeyUp { key: JOYSTICK_KEYS[index] });
+            push_key(JOYSTICK_KEYS[index], false);
         }
         if *held {
             state |= bit;
@@ -361,7 +361,7 @@ fn stick_release() {
     let state = STICK_STATE.swap(0, std::sync::atomic::Ordering::Relaxed);
     for (index, key) in JOYSTICK_KEYS.iter().enumerate() {
         if state & (1 << index) != 0 {
-            android::push_input(ramen::platform::android::InputEvent::KeyUp { key: *key });
+            push_key(*key, false);
         }
     }
 }
@@ -428,7 +428,7 @@ fn control_key_down(index: usize) {
         Key::RightArrow => crate::touch_controls::picker_step(1),
         _ => {},
     }
-    android::push_input(ramen::platform::android::InputEvent::KeyDown { key, text: None });
+    push_key(key, true);
 }
 
 fn control_key_up(index: usize) {
@@ -450,7 +450,7 @@ fn control_key_up(index: usize) {
         Some(CustomMode::Lock) => return,
         _ => {},
     }
-    android::push_input(ramen::platform::android::InputEvent::KeyUp { key: crate::touch_controls::key_of(index) });
+    push_key(crate::touch_controls::key_of(index), false);
 }
 
 use crate::touch_controls::CustomMode;
@@ -890,6 +890,20 @@ static JOYSTICK_STATE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU
 
 const JOYSTICK_KEYS: [Key; 4] = [Key::UpArrow, Key::DownArrow, Key::LeftArrow, Key::RightArrow];
 
+/// Presses or releases a key. An arrow goes out together with the keys the game has bound to that
+/// direction (see [crate::touch_controls::direction_down]), so a game loaded from a PC with other
+/// movement keys still answers to the joystick. Any other key is sent as it is.
+fn push_key(key: Key, down: bool) {
+    let keys = if down { crate::touch_controls::direction_down(key) } else { crate::touch_controls::direction_up(key) };
+    for key in keys {
+        if down {
+            android::push_input(ramen::platform::android::InputEvent::KeyDown { key, text: None });
+        } else {
+            android::push_input(ramen::platform::android::InputEvent::KeyUp { key });
+        }
+    }
+}
+
 fn is_joystick_pointer(id: i32) -> bool {
     *JOYSTICK_PTR.lock().unwrap() == Some(id)
 }
@@ -923,10 +937,10 @@ fn joystick_update(x: f32, y: f32) {
         let bit = 1u32 << i;
         if on != (state & bit != 0) {
             if on {
-                android::push_input(ramen::platform::android::InputEvent::KeyDown { key: JOYSTICK_KEYS[i], text: None });
+                push_key(JOYSTICK_KEYS[i], true);
                 state |= bit;
             } else {
-                android::push_input(ramen::platform::android::InputEvent::KeyUp { key: JOYSTICK_KEYS[i] });
+                push_key(JOYSTICK_KEYS[i], false);
                 state &= !bit;
             }
         }
@@ -955,7 +969,7 @@ fn joystick_release() {
     let state = JOYSTICK_STATE.swap(0, Ordering::Relaxed);
     for i in 0..4 {
         if state & (1 << i) != 0 {
-            android::push_input(ramen::platform::android::InputEvent::KeyUp { key: JOYSTICK_KEYS[i] });
+            push_key(JOYSTICK_KEYS[i], false);
         }
     }
     crate::touch_controls::set_joystick_offset(0.0, 0.0);
@@ -1006,7 +1020,7 @@ fn translate(event: &InputEvent) {
                     crate::touch_controls::set_pad_active(true);
                     pad_rumble();
                     eprintln!("[pad] tecla {} -> {:?}", code, k);
-                    android::push_input(ramen::platform::android::InputEvent::KeyDown { key: k, text: None });
+                    push_key(k, true);
                 }
             },
             KeyAction::Up => {
@@ -1014,7 +1028,7 @@ fn translate(event: &InputEvent) {
                     return
                 }
                 if let Some(k) = mapped_key(key_code_value(&key.key_code())) {
-                    android::push_input(ramen::platform::android::InputEvent::KeyUp { key: k });
+                    push_key(k, false);
                 }
             },
             _ => {},
