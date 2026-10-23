@@ -890,17 +890,15 @@ static JOYSTICK_STATE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU
 
 const JOYSTICK_KEYS: [Key; 4] = [Key::UpArrow, Key::DownArrow, Key::LeftArrow, Key::RightArrow];
 
-/// Presses or releases a key. An arrow goes out together with the keys the game has bound to that
-/// direction (see [crate::touch_controls::direction_down]), so a game loaded from a PC with other
-/// movement keys still answers to the joystick. Any other key is sent as it is.
+/// Presses or releases a key. For an arrow it also notes that the direction is held: the game's own
+/// movement keys are swapped for the arrows while it is (see `Game::sync_direction_keys`), so a game
+/// loaded from a PC with other movement keys still answers to the joystick.
 fn push_key(key: Key, down: bool) {
-    let keys = if down { crate::touch_controls::direction_down(key) } else { crate::touch_controls::direction_up(key) };
-    for key in keys {
-        if down {
-            android::push_input(ramen::platform::android::InputEvent::KeyDown { key, text: None });
-        } else {
-            android::push_input(ramen::platform::android::InputEvent::KeyUp { key });
-        }
+    crate::touch_controls::note_key(key, down);
+    if down {
+        android::push_input(ramen::platform::android::InputEvent::KeyDown { key, text: None });
+    } else {
+        android::push_input(ramen::platform::android::InputEvent::KeyUp { key });
     }
 }
 

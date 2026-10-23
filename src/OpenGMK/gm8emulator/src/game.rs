@@ -2018,16 +2018,19 @@ impl Game {
         self.sync_direction_keys();
     }
 
-    /// Tells the touch controls which keys the game is listening to for each direction.
+    /// Binds the joystick to the game's movement action instead of to a key.
     ///
     /// A save file brings its own key bindings, so a game made on a PC with other keys no longer
-    /// answers to the arrows the joystick presses. The bindings live in variables of the game's
-    /// settings object (3), one family per screen; every one of them is read here.
+    /// answers to the arrows the joystick presses. The bindings are variables of the game's
+    /// settings object (3), one family per screen. While the joystick (or a pad) holds a direction,
+    /// every variable for that direction is set to the arrow, and when it lets go each one is put
+    /// back as it was, so the player's own keys are never lost and are what gets saved.
     ///
-    /// While the game's key-assignment screen waits for a key, nothing is reported, so that pushing
-    /// the joystick there binds the arrow, which is how the player gets the arrows back.
+    /// While the game's key-assignment screen waits for a key nothing is taken over, so that
+    /// pushing the joystick there binds the arrow, which is how the player gets the arrows back.
     #[cfg(target_os = "android")]
     fn sync_direction_keys(&self) {
+        use crate::touch_controls::{takeover, Takeover, ARROW_CODES};
         use std::sync::{atomic::AtomicU32, atomic::Ordering, Mutex};
 
         /// The settings object and the screen that assigns keys.
@@ -2040,6 +2043,16 @@ impl Game {
         // that came up short is tried again now and then rather than on every draw.
         static FIELDS: Mutex<Vec<(usize, usize)>> = Mutex::new(Vec::new());
         static TRIES: AtomicU32 = AtomicU32::new(0);
+        /// What each taken-over variable held: (variable id, original code).
+        static SAVED: Mutex<Vec<(usize, i32)>> = Mutex::new(Vec::new());
+
+        let held = crate::touch_controls::directions_held();
+        let mut saved = SAVED.lock().unwrap();
+        // Nothing held and nothing to put back: the common case costs a lock and four loads.
+        if saved.is_empty() && !held.iter().any(|&on| on) {
+            return
+        }
+
         let mut fields = FIELDS.lock().unwrap();
         let wanted = crate::touch_controls::DIRECTION_FAMILIES.len() * 4 + 1;
         if fields.len() < wanted {
@@ -2062,12 +2075,13 @@ impl Game {
             }
         }
 
-        let read = |object: i32, id: usize| -> Option<f64> {
-            let list = &self.room.instance_list;
+        let list = &self.room.instance_list;
+        let Some(settings) = list.iter_by_identity(SETTINGS).next(list) else { return };
+        let read = |object: i32, id: usize| -> Option<i32> {
             let handle = list.iter_by_identity(object).next(list)?;
             let instance_fields = list.get(handle).fields.borrow();
             let value = match instance_fields.get(&id)?.get(0)? {
-                crate::gml::Value::Real(n) => Some(n.into_inner()),
+                crate::gml::Value::Real(n) => Some(n.into_inner() as i32),
                 _ => None,
             };
             value
@@ -2077,17 +2091,37 @@ impl Game {
             .iter()
             .find(|(dir, _)| *dir == WAITING)
             .and_then(|&(_, id)| read(KEY_SCREEN, id))
-            .is_some_and(|value| value >= 0.5);
-        let mut codes: [Vec<i32>; 4] = Default::default();
-        if !waiting {
-            for &(dir, id) in fields.iter().filter(|(dir, _)| *dir < 4) {
-                if let Some(code) = read(SETTINGS, id) {
-                    codes[dir].push(code as i32);
-                }
+            .is_some_and(|value| value != 0);
+
+        let mut settings_fields = list.get(settings).fields.borrow_mut();
+        let was_empty = saved.is_empty();
+        for &(dir, id) in fields.iter().filter(|(dir, _)| *dir < 4) {
+            let Some(field) = settings_fields.get_mut(&id) else { continue };
+            let current = match field.get(0) {
+                Some(crate::gml::Value::Real(n)) => n.into_inner() as i32,
+                _ => continue,
+            };
+            let arrow = ARROW_CODES[dir];
+            let before = saved.iter().position(|&(saved_id, _)| saved_id == id);
+            let action = takeover(current, arrow, held[dir] && !waiting, before.map(|at| saved[at].1));
+            match action {
+                Takeover::Nothing => {},
+                Takeover::Take { original } => {
+                    field.set(0, crate::gml::Value::Real(f64::from(arrow).into()));
+                    saved.push((id, original));
+                },
+                Takeover::Restore { original } => {
+                    field.set(0, crate::gml::Value::Real(f64::from(original).into()));
+                    saved.remove(before.unwrap());
+                },
+                Takeover::Forget => {
+                    saved.remove(before.unwrap());
+                },
             }
         }
-        if crate::touch_controls::set_direction_keys(codes.clone()) {
-            eprintln!("[teclas] direcciones del juego (arriba, abajo, izquierda, derecha): {:?}", codes);
+        if was_empty && !saved.is_empty() {
+            // Once per push, not per frame.
+            eprintln!("[teclas] el joystick sustituye {} teclas de la partida por flechas mientras se mantiene", saved.len());
         }
     }
 
