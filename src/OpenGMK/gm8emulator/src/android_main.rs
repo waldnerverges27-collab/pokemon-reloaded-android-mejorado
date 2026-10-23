@@ -623,6 +623,17 @@ fn pointer_down(id: i32, x: f32, y: f32) {
             if crate::touch_controls::text_entry_open() {
                 ime_set(true);
             }
+            // In the Pokémon box the finger does not decide at once: a tap is a left click, but a hold
+            // is the right button, which is how the game reaches its menu (Soltar, Datos...).
+            if crate::touch_controls::box_open() && !crate::touch_controls::dialogue_open() {
+                let mut hold = BOX_TOUCH.lock().unwrap();
+                if hold.is_none() {
+                    // The cursor goes there now, so the game already knows which Pokémon it is on.
+                    android::push_input(ramen::platform::android::InputEvent::PointerMoved { x, y });
+                    *hold = Some(crate::touch_controls::BoxHold::new(id, x, y, Instant::now()));
+                    return
+                }
+            }
             mouse_down(id, x, y)
         },
     }
@@ -653,7 +664,13 @@ fn pointer_up(id: i32, x: f32, y: f32) {
         // A finger that started on a button and slid off it has nothing to release, and must not
         // turn into a click on the game underneath.
         None if was_rolling => {},
-        None => mouse_up(id, x, y),
+        None => match take_box_hold(id) {
+            // The finger was lifted before it decided: a tap.
+            Some(hold) if !hold.fired => click(hold.x, hold.y),
+            // The right click already went out; lifting the finger is nothing more.
+            Some(_) => {},
+            None => mouse_up(id, x, y),
+        },
     }
 }
 
@@ -698,8 +715,94 @@ fn mouse_up(id: i32, x: f32, y: f32) {
     }
 }
 
+/// The touch of the Pokémon box that is still deciding what it is (see `pointer_down`).
+static BOX_TOUCH: Mutex<Option<crate::touch_controls::BoxHold>> = Mutex::new(None);
+
+/// When to let go of the right button after a hold, and where.
+static RIGHT_UP: Mutex<Option<(Instant, f32, f32)>> = Mutex::new(None);
+
+fn take_box_hold(id: i32) -> Option<crate::touch_controls::BoxHold> {
+    let mut hold = BOX_TOUCH.lock().unwrap();
+    if hold.is_some_and(|h| h.id == id) {
+        hold.take()
+    } else {
+        None
+    }
+}
+
+/// A left click at a place the cursor is already on: the press follows a moment later and the release
+/// after the usual minimum, so the game, which reads the mouse once per frame, sees both.
+fn click(x: f32, y: f32) {
+    let at = Instant::now() + Duration::from_millis(15);
+    DELAYED_DOWNS.lock().unwrap().push((at, x, y));
+    DELAYED_UPS.lock().unwrap().push((at + MIN_TAP, x, y));
+}
+
+/// A finger that is moving while the box decides. Returns whether the move was taken here: while it is
+/// deciding the cursor stays where the finger landed; a drag turns it into a left click from there
+/// (what a finger that did not wait would have done), and after the right click the rest is ignored.
+fn box_hold_move(id: i32, x: f32, y: f32) -> bool {
+    let hold = {
+        let mut guard = BOX_TOUCH.lock().unwrap();
+        match *guard {
+            Some(h) if h.id == id => {
+                if h.fired {
+                    return true
+                }
+                let (w, hgt) = android::window_size();
+                if !h.drifted(x, y, crate::touch_controls::box_hold_slop(w as f32, hgt as f32)) {
+                    return true
+                }
+                guard.take()
+            },
+            _ => return false,
+        }
+    };
+    if let Some(h) = hold {
+        mouse_down(id, h.x, h.y);
+        android::push_input(ramen::platform::android::InputEvent::PointerMoved { x, y });
+    }
+    true
+}
+
+/// Lets a hold in the box become the right button once it has lasted long enough, and lets go of that
+/// button a moment later. Called from the frame loop.
+fn box_hold_tick() {
+    let now = Instant::now();
+    let fire = {
+        let mut guard = BOX_TOUCH.lock().unwrap();
+        match guard.as_mut() {
+            Some(h) if h.due(now) => {
+                h.fired = true;
+                Some((h.x, h.y))
+            },
+            _ => None,
+        }
+    };
+    if let Some((x, y)) = fire {
+        logf("caja: pulsacion larga -> clic derecho");
+        haptic(HapticKind::Press);
+        android::push_input(ramen::platform::android::InputEvent::PointerDown { x, y, button: 2 });
+        *RIGHT_UP.lock().unwrap() = Some((now + MIN_TAP, x, y));
+    }
+    let release = {
+        let mut guard = RIGHT_UP.lock().unwrap();
+        match *guard {
+            Some((at, x, y)) if at <= now => {
+                *guard = None;
+                Some((x, y))
+            },
+            _ => None,
+        }
+    };
+    if let Some((x, y)) = release {
+        android::push_input(ramen::platform::android::InputEvent::PointerUp { x, y, button: 2 });
+    }
+}
+
 /// Delivers the presses and releases that were held back to make a short tap a proper click.
 fn flush_delayed_mouse() {
+    box_hold_tick();
     let now = Instant::now();
     let mut downs: Vec<(f32, f32)> = Vec::new();
     DELAYED_DOWNS.lock().unwrap().retain(|(at, x, y)| {
@@ -966,6 +1069,8 @@ fn translate(event: &InputEvent) {
                             joystick_update(p.x(), p.y());
                         } else if pointer_is_control(p.pointer_id()) {
                             pointer_roll(p.pointer_id(), p.x(), p.y());
+                        } else if box_hold_move(p.pointer_id(), p.x(), p.y()) {
+                            // Still deciding between a tap and a hold, or the hold already fired.
                         } else {
                             android::push_input(ramen::platform::android::InputEvent::PointerMoved { x: p.x(), y: p.y() });
                         }
@@ -978,6 +1083,8 @@ fn translate(event: &InputEvent) {
                         WHEEL_PTR.lock().unwrap().take();
                     }
                     joystick_release();
+                    // A cancelled touch that had not decided sends nothing at all.
+                    BOX_TOUCH.lock().unwrap().take();
                     ROLLING.lock().unwrap().take();
                     let ids: Vec<i32> =
                         POINTER_CONTROLS.lock().unwrap().as_ref().map(|m| m.keys().copied().collect()).unwrap_or_default();

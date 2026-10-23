@@ -1661,6 +1661,47 @@ pub fn wheel_item_at(nx: f32, ny: f32, ww: f32, wh: f32) -> Option<usize> {
     best
 }
 
+/// How long a finger has to stay on a Pokémon of the box before it counts as the right button of a
+/// mouse. The game opens its own menu for that (Datos, Mover, Soltar, Quitar objeto...), and a screen
+/// that only knows the left button had no way to reach it.
+pub const BOX_HOLD: std::time::Duration = std::time::Duration::from_millis(380);
+
+/// A finger that has landed in the box and has not yet decided what it is: a tap (a left click), a
+/// drag (also a left click, from where it started) or a hold (a right click). Nothing is sent to the
+/// game until it decides, which for a tap costs nothing the player can feel.
+#[derive(Clone, Copy, Debug)]
+pub struct BoxHold {
+    pub id: i32,
+    pub x: f32,
+    pub y: f32,
+    pub since: std::time::Instant,
+    /// The right click has gone out; the rest of this touch is swallowed.
+    pub fired: bool,
+}
+
+impl BoxHold {
+    pub fn new(id: i32, x: f32, y: f32, now: std::time::Instant) -> Self {
+        BoxHold { id, x, y, since: now, fired: false }
+    }
+
+    /// Whether the finger has been still long enough for the right click.
+    pub fn due(&self, now: std::time::Instant) -> bool {
+        !self.fired && now.saturating_duration_since(self.since) >= BOX_HOLD
+    }
+
+    /// Whether the finger has gone further than a hand's tremor from where it landed. [slop] is in the
+    /// same unit as the coordinates (pixels).
+    pub fn drifted(&self, x: f32, y: f32, slop: f32) -> bool {
+        let (dx, dy) = (x - self.x, y - self.y);
+        dx * dx + dy * dy > slop * slop
+    }
+}
+
+/// The distance, in pixels, a finger may wander during a hold: about 3 % of the shorter side.
+pub fn box_hold_slop(width: f32, height: f32) -> f32 {
+    (width.min(height) * 0.03).max(10.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1806,5 +1847,29 @@ mod tests {
         assert!(matches!(icon_for("return", WORLD), Some(Icon::Menu)));
         assert!(matches!(icon_for("b", BATTLE), Some(Icon::Ball)));
         set_function_icons(true);
+    }
+
+    #[test]
+    fn a_hold_is_due_only_after_the_time_and_only_once() {
+        use std::time::{Duration, Instant};
+        let t0 = Instant::now();
+        let mut hold = BoxHold::new(1, 100.0, 100.0, t0);
+        assert!(!hold.due(t0));
+        assert!(!hold.due(t0 + BOX_HOLD - Duration::from_millis(1)));
+        assert!(hold.due(t0 + BOX_HOLD));
+        hold.fired = true;
+        assert!(!hold.due(t0 + BOX_HOLD * 3));
+    }
+
+    #[test]
+    fn a_hold_tolerates_a_tremor_but_not_a_drag() {
+        let hold = BoxHold::new(1, 100.0, 100.0, std::time::Instant::now());
+        let slop = box_hold_slop(2400.0, 1080.0);
+        assert!((slop - 32.4).abs() < 0.1);
+        assert!(!hold.drifted(110.0, 105.0, slop));
+        assert!(hold.drifted(100.0, 140.0, slop));
+        assert!(hold.drifted(60.0, 100.0, slop));
+        // A very small window still allows some tremor.
+        assert!(box_hold_slop(100.0, 100.0) >= 10.0);
     }
 }

@@ -177,7 +177,7 @@ tipo de ventana que dibuja y los objetos que ha creado, como una tienda) y cambi
 | **Tiendas** (comprar, vender, canjear) **y PC de objetos** | Joystick, `Z` y `X` |
 | **Diálogos** | Solo el botón que avanza (`Z`), para no tapar el texto |
 | **Listas de opciones** | Joystick y `X`; las entradas se tocan directamente |
-| **Preguntas Sí/No, caja del PC, teclado y menús del título** | Ninguno: se tocan directamente |
+| **Preguntas Sí/No, caja del PC, teclado y menús del título** | Ninguno: se tocan directamente. En la caja, **mantén pulsado** un Pokémon para abrir el menú del juego (Datos, Mover, Soltar, Quitar objeto) |
 | **Elegir personaje** | Dos flechas, OK y `X` |
 | **Preferencias del juego nuevo** | Joystick, `Z` y `X` |
 
@@ -455,6 +455,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.7.5** | **Ya se pueden soltar Pokémon desde las cajas del PC.** Mantén pulsado un Pokémon de la caja (unos 0,4 s): la app envía un **clic derecho** y se abre el menú del propio juego, con *Datos*, *Mover*, *Soltar* y *Quitar objeto*. El móvil vibra al abrirse. Un toque normal sigue funcionando igual (coger y dejar), y si arrastras el dedo antes de que pase ese tiempo también. |
 | **0.7.4** | **Descargar va al enlace del juego, y instalar encima no toca tus partidas.** El botón **Descargar** ya no abre la última entrada del blog (que a veces es solo una noticia sin enlace): busca la entrada más reciente que trae el juego y abre directamente su enlace de MEGA (con el de Gofile como alternativo), con el número de versión de esa descarga. Se ignoran la carpeta de librerías y los parches «Delta». Al **importar o abrir con** un zip del juego sobre uno ya instalado, tus **partidas, equipos y personajes** se copian a la instalación nueva antes del cambio (si un slot existe en los dos, se queda el tuyo), y el juego anterior solo se retira cuando el nuevo está colocado: si algo falla, no se pierde nada. La copia de seguridad previa se sigue haciendo. |
 | **0.7.3** | **Abrir el `.zip` directamente desde el administrador de archivos:** mantén pulsado el zip y elige **Abrir con → Pokemon Reloaded** (o **Compartir**). La app mira dentro del zip y te pregunta qué hacer según lo que trae: instalar o reemplazar el juego, restaurar partidas, equipos y personajes, o poner una partida suelta en el slot que elijas. No cambia nada hasta que confirmas, y el progreso sigue aunque gires el móvil. |
 | **0.7.2** | **Solo los botones necesarios en cada pantalla:** la mochila, el mapa, el equipo Pokémon, los datos del entrenador, la Pokédex, el móvil, las opciones, las misiones y las tiendas (comprar, vender, canjear y el PC) dejan de mostrar los botones del mundo; quedan el joystick, **Z** y **X**, más **C** donde sirve para ordenar la lista o mover el cursor del mapa. Los botones se mueven en Posición y tamaño de los botones > pestaña **Pantallas**. |
@@ -481,6 +482,7 @@ Cada versión, con su APK, está en [Releases](../../releases).
   probado en un **Samsung Galaxy S21 5G** y en un **Samsung Galaxy A53 5G**.
 - El motor de **32 bits (armeabi-v7a)** se compila y empaqueta, pero no se ha probado en ningún móvil de 32 bits.
 - El **guardado rápido** es una función experimental. Si algo falla, el log lo registrará.
+- La **pulsación larga en la caja del PC** (0.7.5) está hecha leyendo el propio juego, pero no se ha probado en un móvil; si el menú no se abre o no responde a los toques, avísalo con un log de **Ajustes → Logs** (aparece la línea `caja: pulsacion larga`).
 - **Abrir con** (0.7.3) se ha probado con pruebas automáticas sobre zips de ejemplo, pero no en
   todos los administradores de archivos: cada uno describe el zip a su manera. Si el tuyo no muestra la
   app al mantener pulsado el zip, usa **Compartir** o el botón **Importar**, y cuéntanos cuál es.
