@@ -297,10 +297,10 @@ class GameRepository(private val context: Context) {
                 metaFile.writeText(meta.toString())
             }
         }
-        // The touch controls' pixel-art artwork ships inside the APK, but the engine can only read
-        // files from its own folder, so every sprite is copied there (a few hundred bytes each,
-        // refreshed on every start so an app update takes effect). Any `<control>.png` dropped in
-        // the assets is picked up.
+        // The artwork the engine reads (the party wheel and the picker's arrows) ships inside the APK,
+        // but the engine can only read files from its own folder, so every png of the assets' root is
+        // copied there (a few hundred bytes each, refreshed on every start so an app update takes
+        // effect). The buttons' own pictures are built into the engine and live in `assets/icons`.
         val sprites = runCatching { context.assets.list("")?.filter { it.endsWith(".png", ignoreCase = true) } }
             .getOrNull()
             .orEmpty()

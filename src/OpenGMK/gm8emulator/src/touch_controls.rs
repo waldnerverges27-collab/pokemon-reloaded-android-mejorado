@@ -689,10 +689,8 @@ pub fn load_layout(text: &str) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Look. The default is the native one (smooth translucent buttons drawn as vectors); the pixel-art
-// sprites remain as the "classic" style.
-
-static NATIVE_STYLE: AtomicBool = AtomicBool::new(true);
+// Look. The buttons are smooth translucent discs with a small pixel-art picture (or letter) on them;
+// the pictures are in `game_art`.
 
 /// How opaque the buttons are drawn right now: the player's setting times the fade of the idle
 /// screen (see `extras::overlay_fade`).
@@ -700,16 +698,8 @@ pub fn overlay_opacity() -> f32 {
     sprite_opacity() * crate::extras::overlay_fade()
 }
 
-pub fn native_style() -> bool {
-    NATIVE_STYLE.load(Ordering::Relaxed)
-}
-
-pub fn set_native_style(value: bool) {
-    NATIVE_STYLE.store(value, Ordering::Relaxed);
-}
-
-/// Controls that keep their artwork in the native style: the character picker's arrows are part of
-/// the picker's own screen, not a gamepad button.
+/// Controls that keep the artwork of the game: the character picker's arrows are part of the
+/// picker's own screen, not a gamepad button.
 pub fn keeps_art(name: &str) -> bool {
     name == LEFT_ARROW_NAME || name == RIGHT_ARROW_NAME
 }
@@ -733,12 +723,12 @@ pub enum Icon {
     Check,
     /// An exclamation mark: act, interact.
     Act,
-    /// A runner.
+    /// A running shoe.
     Run,
-    /// A fishing hook.
+    /// A fishing rod.
     Hook,
     Bike,
-    /// Three Pokémon: the party.
+    /// A Pokémon's face: look at the Pokémon.
     Team,
     Bag,
     Map,
@@ -750,19 +740,22 @@ pub enum Icon {
     Magnifier,
     Person,
     Bolt,
-    /// A wrapped box: the assigned item.
+    /// A potion: the assigned item.
     Box,
     /// Two opposite arrows: switch.
     Swap,
-    /// The mega evolution. Only the game's own `M` wears it in battle; it draws like the star when
-    /// there is no picture of the game to borrow.
+    /// The mega evolution: only the game's own `M` wears it in battle.
     Mega,
-    /// Three bars: the table of types.
+    /// A table of coloured cells: the table of types.
     Chart,
+    /// The enter key's arrow. Only the game's own buttons wear it, there is no custom icon of it.
+    Enter,
+    /// The space key's bracket. Same as the enter key's.
+    Space,
 }
 
 /// How many pictures there are, for tables that hold one slot per icon.
-pub const ICON_COUNT: usize = Icon::Chart as usize + 1;
+pub const ICON_COUNT: usize = Icon::Space as usize + 1;
 
 /// The pictures a custom button can wear, by the names the editor writes after a `~`.
 pub fn icon_named(name: &str) -> Option<Icon> {
@@ -844,6 +837,8 @@ pub fn icon_for(name: &str, context: u16) -> Option<Icon> {
         "o" => Some(Icon::Bag),
         "m" => Some(if context & BATTLE != 0 { Icon::Mega } else { Icon::Map }),
         "dex_m" => Some(Icon::Map),
+        "dex_enter" => Some(Icon::Enter),
+        "dex_clear" => Some(Icon::Space),
         "e" => Some(if fight { Icon::Exit } else { Icon::Smile }),
         "t" => Some(if context & BATTLE != 0 { Icon::Clock } else { Icon::Chat }),
         "l" => Some(Icon::Magnifier),
@@ -1373,7 +1368,7 @@ pub fn set_art_aspect(name: &'static str, aspect: f32) {
 }
 
 fn art_aspect(name: &str) -> Option<f32> {
-    if native_style() && !keeps_art(name) {
+    if !keeps_art(name) {
         return None
     }
     ART_ASPECTS.lock().unwrap().iter().find(|(known, _)| *known == name).map(|(_, aspect)| *aspect)
@@ -2158,9 +2153,10 @@ mod tests {
         assert!(key("dex_b") == Some(Key::B) && key("dex_f") == Some(Key::F) && key("dex_m") == Some(Key::M));
         assert!(key("dex_enter") == Some(Key::Return) && key("dex_clear") == Some(Key::Space));
         assert!(key("dex_a") == Some(Key::A) && key("dex_s") == Some(Key::S));
-        // They keep their letters: the world's pictures for B, A and S would say the wrong thing.
+        // The letters keep their letters (the world's pictures for B, A and S would say the wrong
+        // thing); the two keys of the filter wear the picture of the key.
         set_function_icons(true);
-        for name in ["dex_b", "dex_f", "dex_enter", "dex_clear", "dex_a", "dex_s", "c", "v"] {
+        for name in ["dex_b", "dex_f", "dex_a", "dex_s", "c", "v"] {
             assert!(icon_for(name, DEX_LIST | DEX_DETAIL | DEX_FILTER).is_none(), "{name}");
         }
     }
@@ -2252,6 +2248,9 @@ mod tests {
         assert!(matches!(icon_for("t", BATTLE), Some(Icon::Clock)));
         assert!(matches!(icon_for("o", WORLD), Some(Icon::Bag)));
         assert!(icon_for("alpha1", WORLD).is_none(), "numbers stay numbers");
+        assert!(matches!(icon_for("space", WORLD), Some(Icon::Team)));
+        assert!(matches!(icon_for("dex_enter", DEX_FILTER), Some(Icon::Enter)));
+        assert!(matches!(icon_for("dex_clear", DEX_FILTER), Some(Icon::Space)));
         // Switched off, only the icons the buttons always had remain.
         set_function_icons(false);
         assert!(icon_for("o", WORLD).is_none());

@@ -92,7 +92,6 @@ fun SettingsScreen(
     var keepScreenOn by remember { mutableStateOf(prefs.keepScreenOn) }
     var videoMode by remember { mutableStateOf(prefs.videoMode) }
     var touchOpacity by remember { mutableStateOf(prefs.touchOpacity) }
-    var nativeStyle by remember { mutableStateOf(prefs.nativeStyle) }
     var functionIcons by remember { mutableStateOf(prefs.functionIcons) }
     var touchScale by remember { mutableStateOf(prefs.touchScale) }
     var hapticLevel by remember { mutableStateOf(prefs.hapticLevel) }
@@ -197,38 +196,14 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup("Aspecto de los controles") {
-                ChoiceRow(
-                    icon = Icons.Filled.TouchApp,
-                    title = "Nativo",
-                    subtitle = "Botones translucidos y suaves, como un juego de Android",
-                    selected = nativeStyle,
-                    items = 4,
-                    index = 0,
-                    onSelect = {
-                        nativeStyle = true
-                        prefs.nativeStyle = true
-                    },
-                )
-                ChoiceRow(
-                    icon = Icons.Filled.VideogameAsset,
-                    title = "Pixel art clasico",
-                    subtitle = "Los botones dibujados a mano que trae el juego",
-                    selected = !nativeStyle,
-                    items = 4,
-                    index = 1,
-                    onSelect = {
-                        nativeStyle = false
-                        prefs.nativeStyle = false
-                    },
-                )
+            SettingsGroup("Botones") {
                 SwitchRow(
                     icon = Icons.Filled.TouchApp,
                     title = "Iconos en los botones",
-                    subtitle = "Cada boton muestra lo que hace (mochila, mapa, bici...) con arte del juego en vez de su letra. Z y X siempre llevan su letra, y en combate tambien C y V",
+                    subtitle = "Cada boton muestra lo que hace (mochila, mapa, bici...) en vez de su letra. Z y X siempre llevan su letra, y en combate tambien C y V",
                     checked = functionIcons,
-                    items = 4,
-                    index = 2,
+                    items = 2,
+                    index = 0,
                     onCheckedChange = {
                         functionIcons = it
                         prefs.functionIcons = it
@@ -238,8 +213,8 @@ fun SettingsScreen(
                     icon = Icons.Filled.ZoomOutMap,
                     title = "Posicion y tamano de los botones",
                     subtitle = "Arrastra cada boton donde te venga mejor, o escondelo",
-                    items = 4,
-                    index = 3,
+                    items = 2,
+                    index = 1,
                     onClick = onLayout,
                 )
             }

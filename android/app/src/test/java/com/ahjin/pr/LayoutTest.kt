@@ -97,7 +97,7 @@ class LayoutTest {
         assertEquals("bike", Layout.builtinIcon("v", Layout.WORLD, true))
         assertNull(Layout.builtinIcon("v", Layout.BATTLE, true))
         assertEquals("map", Layout.builtinIcon("m", Layout.WORLD, true))
-        assertEquals("star", Layout.builtinIcon("m", Layout.BATTLE, true))
+        assertEquals("mega", Layout.builtinIcon("m", Layout.BATTLE, true))
         assertEquals("smile", Layout.builtinIcon("e", Layout.WORLD, true))
         assertEquals("exit", Layout.builtinIcon("e", Layout.SAFARI, true))
         assertEquals("chat", Layout.builtinIcon("t", Layout.WORLD, true))
@@ -110,7 +110,7 @@ class LayoutTest {
         // Every picture used exists in the list the editor and the engine share.
         for (name in listOf("z", "x", "c", "v", "space", "o", "m", "e", "t", "l", "p", "n", "a", "s", "return", "escape", "b", "sys_qsave", "sys_qload", "sys_ffwd")) {
             for (context in listOf(Layout.WORLD, Layout.BATTLE, Layout.SAFARI)) {
-                Layout.builtinIcon(name, context, true)?.let { assertTrue("$name -> $it", it in Layout.ICONS) }
+                Layout.builtinIcon(name, context, true)?.let { assertTrue("$name -> $it", it in Layout.PICTURES) }
             }
         }
     }
@@ -176,6 +176,8 @@ class LayoutTest {
         bits.forEach { assertEquals(0, it and (Layout.SCREEN or Layout.SCREEN_C or Layout.MENU_NAV or Layout.WORLD)) }
         assertEquals("map", Layout.builtinIcon("dex_m", Layout.DEX_LIST, true))
         assertNull(Layout.builtinIcon("dex_b", Layout.DEX_LIST, true))
+        assertEquals("enter", Layout.builtinIcon("dex_enter", Layout.DEX_FILTER, true))
+        assertEquals("space", Layout.builtinIcon("dex_clear", Layout.DEX_FILTER, true))
     }
 
     @Test

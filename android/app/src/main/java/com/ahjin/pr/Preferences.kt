@@ -120,13 +120,6 @@ class Preferences(context: Context) {
             prefs.edit().putFloat("stickDeadzone", value).apply()
         }
 
-    /** Native-looking buttons (true) or the pixel-art sprites the game came with (false). */
-    var nativeStyle: Boolean
-        get() = prefs.getBoolean("nativeStyle", true)
-        set(value) {
-            prefs.edit().putBoolean("nativeStyle", value).apply()
-        }
-
     /** Pictures of what each button does, instead of letters, on the game's own buttons. On by default. */
     var functionIcons: Boolean
         get() = prefs.getBoolean("functionIcons", true)
@@ -141,7 +134,7 @@ class Preferences(context: Context) {
             prefs.edit().putBoolean("movementCross8", value).apply()
         }
 
-    fun touchSettings() = TouchSettings(touchOpacity, touchScale, hapticLevel, floatingStick, stickDeadzone, nativeStyle, functionIcons, movementCross8)
+    fun touchSettings() = TouchSettings(touchOpacity, touchScale, hapticLevel, floatingStick, stickDeadzone, functionIcons, movementCross8)
 
     /** Mirrors the current controls into the file the emulator reads at startup. */
     fun writeControls(filesDir: File, padConnected: Boolean) =

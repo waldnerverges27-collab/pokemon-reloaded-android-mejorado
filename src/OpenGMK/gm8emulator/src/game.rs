@@ -950,15 +950,6 @@ impl Game {
             })
             .collect::<Vec<_>>();
 
-        // Before the frames are packed away into the atlas, keep the few the touch buttons borrow.
-        for sprite in sprites.iter().flatten() {
-            for (icon, index) in crate::game_art::wanted(&sprite.name.0) {
-                if let Some(frame) = sprite.frames.get(index) {
-                    crate::game_art::store(icon, frame.width, frame.height, &frame.data);
-                }
-            }
-        }
-
         let sprites = sprites
             .into_iter()
             .map(|o| {
@@ -1013,15 +1004,6 @@ impl Game {
             })
             .collect::<Result<Vec<_>, ()>>()
             .expect("failed to pack sprites");
-
-        // Some pictures the touch buttons borrow are cut out of a background (the backpack).
-        for background in backgrounds.iter().flatten() {
-            if let Some(data) = &background.data {
-                if crate::game_art::wants_background(&background.name.0) {
-                    crate::game_art::store_background(&background.name.0, background.width, background.height, data);
-                }
-            }
-        }
 
         let backgrounds = backgrounds
             .into_iter()

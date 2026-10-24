@@ -85,7 +85,7 @@ rendimiento (FPS, milisegundos por fotograma y memoria) activado.
   <tr>
     <td width="25%"><img src="docs/screenshots/app-inicio.jpg" alt="Pantalla de inicio de la app"><br><sub><b>Inicio.</b> Noticias del juego, <b>Jugar</b>, descargar o importar el .zip.</sub></td>
     <td width="25%"><img src="docs/screenshots/ajustes-juego.jpg" alt="Ajustes: juego y partidas"><br><sub><b>Juego y partidas.</b> Versión instalada, espacio, <i>Mis partidas</i> y copias de seguridad.</sub></td>
-    <td width="25%"><img src="docs/screenshots/ajustes-controles.jpg" alt="Ajustes: aspecto de los controles"><br><sub><b>Controles.</b> Aspecto nativo o pixel art, iconos en los botones y posición y tamaño.</sub></td>
+    <td width="25%"><img src="docs/screenshots/ajustes-controles.jpg" alt="Ajustes: controles"><br><sub><b>Controles.</b> Iconos en los botones y posición y tamaño.</sub></td>
     <td width="25%"><img src="docs/screenshots/editor-botones.jpg" alt="Editor de posición de los botones"><br><sub><b>Editor.</b> Una pestaña por pantalla (Mundo, Diálogos, Menús, Pantallas…), botones propios y especiales.</sub></td>
   </tr>
   <tr>
@@ -136,8 +136,8 @@ Si ya jugabas en PC, tu partida entra desde **Ajustes → Partidas → Importar*
 - **Se adaptan al juego.** La capa táctil cambia según lo que ocurre en pantalla (mapa, combate,
   diálogos, menús, elecciones, Zona Safari), de modo que cada situación muestra solo los botones
   que hacen falta. Detalle en [Botones según la pantalla](#botones-según-la-pantalla).
-- **Aspecto nativo.** Botones translúcidos con borde suave, iconos y letras vectoriales,
-  animación al pulsar y brillo del color de cada botón. Se puede volver al pixel art clásico del juego.
+- **Aspecto nativo.** Botones translúcidos con borde suave, animación al pulsar y brillo del color de
+  cada botón, con un dibujo pixel-art encima (iconos, letras y números pintados al estilo del juego).
 - **Iconos según la función.** Cada botón del juego muestra lo que hace en vez de su letra:
   mochila, mapa, bici, caña de pescar, correr, huir, entrenador, objeto asignado, equipo…
   El icono sigue a la situación (la tecla `M` es el mapa fuera de combate y la megaevolución en combate) y en
@@ -455,6 +455,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.8.1** | **Iconos nuevos en todos los botones.** Cada botón lleva un dibujo pixel-art propio, con contorno negro y sombreado, pintado al estilo de la Poké Ball y la mochila: zapatilla de correr, caña con flotador, bici, mapa con marcador, Piedra activadora, carnet de entrenador, poción, cara de Pikachu, tabla de tipos, carpeta de cargar, flechas de Enter y espacio… Las letras y los números (Z X C V, A, B, E, F, L, M, N, O, P, S, T, 1 2 3 5 7) también son dibujos. El editor de posiciones muestra los mismos iconos. Se **quita el aspecto Pixel art** de Ajustes: queda solo el Nativo (quien tenía Pixel art pasa a Nativo) y se retira el arte antiguo de los botones. Los iconos se generan con `tools/gen-icons.py`. |
 | **0.8.0** | **Cruceta, Pokédex completa.** En **Ajustes → Control de movimiento** eliges entre el joystick y una **cruceta de 8 direcciones** (con diagonales) para el mundo y los combates. En los **menús, las listas y la Pokédex** el control cambia solo a una **cruceta de 4 direcciones**, en el mismo sitio, con el mismo tamaño y con el aspecto elegido (Nativo o Pixel art). La **Pokédex** tiene sus botones: en la lista C, V, **B** (filtro), F (buscar por nombre) y M (lugares); en el filtro **ENTER** (aplicar) y ESP (borrar); en la ficha A (grito) y S (shiny). Cada pantalla tiene su pestaña en el editor de posiciones. Además, se corrige un fallo interno por el que los botones propios 5 a 8 podían iluminarse o pulsarse junto a otros botones. |
 | **0.7.9** | **El menú principal y los demás menús ya responden al joystick con partidas de PC.** En 0.7.8 la app cambiaba las teclas del juego mientras mantenías un botón, pero los menús, las listas y los diálogos leen sus teclas una sola vez al abrirse y luego esperan, así que el cambio llegaba tarde (por eso el joystick no hacía nada en el menú principal). Ahora, mientras juegas con la pantalla táctil o con un mando, todas las acciones del juego tienen puestas las teclas de siempre desde el principio, y las de tu partida se guardan aparte: vuelven **antes de guardar** (partida normal, opciones o guardado rápido) y cuando pulsas una tecla de un teclado físico. En **Comandos** (sala de teclas del juego) ves y cambias las teclas reales de tu partida. Una partida con las teclas de siempre sigue sin tocarse. |
 | **0.7.8** | **Todos los botones siguen las acciones de la partida, no las teclas.** Lo que 0.7.7 hacía con el joystick ahora vale para cualquier botón (Z, X, C, V, B, 1-6, Enter, Espacio, Ctrl…), los botones propios, el turbo, el fijo y los botones de un mando. Mientras mantienes un botón, la app pone su tecla en las acciones del juego que la tienen por defecto, y si la partida tenía esa tecla en otra acción (por ejemplo Z y X intercambiadas), esa otra se apaga mientras tanto. Al soltar, todo vuelve a como estaba, y **antes de guardar** (partida normal o guardado rápido) también se devuelve, así que tus teclas de PC nunca se pierden ni se guardan cambiadas. En una partida con las teclas por defecto no se toca nada. Un teclado de verdad no se toca: sus teclas son las que tú elijas. En **Comandos** nunca se deja una acción sin tecla, y mientras el juego espera una tecla no se cambia nada. |

@@ -162,8 +162,6 @@ fn load_controls() {
                 // A pad was connected when the game started, so start with the controls out of the
                 // way; touching the screen brings them back.
                 crate::touch_controls::set_pad_active(value.trim() != "0");
-            } else if name.trim() == "style" {
-                crate::touch_controls::set_native_style(value.trim() != "pixel");
             } else if name.trim() == "icons" {
                 crate::touch_controls::set_function_icons(value.trim() != "0");
             } else if name.trim() == "scale" {

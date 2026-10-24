@@ -1,6 +1,7 @@
 package com.ahjin.pr.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -71,9 +72,7 @@ import com.ahjin.pr.JOYSTICK
 import com.ahjin.pr.Layout
 import com.ahjin.pr.Placement
 import androidx.compose.foundation.layout.size
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import com.ahjin.pr.Preferences
 import java.io.File
 import kotlin.math.hypot
@@ -138,7 +137,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
     val ratio = max(config.screenWidthDp, config.screenHeightDp).toFloat() / min(config.screenWidthDp, config.screenHeightDp)
     val measurer = rememberTextMeasurer()
     val iconsOn = remember { Preferences(context.applicationContext).functionIcons }
-    val iconPainters = Layout.ICONS.associateWith { rememberVectorPainter(iconVector(it)) }
+    val iconPainters = rememberButtonPictures()
     val accent = MaterialTheme.colorScheme.primary
     val onSurface = MaterialTheme.colorScheme.onSurface
 
@@ -294,9 +293,9 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                         val painter = icon?.let { iconPainters[it] }
                         val label = if (isStick || spec.label.startsWith("~")) "" else spec.label
                         if (painter != null) {
-                            val side = r * 1.15f
+                            val side = r * 1.3f
                             translate(center.x - side / 2f, center.y - side / 2f) {
-                                with(painter) { draw(Size(side, side), colorFilter = ColorFilter.tint(Color.White.copy(alpha = alpha))) }
+                                with(painter) { draw(Size(side, side), alpha = alpha) }
                             }
                         } else if (label.isNotEmpty()) {
                             val layout = measurer.measure(
@@ -553,6 +552,7 @@ private fun CustomButton.withKey(token: String): CustomButton {
 /** Key, way of acting, label and screens of a button the player made. */
 @Composable
 private fun CustomButtonEditor(custom: CustomButton, onChange: (CustomButton) -> Unit) {
+    val pictures = rememberButtonPictures()
     val isAction = custom.mode == Layout.MODE_ACTION
     SettingsGroup("Que hace este boton") {
         Column(
@@ -643,7 +643,11 @@ private fun CustomButtonEditor(custom: CustomButton, onChange: (CustomButton) ->
                         selected = custom.icon == icon,
                         onClick = { onChange(custom.copy(label = Layout.iconLabel(icon))) },
                         label = { Text(Layout.ICON_TITLES[icon] ?: icon, maxLines = 1) },
-                        leadingIcon = { Icon(iconVector(icon), contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        leadingIcon = if (pictures[icon] != null) {
+                            { Image(pictures.getValue(icon), contentDescription = null, modifier = Modifier.size(20.dp)) }
+                        } else {
+                            null
+                        },
                     )
                 }
             }

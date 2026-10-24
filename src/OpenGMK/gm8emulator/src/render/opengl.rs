@@ -273,19 +273,19 @@ struct Overlay {
     vbo: GLuint,
     /// A 1x1 white texture, so the plain shapes sample something neutral.
     white: GLuint,
-    /// The packed pixel-art control artwork, or 0 when none was found.
+    /// The packed artwork of the game (party wheel, picker arrows), or 0 when none was found.
     skin: GLuint,
     slots: [Option<SkinSlot>; MAX_SKIN_SLOTS],
     loc_tex: GLint,
     /// The party's own sprite strip, one cell per slot, refilled when the game's party changes.
     party: GLuint,
     party_version: u64,
-    /// The pictures the buttons borrow from the game's own sprites, side by side in one texture
+    /// The pictures of the buttons (icons, letters and numbers), side by side in one texture
     /// (0 until there are any), and where each icon's picture sits: its texture rectangle and its
     /// width over height and its size in pixels.
     icons: GLuint,
     icons_version: u64,
-    icon_slots: [Option<[f32; 7]>; crate::touch_controls::ICON_COUNT],
+    icon_slots: [Option<[f32; 7]>; crate::game_art::SLOT_COUNT],
 }
 
 #[cfg(target_os = "android")]
@@ -300,9 +300,16 @@ impl Overlay {
         self.slots.iter().flatten().find(|slot| slot.name == name).map(|slot| slot.aspect)
     }
 
-    /// The game's own picture of an icon, if it was found.
+    /// The picture of an icon.
     fn icon_art(&self, icon: crate::touch_controls::Icon) -> Option<[f32; 7]> {
         self.icon_slots[icon as usize]
+    }
+
+    /// The picture of a letter or number, when the label is just one of those.
+    fn glyph_art(&self, label: &str) -> Option<[f32; 7]> {
+        let mut chars = label.chars();
+        let (Some(ch), None) = (chars.next(), chars.next()) else { return None };
+        self.icon_slots[crate::game_art::glyph_slot(ch)?]
     }
 }
 
@@ -979,9 +986,9 @@ impl RendererImpl {
     }
 }
 
-/// Packs the pixel-art artwork the launcher leaves next to the game into one texture: the joystick's
-/// two images, plus one for every control that has a `<name>.png` beside it. Returns the texture (0
-/// when there is nothing) and where each image sits.
+/// Packs the artwork the launcher leaves next to the game into one texture: the party wheel's two
+/// images, plus the one of each control that keeps the game's own (the picker's arrows). Returns the
+/// texture (0 when there is nothing) and where each image sits.
 #[cfg(target_os = "android")]
 fn load_skin(gl: &gl::Gl) -> (GLuint, [Option<SkinSlot>; MAX_SKIN_SLOTS]) {
     let mut slots: [Option<SkinSlot>; MAX_SKIN_SLOTS] = [None; MAX_SKIN_SLOTS];
@@ -989,8 +996,6 @@ fn load_skin(gl: &gl::Gl) -> (GLuint, [Option<SkinSlot>; MAX_SKIN_SLOTS]) {
     let dir = format!("/data/data/{}/files", "com.ahjin.pr");
     let mut images: Vec<(&'static str, image::RgbaImage)> = Vec::new();
     for (name, file) in [
-        ("joystick", "joystick-base.png"),
-        ("joystick-knob", "joystick-knob.png"),
         // The honeycomb the party wheel puts its slots in, and the border that marks the picked one.
         ("selector", "seleccionarpokemon.png"),
         ("selection", "bordeseleccionar.png"),
@@ -999,13 +1004,13 @@ fn load_skin(gl: &gl::Gl) -> (GLuint, [Option<SkinSlot>; MAX_SKIN_SLOTS]) {
             images.push((name, img.to_rgba8()));
         }
     }
-    for control in crate::touch_controls::CONTROLS {
+    for control in crate::touch_controls::CONTROLS.iter().filter(|c| crate::touch_controls::keeps_art(c.name)) {
         if let Ok(img) = image::open(format!("{}/{}.png", dir, control.name)) {
             images.push((control.name, img.to_rgba8()));
         }
     }
     if images.is_empty() {
-        eprintln!("[overlay] sin arte pixel para los controles; se usan las formas dibujadas");
+        eprintln!("[overlay] sin arte del juego para los controles; se usan las formas dibujadas");
         return (0, slots)
     }
     let height = images.iter().map(|(_, img)| img.height()).max().unwrap_or(1).max(1);
@@ -1065,12 +1070,12 @@ fn load_skin(gl: &gl::Gl) -> (GLuint, [Option<SkinSlot>; MAX_SKIN_SLOTS]) {
     }
 }
 
-/// Puts the pictures the buttons borrow from the game in one small texture, side by side with a
-/// transparent column between them, and says where each sits. The previous texture is released.
-/// Returns 0 and no slots when nothing was kept (the buttons then keep their drawn icons).
+/// Puts the pictures of the buttons (icons, letters and numbers) in one small texture, side by side
+/// with a transparent column between them, and says where each sits. The previous texture is released.
+/// Returns 0 and no slots when none could be made (the buttons then keep their drawn icons).
 #[cfg(target_os = "android")]
-fn build_icons(gl: &gl::Gl, old: GLuint) -> (GLuint, [Option<[f32; 7]>; crate::touch_controls::ICON_COUNT]) {
-    let mut slots = [None; crate::touch_controls::ICON_COUNT];
+fn build_icons(gl: &gl::Gl, old: GLuint) -> (GLuint, [Option<[f32; 7]>; crate::game_art::SLOT_COUNT]) {
+    let mut slots = [None; crate::game_art::SLOT_COUNT];
     unsafe {
         if old != 0 {
             gl.DeleteTextures(1, &old);
@@ -1084,13 +1089,13 @@ fn build_icons(gl: &gl::Gl, old: GLuint) -> (GLuint, [Option<[f32; 7]>; crate::t
     let height: u32 = pictures.iter().map(|p| p.height).max().unwrap_or(1);
     let mut pixels = vec![0u8; (width * height * 4) as usize];
     let mut x = 0u32;
-    for picture in &pictures {
+    for picture in pictures {
         let row = (picture.width * 4) as usize;
         for y in 0..picture.height as usize {
             let dst = ((y as u32 * width + x) * 4) as usize;
             pixels[dst..dst + row].copy_from_slice(&picture.rgba[y * row..(y + 1) * row]);
         }
-        slots[picture.icon as usize] = Some([
+        slots[picture.slot] = Some([
             x as f32 / width as f32,
             0.0,
             (x + picture.width) as f32 / width as f32,
@@ -1123,9 +1128,9 @@ fn build_icons(gl: &gl::Gl, old: GLuint) -> (GLuint, [Option<[f32; 7]>; crate::t
         if gl.GetError() != 0 {
             // Never leave the overlay without its controls over a picture that would not upload.
             gl.DeleteTextures(1, &texture);
-            return (0, [None; crate::touch_controls::ICON_COUNT])
+            return (0, [None; crate::game_art::SLOT_COUNT])
         }
-        eprintln!("[overlay] {} imagenes del juego para los botones ({}x{})", pictures.len(), width, height);
+        eprintln!("[overlay] {} imagenes propias para los botones ({}x{})", pictures.len(), width, height);
         (texture, slots)
     }
 }
@@ -1254,7 +1259,7 @@ fn push_vertex(out: &mut Vec<f32>, ww: f32, wh: f32, x: f32, y: f32, col: [f32; 
     out.extend_from_slice(&[x / ww * 2.0 - 1.0, 1.0 - y / wh * 2.0, col[0], col[1], col[2], col[3], 0.0, 0.0]);
 }
 
-/// Pushes a textured quad, used for the pixel-art control artwork. The colour is white, so the
+/// Pushes a textured quad, used for the artwork of the buttons. The colour is white, so the
 /// sprite comes through as drawn.
 #[cfg(target_os = "android")]
 fn push_sprite(
@@ -1293,90 +1298,6 @@ fn push_tri(out: &mut Vec<f32>, ww: f32, wh: f32, a: (f32, f32), b: (f32, f32), 
 fn push_quad(out: &mut Vec<f32>, ww: f32, wh: f32, x1: f32, y1: f32, x2: f32, y2: f32, col: [f32; 4]) {
     push_tri(out, ww, wh, (x1, y1), (x2, y1), (x2, y2), col);
     push_tri(out, ww, wh, (x1, y1), (x2, y2), (x1, y2), col);
-}
-
-/// The movement cross in the pixel-art style: a plus sign of chunky blocks with a light border, a
-/// stair-stepped arrow at the end of each arm and the arms being held lit, like the pressed buttons.
-/// With `diagonals` there is a square stud in each corner that lights when its two arms are held.
-#[cfg(target_os = "android")]
-fn push_cross_pixel(out: &mut Vec<f32>, ww: f32, wh: f32, cx: f32, cy: f32, r: f32, held: u32, diagonals: bool, fade: f32) {
-    // One chunk of the pixel art: everything is a multiple of it, so the blocks line up.
-    let u = (r * 0.065).round().max(2.0);
-    let snap = |v: f32| (v / u).round() * u;
-    let half = snap(r * 0.30).max(u * 2.0);
-    let reach = snap(r * 0.96);
-    let (cx, cy) = (cx.round(), cy.round());
-    let border = [1.0, 1.0, 1.0, 0.85 * fade];
-    let fill = [0.10, 0.10, 0.16, 0.62 * fade];
-    let lit = [1.0, 0.80, 0.10, 0.60 * fade];
-    // The border is drawn as the strips of an outline, so the translucent fill is not tinted by it.
-    let (x0, x1, y0, y1) = (cx - reach, cx + reach, cy - reach, cy + reach);
-    let (a0, a1, b0, b1) = (cx - half, cx + half, cy - half, cy + half);
-    // Fill: the two bars, the vertical one without the part the horizontal already covers.
-    push_quad(out, ww, wh, x0, b0, x1, b1, fill);
-    push_quad(out, ww, wh, a0, y0, a1, b0, fill);
-    push_quad(out, ww, wh, a0, b1, a1, y1, fill);
-    // Outline: the ends of the four arms and the sides, then the four inside corners.
-    push_quad(out, ww, wh, x0 - u, b0, x0, b1, border);
-    push_quad(out, ww, wh, x1, b0, x1 + u, b1, border);
-    push_quad(out, ww, wh, a0, y0 - u, a1, y0, border);
-    push_quad(out, ww, wh, a0, y1, a1, y1 + u, border);
-    for (sx, ex) in [(-1.0f32, x0), (1.0, x1)] {
-        // Top and bottom edges of a horizontal arm, from its end to the vertical bar.
-        let (from, to) = if sx < 0.0 { (ex, a0) } else { (a1, ex) };
-        push_quad(out, ww, wh, from, b0 - u, to, b0, border);
-        push_quad(out, ww, wh, from, b1, to, b1 + u, border);
-    }
-    for (sy, ey) in [(-1.0f32, y0), (1.0, y1)] {
-        let (from, to) = if sy < 0.0 { (ey, b0) } else { (b1, ey) };
-        push_quad(out, ww, wh, a0 - u, from, a0, to, border);
-        push_quad(out, ww, wh, a1, from, a1 + u, to, border);
-    }
-    // Inside corners, where the arms meet.
-    for (sx, sy) in [(-1.0f32, -1.0f32), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
-        let (px, py) = (if sx < 0.0 { a0 - u } else { a1 }, if sy < 0.0 { b0 - u } else { b1 });
-        push_quad(out, ww, wh, px, py, px + u, py + u, border);
-    }
-    // The arms being held, each from the middle square outwards, and the middle itself.
-    if held & 1 != 0 {
-        push_quad(out, ww, wh, a0, y0, a1, b0, lit);
-    }
-    if held & 2 != 0 {
-        push_quad(out, ww, wh, a0, b1, a1, y1, lit);
-    }
-    if held & 4 != 0 {
-        push_quad(out, ww, wh, x0, b0, a0, b1, lit);
-    }
-    if held & 8 != 0 {
-        push_quad(out, ww, wh, a1, b0, x1, b1, lit);
-    }
-    if held != 0 {
-        push_quad(out, ww, wh, a0, b0, a1, b1, lit);
-    }
-    // An arrow at the end of each arm, built from three rows of blocks.
-    let ink = [1.0, 1.0, 1.0, 0.90 * fade];
-    let rows = [3.0f32, 2.0, 1.0];
-    let tip = reach - u * 2.0;
-    for (i, n) in rows.iter().enumerate() {
-        let off = tip - u * (3 - i) as f32 + u;
-        let w = n * u * 0.5 + u * 0.5;
-        // up, down
-        push_quad(out, ww, wh, cx - w, cy - off - u, cx + w, cy - off, ink);
-        push_quad(out, ww, wh, cx - w, cy + off, cx + w, cy + off + u, ink);
-        // left, right
-        push_quad(out, ww, wh, cx - off - u, cy - w, cx - off, cy + w, ink);
-        push_quad(out, ww, wh, cx + off, cy - w, cx + off + u, cy + w, ink);
-    }
-    if diagonals {
-        let k = snap(r * 0.52);
-        let stud = u * 1.5;
-        for (sx, sy, need) in [(-1.0f32, -1.0f32, 0b0101u32), (1.0, -1.0, 0b1001), (-1.0, 1.0, 0b0110), (1.0, 1.0, 0b1010)] {
-            let on = held & need == need;
-            let col = if on { [1.0, 0.80, 0.10, 0.95 * fade] } else { [1.0, 1.0, 1.0, 0.55 * fade] };
-            let (px, py) = (cx + sx * k, cy + sy * k);
-            push_quad(out, ww, wh, px - stud, py - stud, px + stud, py + stud, col);
-        }
-    }
 }
 
 #[cfg(target_os = "android")]
@@ -1563,7 +1484,7 @@ impl RendererImpl {
             self.gl.GenBuffers(1, &mut vbo);
             // u64::MAX on purpose: it no longer matches the party's version, so the first frame
             // fills the strip.
-            // The same goes for the borrowed pictures: no texture yet, and a version nothing matches.
+            // The same goes for the buttons' pictures: no texture yet, and a version nothing matches.
             let fields = Overlay {
                 program,
                 vao,
@@ -1576,7 +1497,7 @@ impl RendererImpl {
                 party_version: u64::MAX,
                 icons: 0,
                 icons_version: u64::MAX,
-                icon_slots: [None; crate::touch_controls::ICON_COUNT],
+                icon_slots: [None; crate::game_art::SLOT_COUNT],
             };
             self.overlay = Some(fields);
             fields
@@ -1644,8 +1565,8 @@ impl RendererImpl {
             }
         }
 
-        // The pictures borrowed from the game appear once its sprites are read: rebuild their
-        // texture when that changes.
+        // The buttons' pictures are built into the app: their texture is made the first time and again
+        // only if they ever change.
         let icons_version = crate::game_art::version();
         if overlay.icons_version != icons_version {
             let (texture, slots) = build_icons(&self.gl, overlay.icons);
@@ -1660,18 +1581,17 @@ impl RendererImpl {
         }
 
         let dt = touch_controls::anim_tick();
-        let native = touch_controls::native_style();
         let fade = crate::extras::overlay_fade();
         let opacity = touch_controls::sprite_opacity() * fade;
         let mut verts: Vec<f32> = Vec::new();
         // Screen effect over the picture, under the controls.
         self.push_screen_effect(&mut verts, ww, wh);
-        // Textured geometry (the pixel-art controls) goes in its own buffer, because it samples the
+        // Textured geometry (the picker's arrows) goes in its own buffer, because it samples the
         // artwork rather than the 1x1 white texture the plain shapes use.
         let mut sprites: Vec<f32> = Vec::new();
         // The party's sprites come from a texture of their own, so they travel in their own batch.
         let mut party_sprites: Vec<f32> = Vec::new();
-        // The buttons' pictures taken from the game, in the texture built for them.
+        // The buttons' pictures, in the texture built for them.
         let mut icon_sprites: Vec<f32> = Vec::new();
         for (i, c) in touch_controls::CONTROLS.iter().enumerate() {
             if !touch_controls::is_active(i) {
@@ -1692,8 +1612,8 @@ impl RendererImpl {
                 ([0.10, 0.10, 0.16, 0.28], [1.0, 1.0, 1.0, 0.60], [1.0, 1.0, 1.0, 0.90])
             };
             let press = touch_controls::press_anim(i, pressed, dt);
-            if native && !touch_controls::keeps_art(c.name) {
-                // The native look: a smooth translucent button with a vector label.
+            if !touch_controls::keeps_art(c.name) {
+                // A smooth translucent button with a small pixel-art picture on it.
                 let (cx, cy, r) = match touch_controls::window_shape(i) {
                     touch_controls::Shape::Circle { cx, cy, r } => (cx * ww, cy * wh, r * ww),
                     touch_controls::Shape::Rect { cx, cy, w, h } => (cx * ww, cy * wh, (w * ww + h * wh) / 4.0),
@@ -1703,20 +1623,23 @@ impl RendererImpl {
                     touch_controls::Label::Text(text) => text,
                     _ => "",
                 };
-                // The game's own picture of what the button does, when it has one: the disc is
-                // drawn without a symbol and the picture goes over it.
+                // The picture of what the button does, or of its letter or number: the disc is drawn
+                // without a symbol and the picture goes over it. Only a label that has no picture
+                // (a custom text, SEL, C+P) is drawn as vector text.
                 let icon = touch_controls::icon_at(i);
                 let art = match icon {
-                    Some(kind) if touch_controls::function_icons() => overlay.icon_art(kind),
-                    _ => None,
+                    Some(kind) => overlay.icon_art(kind),
+                    None => overlay.glyph_art(label),
                 };
                 if let Some(uv) = art {
                     // Every pixel of the picture is a whole number of screen pixels, and the picture
                     // sits on the pixel grid: that is what keeps pixel art sharp (a fractional scale
-                    // makes some pixels wider than others and the edges look smeared). The size
-                    // aims at two thirds of the button, leaning to the smaller step.
+                    // makes some pixels wider than others and the edges look smeared). The step is
+                    // the same for every picture (they are all drawn on a 16-pixel canvas), so a
+                    // pixel is the same size on every button; the size aims at two thirds of the
+                    // button, leaning to the smaller step.
                     let target = r * 1.34;
-                    let scale = ((target / uv[5].max(uv[6])) + 0.35).floor().max(1.0);
+                    let scale = ((target / 16.0) + 0.35).floor().max(1.0);
                     let (pw, ph) = (uv[5] * scale, uv[6] * scale);
                     let (x1, y1) = ((cx - pw / 2.0).round(), (cy - ph / 2.0).round());
                     push_sprite(&mut icon_sprites, ww, wh, x1, y1, x1 + pw, y1 + ph, uv[0], uv[1], uv[2], uv[3], opacity);
@@ -1794,8 +1717,7 @@ impl RendererImpl {
             }
         }
 
-        // Movement joystick: the pixel-art base with the knob on top that follows the thumb, or the
-        // drawn ring when the artwork is not available.
+        // Movement joystick: the ring with the knob that follows the thumb, or the cross.
         if touch_controls::joystick_active() {
             let (jcx, jcy) = touch_controls::joystick_center();
             let (cx, cy) = (jcx * ww, jcy * wh);
@@ -1806,28 +1728,10 @@ impl RendererImpl {
                 // The cross: the menus' four arrows, or the eight directions the player chose for the map.
                 let eight = kind == touch_controls::PadKind::Cross8;
                 let held = touch_controls::pad_held();
-                if native {
-                    crate::touch_style::draw_cross(&mut verts, ww, wh, cx, cy, r, held, eight, opacity);
-                } else {
-                    push_cross_pixel(&mut verts, ww, wh, cx, cy, r, held, eight, fade);
-                }
-            } else if native {
+                crate::touch_style::draw_cross(&mut verts, ww, wh, cx, cy, r, held, eight, opacity);
+            } else {
                 let engaged = ox != 0.0 || oy != 0.0;
                 crate::touch_style::draw_stick(&mut verts, ww, wh, cx, cy, r, (ox, oy), engaged, opacity);
-            } else if let (Some(base), Some(knob)) = (overlay.art("joystick"), overlay.art("joystick-knob")) {
-                // The artwork is a square panel with the knob at its centre. The panel is sized so it
-                // encloses the joystick's circle, and the knob keeps the share of the image it has.
-                let half = r * 1.05;
-                push_sprite(&mut sprites, ww, wh, cx - half, cy - half, cx + half, cy + half, base[0], base[1], base[2], base[3], fade);
-                let (kx, ky) = (cx + ox * r * 0.72, cy + oy * r * 0.72);
-                let kh = r * 0.88;
-                push_sprite(&mut sprites, ww, wh, kx - kh, ky - kh, kx + kh, ky + kh, knob[0], knob[1], knob[2], knob[3], fade);
-            } else {
-                push_circle(&mut verts, ww, wh, cx, cy, r, [0.10, 0.10, 0.16, 0.22]);
-                push_ring(&mut verts, ww, wh, cx, cy, r, 4.0, [1.0, 1.0, 1.0, 0.45]);
-                let (kx, ky) = (cx + ox * r * 0.72, cy + oy * r * 0.72);
-                push_circle(&mut verts, ww, wh, kx, ky, r * 0.40, [0.85, 0.85, 0.92, 0.50]);
-                push_ring(&mut verts, ww, wh, kx, ky, r * 0.40, 3.0, [1.0, 1.0, 1.0, 0.75]);
             }
         }
 
@@ -1944,7 +1848,7 @@ impl RendererImpl {
             gl.VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, STRIDE, 24 as *const std::ffi::c_void);
 
             // Plain shapes first (they sample the white pixel, so their colour passes through), then
-            // the pixel-art controls, which sample the artwork.
+            // the controls with artwork, which sample it.
             gl.BindTexture(gl::TEXTURE_2D, overlay.white);
             gl.BufferData(gl::ARRAY_BUFFER, (verts.len() * 4) as _, verts.as_ptr().cast(), gl::STREAM_DRAW);
             gl.DrawArrays(gl::TRIANGLES, 0, (verts.len() / 8) as i32);

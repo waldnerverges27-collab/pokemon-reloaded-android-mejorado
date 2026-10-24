@@ -1,5 +1,5 @@
 //! The native look of the on-screen controls: smooth translucent discs with a soft shadow, a thin
-//! ring, strokes for the labels and a press animation, instead of the pixel-art sprites.
+//! ring, strokes for the labels and a press animation. The pictures on the buttons are in `game_art`.
 //!
 //! Everything is built from triangles with a colour per vertex, so the edges are feathered by
 //! fading the alpha over about a pixel (the overlay is not multisampled, and a hard polygon edge
@@ -131,7 +131,7 @@ impl Canvas<'_> {
 // ---------------------------------------------------------------------------------------------
 // Stroke font. Each glyph is a few polylines in a unit box (x right, y down, 0..1 both ways). Curves
 // are approximated with a handful of points: at the sizes a button label is drawn at, that reads as
-// smooth, and it scales without the blockiness of the bitmap font the pixel-art style used.
+// smooth, and it scales at any size.
 
 fn glyph(ch: char) -> &'static [&'static [(f32, f32)]] {
     const O: &[(f32, f32)] = &[

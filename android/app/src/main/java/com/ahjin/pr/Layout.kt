@@ -153,9 +153,15 @@ object Layout {
         "save", "load", "forward", "chart", "up", "down", "left", "right",
     )
 
+    /**
+     * Every picture the engine has for a button, in `assets/icons` (drawn by `tools/gen-icons.py`): the
+     * ones a custom button can wear, and the ones only the game's own buttons wear.
+     */
+    val PICTURES: List<String> = ICONS + listOf("mega", "enter", "space")
+
     /** What each picture is called in the editor. */
     val ICON_TITLES: Map<String, String> = mapOf(
-        "act" to "Accion", "run" to "Correr", "hook" to "Cana", "bike" to "Bici", "ball" to "Bola", "team" to "Equipo",
+        "act" to "Accion", "run" to "Correr", "hook" to "Cana", "bike" to "Bici", "ball" to "Bola", "team" to "Pokemon",
         "bag" to "Mochila", "map" to "Mapa", "star" to "Estrella", "exit" to "Huir", "swap" to "Cambiar", "bolt" to "Rayo",
         "box" to "Objeto", "person" to "Entrenador", "magnifier" to "Buscar", "chat" to "Hablar", "smile" to "Emoji",
         "clock" to "Reloj", "heart" to "Corazon", "check" to "Ok", "plus" to "Mas", "menu" to "Menu", "pause" to "Pausa",
@@ -197,7 +203,7 @@ object Layout {
             "v" -> "bike".takeIf { world }
             "space" -> "team"
             "o" -> "bag"
-            "m" -> if (battle) "star" else "map"
+            "m" -> if (battle) "mega" else "map"
             "e" -> if (fight) "exit" else "smile"
             "t" -> if (battle) "clock" else "chat"
             "l" -> "magnifier"
@@ -206,6 +212,8 @@ object Layout {
             "a" -> "box"
             "s" -> "swap"
             "dex_m" -> "map"
+            "dex_enter" -> "enter"
+            "dex_clear" -> "space"
             else -> null
         }
     }
