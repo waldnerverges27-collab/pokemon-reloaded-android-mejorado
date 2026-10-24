@@ -58,6 +58,12 @@ object Layout {
     const val SCREEN = 256
     /** The same, for the ones whose list also uses C (to sort it, or to move the map's cursor). */
     const val SCREEN_C = 512
+    /** The four screens of the Pokedex: the list, a Pokemon's page, the filter and the places. */
+    const val DEX_LIST = 1024
+    const val DEX_DETAIL = 2048
+    const val DEX_FILTER = 4096
+    const val DEX_PLACES = 8192
+    const val DEX = DEX_LIST or DEX_DETAIL or DEX_FILTER or DEX_PLACES
 
     class Defaults(val controls: List<ControlSpec>, val joystick: ControlSpec)
 
@@ -76,7 +82,7 @@ object Layout {
         val j = root.getJSONObject("joystick")
         val stick = ControlSpec(
             JOYSTICK, "", j.getDouble("cx").toFloat(), j.getDouble("cy").toFloat(), j.getDouble("r").toFloat(),
-            WORLD or BATTLE or CHOICE or SCREEN or SCREEN_C,
+            WORLD or BATTLE or CHOICE or MENU_NAV or SCREEN or SCREEN_C or DEX,
         )
         return Defaults(controls, stick)
     }
@@ -199,6 +205,7 @@ object Layout {
             "n" -> "bolt"
             "a" -> "box"
             "s" -> "swap"
+            "dex_m" -> "map"
             else -> null
         }
     }

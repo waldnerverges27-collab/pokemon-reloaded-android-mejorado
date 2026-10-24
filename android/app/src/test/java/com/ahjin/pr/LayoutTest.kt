@@ -167,4 +167,24 @@ class LayoutTest {
         assertEquals(setOf(2), damaged.customs.keys)
         assertEquals("Z:lock", damaged.customs[2]?.key)
     }
+
+    @Test
+    fun `the pokedex screens have their own bits and the stick is shown in all the menus`() {
+        val bits = listOf(Layout.DEX_LIST, Layout.DEX_DETAIL, Layout.DEX_FILTER, Layout.DEX_PLACES)
+        assertEquals(bits.size, bits.toSet().size)
+        assertEquals(Layout.DEX, bits.reduce { a, b -> a or b })
+        bits.forEach { assertEquals(0, it and (Layout.SCREEN or Layout.SCREEN_C or Layout.MENU_NAV or Layout.WORLD)) }
+        assertEquals("map", Layout.builtinIcon("dex_m", Layout.DEX_LIST, true))
+        assertNull(Layout.builtinIcon("dex_b", Layout.DEX_LIST, true))
+    }
+
+    @Test
+    fun `the movement choice reaches the engine`() {
+        val dir = java.nio.file.Files.createTempDirectory("controls").toFile()
+        writeControlsFile(dir, emptyMap(), true, false, TouchSettings(cross8 = true))
+        assertTrue(java.io.File(dir, "controls.conf").readLines().contains("dpad=1"))
+        writeControlsFile(dir, emptyMap(), true, false, TouchSettings())
+        assertTrue(java.io.File(dir, "controls.conf").readLines().contains("dpad=0"))
+        dir.deleteRecursively()
+    }
 }

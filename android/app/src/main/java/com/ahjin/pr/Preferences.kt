@@ -134,7 +134,14 @@ class Preferences(context: Context) {
             prefs.edit().putBoolean("functionIcons", value).apply()
         }
 
-    fun touchSettings() = TouchSettings(touchOpacity, touchScale, hapticLevel, floatingStick, stickDeadzone, nativeStyle, functionIcons)
+    /** Move with the eight-direction cross instead of the joystick (map and battles). */
+    var movementCross8: Boolean
+        get() = prefs.getBoolean("movementCross8", false)
+        set(value) {
+            prefs.edit().putBoolean("movementCross8", value).apply()
+        }
+
+    fun touchSettings() = TouchSettings(touchOpacity, touchScale, hapticLevel, floatingStick, stickDeadzone, nativeStyle, functionIcons, movementCross8)
 
     /** Mirrors the current controls into the file the emulator reads at startup. */
     fun writeControls(filesDir: File, padConnected: Boolean) =

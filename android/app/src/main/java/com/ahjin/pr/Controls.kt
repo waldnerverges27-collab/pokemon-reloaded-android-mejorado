@@ -111,6 +111,11 @@ data class TouchSettings(
     val nativeStyle: Boolean = true,
     /** The game's own buttons show a picture of what they do instead of a letter. */
     val functionIcons: Boolean = true,
+    /**
+     * Move with an eight-direction cross instead of the joystick, on the map and in battles. The
+     * menus and the Pokedex always get a four-direction cross, whatever this says.
+     */
+    val cross8: Boolean = false,
 )
 
 fun writeControlsFile(
@@ -137,6 +142,7 @@ fun writeControlsFile(
         appendLine("deadzone=${touch.deadzone}")
         appendLine("style=${if (touch.nativeStyle) "native" else "pixel"}")
         appendLine("icons=${if (touch.functionIcons) 1 else 0}")
+        appendLine("dpad=${if (touch.cross8) 1 else 0}")
     }
     runCatching { File(filesDir, "controls.conf").writeText(text) }
 }

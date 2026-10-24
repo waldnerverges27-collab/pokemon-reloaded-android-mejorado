@@ -1295,6 +1295,90 @@ fn push_quad(out: &mut Vec<f32>, ww: f32, wh: f32, x1: f32, y1: f32, x2: f32, y2
     push_tri(out, ww, wh, (x1, y1), (x2, y2), (x1, y2), col);
 }
 
+/// The movement cross in the pixel-art style: a plus sign of chunky blocks with a light border, a
+/// stair-stepped arrow at the end of each arm and the arms being held lit, like the pressed buttons.
+/// With `diagonals` there is a square stud in each corner that lights when its two arms are held.
+#[cfg(target_os = "android")]
+fn push_cross_pixel(out: &mut Vec<f32>, ww: f32, wh: f32, cx: f32, cy: f32, r: f32, held: u32, diagonals: bool, fade: f32) {
+    // One chunk of the pixel art: everything is a multiple of it, so the blocks line up.
+    let u = (r * 0.065).round().max(2.0);
+    let snap = |v: f32| (v / u).round() * u;
+    let half = snap(r * 0.30).max(u * 2.0);
+    let reach = snap(r * 0.96);
+    let (cx, cy) = (cx.round(), cy.round());
+    let border = [1.0, 1.0, 1.0, 0.85 * fade];
+    let fill = [0.10, 0.10, 0.16, 0.62 * fade];
+    let lit = [1.0, 0.80, 0.10, 0.60 * fade];
+    // The border is drawn as the strips of an outline, so the translucent fill is not tinted by it.
+    let (x0, x1, y0, y1) = (cx - reach, cx + reach, cy - reach, cy + reach);
+    let (a0, a1, b0, b1) = (cx - half, cx + half, cy - half, cy + half);
+    // Fill: the two bars, the vertical one without the part the horizontal already covers.
+    push_quad(out, ww, wh, x0, b0, x1, b1, fill);
+    push_quad(out, ww, wh, a0, y0, a1, b0, fill);
+    push_quad(out, ww, wh, a0, b1, a1, y1, fill);
+    // Outline: the ends of the four arms and the sides, then the four inside corners.
+    push_quad(out, ww, wh, x0 - u, b0, x0, b1, border);
+    push_quad(out, ww, wh, x1, b0, x1 + u, b1, border);
+    push_quad(out, ww, wh, a0, y0 - u, a1, y0, border);
+    push_quad(out, ww, wh, a0, y1, a1, y1 + u, border);
+    for (sx, ex) in [(-1.0f32, x0), (1.0, x1)] {
+        // Top and bottom edges of a horizontal arm, from its end to the vertical bar.
+        let (from, to) = if sx < 0.0 { (ex, a0) } else { (a1, ex) };
+        push_quad(out, ww, wh, from, b0 - u, to, b0, border);
+        push_quad(out, ww, wh, from, b1, to, b1 + u, border);
+    }
+    for (sy, ey) in [(-1.0f32, y0), (1.0, y1)] {
+        let (from, to) = if sy < 0.0 { (ey, b0) } else { (b1, ey) };
+        push_quad(out, ww, wh, a0 - u, from, a0, to, border);
+        push_quad(out, ww, wh, a1, from, a1 + u, to, border);
+    }
+    // Inside corners, where the arms meet.
+    for (sx, sy) in [(-1.0f32, -1.0f32), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
+        let (px, py) = (if sx < 0.0 { a0 - u } else { a1 }, if sy < 0.0 { b0 - u } else { b1 });
+        push_quad(out, ww, wh, px, py, px + u, py + u, border);
+    }
+    // The arms being held, each from the middle square outwards, and the middle itself.
+    if held & 1 != 0 {
+        push_quad(out, ww, wh, a0, y0, a1, b0, lit);
+    }
+    if held & 2 != 0 {
+        push_quad(out, ww, wh, a0, b1, a1, y1, lit);
+    }
+    if held & 4 != 0 {
+        push_quad(out, ww, wh, x0, b0, a0, b1, lit);
+    }
+    if held & 8 != 0 {
+        push_quad(out, ww, wh, a1, b0, x1, b1, lit);
+    }
+    if held != 0 {
+        push_quad(out, ww, wh, a0, b0, a1, b1, lit);
+    }
+    // An arrow at the end of each arm, built from three rows of blocks.
+    let ink = [1.0, 1.0, 1.0, 0.90 * fade];
+    let rows = [3.0f32, 2.0, 1.0];
+    let tip = reach - u * 2.0;
+    for (i, n) in rows.iter().enumerate() {
+        let off = tip - u * (3 - i) as f32 + u;
+        let w = n * u * 0.5 + u * 0.5;
+        // up, down
+        push_quad(out, ww, wh, cx - w, cy - off - u, cx + w, cy - off, ink);
+        push_quad(out, ww, wh, cx - w, cy + off, cx + w, cy + off + u, ink);
+        // left, right
+        push_quad(out, ww, wh, cx - off - u, cy - w, cx - off, cy + w, ink);
+        push_quad(out, ww, wh, cx + off, cy - w, cx + off + u, cy + w, ink);
+    }
+    if diagonals {
+        let k = snap(r * 0.52);
+        let stud = u * 1.5;
+        for (sx, sy, need) in [(-1.0f32, -1.0f32, 0b0101u32), (1.0, -1.0, 0b1001), (-1.0, 1.0, 0b0110), (1.0, 1.0, 0b1010)] {
+            let on = held & need == need;
+            let col = if on { [1.0, 0.80, 0.10, 0.95 * fade] } else { [1.0, 1.0, 1.0, 0.55 * fade] };
+            let (px, py) = (cx + sx * k, cy + sy * k);
+            push_quad(out, ww, wh, px - stud, py - stud, px + stud, py + stud, col);
+        }
+    }
+}
+
 #[cfg(target_os = "android")]
 fn push_circle(out: &mut Vec<f32>, ww: f32, wh: f32, cx: f32, cy: f32, r: f32, col: [f32; 4]) {
     const SEG: usize = 24;
@@ -1347,6 +1431,7 @@ fn glyph(c: char) -> Option<[u8; 5]> {
         'K' => [0b101, 0b101, 0b110, 0b101, 0b101],
         'E' => [0b111, 0b100, 0b110, 0b100, 0b111],
         'S' => [0b011, 0b100, 0b010, 0b001, 0b110],
+        'F' => [0b111, 0b100, 0b110, 0b100, 0b100],
         'A' => [0b010, 0b101, 0b111, 0b101, 0b101],
         'B' => [0b110, 0b101, 0b110, 0b101, 0b110],
         'N' => [0b101, 0b111, 0b101, 0b101, 0b101],
@@ -1374,6 +1459,8 @@ fn glyph(c: char) -> Option<[u8; 5]> {
 #[cfg(target_os = "android")]
 fn push_text(out: &mut Vec<f32>, ww: f32, wh: f32, text: &str, cx: f32, cy: f32, px: f32, col: [f32; 4]) {
     let chars: Vec<char> = text.chars().collect();
+    // A word of more than three letters (the Pokédex's ENTER) is drawn smaller so it stays on the button.
+    let px = if chars.len() > 3 { px.min(px * 3.0 * 4.0 / (4.0 * chars.len() as f32)) } else { px };
     let char_w = 4.0 * px; // 3 columns of glyph + 1 gap
     let total = char_w * chars.len() as f32 - px;
     let mut x = cx - total / 2.0;
@@ -1714,7 +1801,17 @@ impl RendererImpl {
             let (cx, cy) = (jcx * ww, jcy * wh);
             let r = touch_controls::joystick_radius() * wh;
             let (ox, oy) = touch_controls::joystick_offset();
-            if native {
+            let kind = touch_controls::pad_kind();
+            if kind != touch_controls::PadKind::Stick {
+                // The cross: the menus' four arrows, or the eight directions the player chose for the map.
+                let eight = kind == touch_controls::PadKind::Cross8;
+                let held = touch_controls::pad_held();
+                if native {
+                    crate::touch_style::draw_cross(&mut verts, ww, wh, cx, cy, r, held, eight, opacity);
+                } else {
+                    push_cross_pixel(&mut verts, ww, wh, cx, cy, r, held, eight, fade);
+                }
+            } else if native {
                 let engaged = ox != 0.0 || oy != 0.0;
                 crate::touch_style::draw_stick(&mut verts, ww, wh, cx, cy, r, (ox, oy), engaged, opacity);
             } else if let (Some(base), Some(knob)) = (overlay.art("joystick"), overlay.art("joystick-knob")) {

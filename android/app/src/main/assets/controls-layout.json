@@ -107,7 +107,7 @@
    "cx": 0.865,
    "cy": 0.851,
    "r": 0.033,
-   "contexts": 806
+   "contexts": 16166
   },
   {
    "name": "x",
@@ -115,7 +115,7 @@
    "cx": 0.933,
    "cy": 0.7,
    "r": 0.033,
-   "contexts": 934
+   "contexts": 16294
   },
   {
    "name": "c",
@@ -123,7 +123,7 @@
    "cx": 0.797,
    "cy": 0.7,
    "r": 0.033,
-   "contexts": 518
+   "contexts": 3590
   },
   {
    "name": "v",
@@ -131,7 +131,7 @@
    "cx": 0.865,
    "cy": 0.549,
    "r": 0.033,
-   "contexts": 6
+   "contexts": 3078
   },
   {
    "name": "b",
@@ -236,6 +236,62 @@
    "cy": 0.32,
    "r": 0.022,
    "contexts": 70
+  },
+  {
+   "name": "dex_b",
+   "label": "B",
+   "cx": 0.712,
+   "cy": 0.84,
+   "r": 0.028,
+   "contexts": 1024
+  },
+  {
+   "name": "dex_f",
+   "label": "F",
+   "cx": 0.712,
+   "cy": 0.7,
+   "r": 0.026,
+   "contexts": 1024
+  },
+  {
+   "name": "dex_m",
+   "label": "M",
+   "cx": 0.64,
+   "cy": 0.77,
+   "r": 0.024,
+   "contexts": 1024
+  },
+  {
+   "name": "dex_enter",
+   "label": "ENTER",
+   "cx": 0.712,
+   "cy": 0.84,
+   "r": 0.032,
+   "contexts": 4096
+  },
+  {
+   "name": "dex_clear",
+   "label": "ESP",
+   "cx": 0.712,
+   "cy": 0.7,
+   "r": 0.026,
+   "contexts": 4096
+  },
+  {
+   "name": "dex_a",
+   "label": "A",
+   "cx": 0.712,
+   "cy": 0.84,
+   "r": 0.026,
+   "contexts": 2048
+  },
+  {
+   "name": "dex_s",
+   "label": "S",
+   "cx": 0.712,
+   "cy": 0.7,
+   "r": 0.026,
+   "contexts": 2048
   }
  ]
 }

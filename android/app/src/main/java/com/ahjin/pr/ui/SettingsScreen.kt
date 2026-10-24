@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.VideogameAsset
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material.icons.filled.Gamepad
+import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -96,6 +97,7 @@ fun SettingsScreen(
     var touchScale by remember { mutableStateOf(prefs.touchScale) }
     var hapticLevel by remember { mutableStateOf(prefs.hapticLevel) }
     var floatingStick by remember { mutableStateOf(prefs.floatingStick) }
+    var movementCross8 by remember { mutableStateOf(prefs.movementCross8) }
     var stickDeadzone by remember { mutableStateOf(prefs.stickDeadzone) }
     var checking by remember { mutableStateOf(false) }
     var preparingReport by remember { mutableStateOf(false) }
@@ -242,6 +244,33 @@ fun SettingsScreen(
                 )
             }
 
+            SettingsGroup("Control de movimiento") {
+                ChoiceRow(
+                    icon = Icons.Filled.Gamepad,
+                    title = "Joystick",
+                    subtitle = "Un joystick redondo para moverte por el mundo y en los combates",
+                    selected = !movementCross8,
+                    items = 2,
+                    index = 0,
+                    onSelect = {
+                        movementCross8 = false
+                        prefs.movementCross8 = false
+                    },
+                )
+                ChoiceRow(
+                    icon = Icons.Filled.OpenWith,
+                    title = "Cruceta de 8 direcciones",
+                    subtitle = "Una cruceta con diagonales en el mundo y en los combates. En los menus y la Pokedex siempre sale una cruceta de 4, sea cual sea tu eleccion",
+                    selected = movementCross8,
+                    items = 2,
+                    index = 1,
+                    onSelect = {
+                        movementCross8 = true
+                        prefs.movementCross8 = true
+                    },
+                )
+            }
+
             SettingsGroup("Controles tactiles") {
                 SliderRow(
                     icon = Icons.Filled.Opacity,
@@ -271,7 +300,7 @@ fun SettingsScreen(
                 SwitchRow(
                     icon = Icons.Filled.TouchApp,
                     title = "Joystick flotante",
-                    subtitle = "El joystick aparece donde pongas el pulgar, en la parte izquierda de la pantalla",
+                    subtitle = "El joystick o la cruceta aparecen donde pongas el pulgar, en la parte izquierda de la pantalla",
                     checked = floatingStick,
                     items = 4,
                     index = 2,
@@ -282,7 +311,7 @@ fun SettingsScreen(
                 )
                 SliderRow(
                     icon = Icons.Filled.Gamepad,
-                    title = "Zona muerta del joystick",
+                    title = "Zona muerta del joystick y la cruceta",
                     subtitle = "Cuanto hay que mover el joystick para que el personaje camine (${"%.0f".format(stickDeadzone * 100)}%)",
                     value = stickDeadzone,
                     valueRange = 0.1f..0.6f,

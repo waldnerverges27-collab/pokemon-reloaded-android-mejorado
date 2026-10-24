@@ -7,7 +7,7 @@ import re
 
 SRC = 'src/OpenGMK/gm8emulator/src/touch_controls.rs'
 OUT = 'android/app/src/main/assets/controls-layout.json'
-CONTEXTS = {'MENU': 1, 'WORLD': 2, 'BATTLE': 4, 'DIALOG': 8, 'CHARACTER': 16, 'CHOICE': 32, 'SAFARI': 64, 'MENU_NAV': 128, 'SCREEN': 256, 'SCREEN_C': 512}
+CONTEXTS = {'MENU': 1, 'WORLD': 2, 'BATTLE': 4, 'DIALOG': 8, 'CHARACTER': 16, 'CHOICE': 32, 'SAFARI': 64, 'MENU_NAV': 128, 'SCREEN': 256, 'SCREEN_C': 512, 'DEX_LIST': 1024, 'DEX_DETAIL': 2048, 'DEX_FILTER': 4096, 'DEX_PLACES': 8192, 'DEX': 15360}
 
 text = open(SRC).read()
 SYSTEM_LABELS = {'sys_qsave': 'Guardar', 'sys_qload': 'Cargar', 'sys_ffwd': 'Rápido'}

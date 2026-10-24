@@ -39,6 +39,26 @@ impl Canvas<'_> {
         }
     }
 
+    /// The half of a disc that lies in the direction `facing` (an angle, 0 = right), in one colour.
+    fn half_disc(&mut self, cx: f32, cy: f32, r: f32, facing: f32, col: Color) {
+        let steps = SEG / 2;
+        for i in 0..steps {
+            let a0 = facing - std::f32::consts::FRAC_PI_2 + i as f32 / steps as f32 * std::f32::consts::PI;
+            let a1 = facing - std::f32::consts::FRAC_PI_2 + (i + 1) as f32 / steps as f32 * std::f32::consts::PI;
+            self.tri(
+                (cx, cy, col),
+                (cx + r * a0.cos(), cy + r * a0.sin(), col),
+                (cx + r * a1.cos(), cy + r * a1.sin(), col),
+            );
+        }
+    }
+
+    /// An axis-aligned rectangle in one colour.
+    fn quad(&mut self, x0: f32, y0: f32, x1: f32, y1: f32, col: Color) {
+        self.tri((x0, y0, col), (x1, y0, col), (x1, y1, col));
+        self.tri((x0, y0, col), (x1, y1, col), (x0, y1, col));
+    }
+
     /// A disc whose colour runs from `center` in the middle to `edge` at the rim.
     fn disc(&mut self, cx: f32, cy: f32, r: f32, center: Color, edge: Color) {
         for i in 0..SEG {
@@ -486,6 +506,79 @@ pub fn draw_stick(out: &mut Vec<f32>, ww: f32, wh: f32, cx: f32, cy: f32, r: f32
     c.band(kx, ky + kr * 0.10, kr * 0.98, kr * 1.2, [0.0, 0.0, 0.0, 0.25 * a], [0.0, 0.0, 0.0, 0.0]);
     c.smooth_disc(kx, ky, kr, [0.85, 0.88, 0.95, (0.50 + lift) * a], [0.55, 0.60, 0.72, (0.45 + lift) * a]);
     c.ring(kx, ky, kr, (kr * 0.07).max(2.0), [1.0, 1.0, 1.0, (0.65 + lift) * a]);
+}
+
+/// The movement cross: a rounded plus sign with a chevron at the end of each arm, and the arms the
+/// thumb is holding lit. With `diagonals` (the eight-direction cross) there is a stud in each corner
+/// that lights when the two arms beside it are held together. `held` has bit 0 up, 1 down, 2 left
+/// and 3 right.
+pub fn draw_cross(out: &mut Vec<f32>, ww: f32, wh: f32, cx: f32, cy: f32, r: f32, held: u32, diagonals: bool, opacity: f32) {
+    let mut c = Canvas { out, ww, wh };
+    let a = opacity;
+    let half = r * 0.30;
+    let reach = r * 0.96 - half;
+    // The plus sign as one shape, `grow` pixels fatter than the real one, drawn in one colour. Its
+    // pieces never overlap (the vertical bar is in two parts, the ends are half discs), because a
+    // translucent colour drawn twice over the same place shows up darker.
+    let plus = |c: &mut Canvas, dx: f32, dy: f32, grow: f32, col: Color| {
+        let w = half + grow;
+        let (x, y) = (cx + dx, cy + dy);
+        c.quad(x - reach, y - w, x + reach, y + w, col);
+        c.quad(x - w, y - reach, x + w, y - w, col);
+        c.quad(x - w, y + w, x + w, y + reach, col);
+        c.half_disc(x - reach, y, w, std::f32::consts::PI, col);
+        c.half_disc(x + reach, y, w, 0.0, col);
+        c.half_disc(x, y - reach, w, -std::f32::consts::FRAC_PI_2, col);
+        c.half_disc(x, y + reach, w, std::f32::consts::FRAC_PI_2, col);
+    };
+    let shadow = [0.0, 0.0, 0.0, 0.20 * a];
+    plus(&mut c, 0.0, r * 0.04, 1.0, shadow);
+    plus(&mut c, 0.0, 0.0, 1.8, [1.0, 1.0, 1.0, 0.30 * a]);
+    plus(&mut c, 0.0, 0.0, 0.0, [0.07, 0.08, 0.12, 0.46 * a]);
+
+    // The arms being held, in the accent of the movement: each from the middle square outwards.
+    let lit = [0.55, 0.80, 1.00, 0.55 * a];
+    for (bit, dx, dy) in [(0u32, 0.0f32, -1.0f32), (1, 0.0, 1.0), (2, -1.0, 0.0), (3, 1.0, 0.0)] {
+        if held & (1 << bit) == 0 {
+            continue
+        }
+        let (tx, ty) = (cx + dx * reach, cy + dy * reach);
+        let (sx, sy) = (cx + dx * half, cy + dy * half);
+        if dx == 0.0 {
+            c.quad(cx - half, sy.min(ty), cx + half, sy.max(ty), lit);
+        } else {
+            c.quad(sx.min(tx), cy - half, sx.max(tx), cy + half, lit);
+        }
+        c.half_disc(tx, ty, half, dy.atan2(dx), lit);
+    }
+    if held != 0 {
+        c.quad(cx - half, cy - half, cx + half, cy + half, lit);
+    }
+
+    // Chevrons at the ends of the arms.
+    let chev = [1.0, 1.0, 1.0, 0.55 * a];
+    let (d, s) = (r * 0.76, r * 0.10);
+    let w = (r * 0.03).max(2.0);
+    c.polyline(&[(cx - s, cy - d + s), (cx, cy - d), (cx + s, cy - d + s)], w, chev);
+    c.polyline(&[(cx - s, cy + d - s), (cx, cy + d), (cx + s, cy + d - s)], w, chev);
+    c.polyline(&[(cx - d + s, cy - s), (cx - d, cy), (cx - d + s, cy + s)], w, chev);
+    c.polyline(&[(cx + d - s, cy - s), (cx + d, cy), (cx + d - s, cy + s)], w, chev);
+
+    // The corner studs of the eight-direction cross.
+    if diagonals {
+        let k = r * 0.50;
+        let stud = r * 0.11;
+        let pairs = [(-1.0, -1.0, 0b0101u32), (1.0, -1.0, 0b1001), (-1.0, 1.0, 0b0110), (1.0, 1.0, 0b1010)];
+        for (sx, sy, need) in pairs {
+            let on = held & need == need;
+            let col = if on { [lit[0], lit[1], lit[2], 0.85 * a] } else { [1.0, 1.0, 1.0, 0.26 * a] };
+            c.smooth_disc(cx + sx * k, cy + sy * k, stud, col, col);
+        }
+    }
+
+    // A small hub in the middle.
+    let hub = if held != 0 { [lit[0], lit[1], lit[2], 0.70 * a] } else { [1.0, 1.0, 1.0, 0.24 * a] };
+    c.smooth_disc(cx, cy, r * 0.10, hub, hub);
 }
 
 /// Draws `label` with its left edge at `x` and centred on `y`, `height` pixels tall. For the readout in

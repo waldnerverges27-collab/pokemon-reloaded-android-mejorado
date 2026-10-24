@@ -92,6 +92,18 @@ pub const SCREEN: u16 = 256;
 /// team and the Pokédex, and moves the map's cursor.
 pub const SCREEN_C: u16 = 512;
 
+/// The four screens of the Pokédex, each with its own keys: the list (rooms 17), a Pokémon's page
+/// (18), the filter and search screen (266) and the places (525). Z and X and the movement keys are
+/// the same everywhere, but the rest differ: the list sorts with C, filters with B, searches by name
+/// with F and shows the places with M; the filter screen applies with Enter and clears with Space; a
+/// page changes form with V, plays the cry with A and shows the shiny with S.
+pub const DEX_LIST: u16 = 1024;
+pub const DEX_DETAIL: u16 = 2048;
+pub const DEX_FILTER: u16 = 4096;
+pub const DEX_PLACES: u16 = 8192;
+/// Any of the Pokédex screens.
+pub const DEX: u16 = DEX_LIST | DEX_DETAIL | DEX_FILTER | DEX_PLACES;
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum Shape {
     Circle { cx: f32, cy: f32, r: f32 },
@@ -147,10 +159,10 @@ pub const CONTROLS: &[Control] = &[
     // Main actions, in the diamond a gamepad's face buttons use: the main one at the bottom, cancel
     // to the right, and the other two on the left and on top. The cluster is about the size of the
     // movement joystick and sits at the same height, so the two thumbs fall in the same place.
-    Control { name: "z", key: Key::Z, shape: Shape::Circle { cx: 0.865, cy: 0.851, r: 0.033 }, label: Label::Text("Z"), contexts: WORLD | BATTLE | CHOICE | SCREEN | SCREEN_C },
-    Control { name: "x", key: Key::X, shape: Shape::Circle { cx: 0.933, cy: 0.700, r: 0.033 }, label: Label::Text("X"), contexts: WORLD | BATTLE | CHOICE | MENU_NAV | SCREEN | SCREEN_C },
-    Control { name: "c", key: Key::C, shape: Shape::Circle { cx: 0.797, cy: 0.700, r: 0.033 }, label: Label::Text("C"), contexts: WORLD | BATTLE | SCREEN_C },
-    Control { name: "v", key: Key::V, shape: Shape::Circle { cx: 0.865, cy: 0.549, r: 0.033 }, label: Label::Text("V"), contexts: WORLD | BATTLE },
+    Control { name: "z", key: Key::Z, shape: Shape::Circle { cx: 0.865, cy: 0.851, r: 0.033 }, label: Label::Text("Z"), contexts: WORLD | BATTLE | CHOICE | SCREEN | SCREEN_C | DEX },
+    Control { name: "x", key: Key::X, shape: Shape::Circle { cx: 0.933, cy: 0.700, r: 0.033 }, label: Label::Text("X"), contexts: WORLD | BATTLE | CHOICE | MENU_NAV | SCREEN | SCREEN_C | DEX },
+    Control { name: "c", key: Key::C, shape: Shape::Circle { cx: 0.797, cy: 0.700, r: 0.033 }, label: Label::Text("C"), contexts: WORLD | BATTLE | SCREEN_C | DEX_LIST | DEX_DETAIL },
+    Control { name: "v", key: Key::V, shape: Shape::Circle { cx: 0.865, cy: 0.549, r: 0.033 }, label: Label::Text("V"), contexts: WORLD | BATTLE | DEX_LIST | DEX_DETAIL },
     // Secondary.
     Control { name: "b", key: Key::B, shape: Shape::Circle { cx: 0.712, cy: 0.840, r: 0.026 }, label: Label::Text("B"), contexts: BATTLE | SAFARI },
     Control { name: "s", key: Key::S, shape: Shape::Circle { cx: 0.712, cy: 0.700, r: 0.026 }, label: Label::Text("S"), contexts: BATTLE },
@@ -184,6 +196,15 @@ pub const CONTROLS: &[Control] = &[
     Control { name: SYS_QSAVE, key: Key::Space, shape: Shape::Circle { cx: 0.045, cy: 0.110, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
     Control { name: SYS_QLOAD, key: Key::Space, shape: Shape::Circle { cx: 0.045, cy: 0.215, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
     Control { name: SYS_FFWD, key: Key::Space, shape: Shape::Circle { cx: 0.045, cy: 0.320, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
+    // The Pokédex's own buttons. They sit where the battle's B and S do, left of the main diamond, so
+    // the thumb already knows the place. Each press is the key the Pokédex's own script reads.
+    Control { name: "dex_b", key: Key::B, shape: Shape::Circle { cx: 0.712, cy: 0.840, r: 0.028 }, label: Label::Text("B"), contexts: DEX_LIST },
+    Control { name: "dex_f", key: Key::F, shape: Shape::Circle { cx: 0.712, cy: 0.700, r: 0.026 }, label: Label::Text("F"), contexts: DEX_LIST },
+    Control { name: "dex_m", key: Key::M, shape: Shape::Circle { cx: 0.640, cy: 0.770, r: 0.024 }, label: Label::Text("M"), contexts: DEX_LIST },
+    Control { name: "dex_enter", key: Key::Return, shape: Shape::Circle { cx: 0.712, cy: 0.840, r: 0.032 }, label: Label::Text("ENTER"), contexts: DEX_FILTER },
+    Control { name: "dex_clear", key: Key::Space, shape: Shape::Circle { cx: 0.712, cy: 0.700, r: 0.026 }, label: Label::Text("ESP"), contexts: DEX_FILTER },
+    Control { name: "dex_a", key: Key::A, shape: Shape::Circle { cx: 0.712, cy: 0.840, r: 0.026 }, label: Label::Text("A"), contexts: DEX_DETAIL },
+    Control { name: "dex_s", key: Key::S, shape: Shape::Circle { cx: 0.712, cy: 0.700, r: 0.026 }, label: Label::Text("S"), contexts: DEX_DETAIL },
     // Slots for buttons the player adds in the editor. Each stays inactive (no contexts) until
     // `layout.conf` gives it a key, a label and the screens it belongs to; see `CustomDef`.
     Control { name: "custom1", key: Key::Space, shape: Shape::Circle { cx: 0.500, cy: 0.500, r: 0.026 }, label: Label::None, contexts: 0 },
@@ -283,14 +304,14 @@ pub fn lock_valid(index: usize, key: Key) -> bool {
         && placement(CONTROLS[index].name).visible
 }
 
-static LOCKED: AtomicU32 = AtomicU32::new(0);
+static LOCKED: AtomicU64 = AtomicU64::new(0);
 
 /// Marks a button as switched on (a lock that is down), so it is drawn lit.
 pub fn set_locked(index: usize, locked: bool) {
     if locked {
-        LOCKED.fetch_or(1 << index, Ordering::Relaxed);
+        LOCKED.fetch_or(1u64 << index, Ordering::Relaxed);
     } else {
-        LOCKED.fetch_and(!(1 << index), Ordering::Relaxed);
+        LOCKED.fetch_and(!(1u64 << index), Ordering::Relaxed);
     }
 }
 
@@ -298,7 +319,7 @@ pub fn set_locked(index: usize, locked: bool) {
 /// button while the game runs at another speed.
 pub fn is_lit(index: usize) -> bool {
     is_pressed(index)
-        || LOCKED.load(Ordering::Relaxed) & (1 << index) != 0
+        || LOCKED.load(Ordering::Relaxed) & (1u64 << index) != 0
         || (custom_mode(index) == Some(CustomMode::Action(SysAction::Speed)) && crate::extras::ffwd_on())
 }
 
@@ -822,6 +843,7 @@ pub fn icon_for(name: &str, context: u16) -> Option<Icon> {
         "space" => Some(Icon::Team),
         "o" => Some(Icon::Bag),
         "m" => Some(if context & BATTLE != 0 { Icon::Mega } else { Icon::Map }),
+        "dex_m" => Some(Icon::Map),
         "e" => Some(if fight { Icon::Exit } else { Icon::Smile }),
         "t" => Some(if context & BATTLE != 0 { Icon::Clock } else { Icon::Chat }),
         "l" => Some(Icon::Magnifier),
@@ -854,7 +876,7 @@ pub fn accent_of(name: &str) -> ([f32; 3], bool) {
         "z" | "dialogo" => ([0.56, 0.92, 0.42], true),
         "c" => ([0.46, 0.58, 1.00], true),
         "v" => ([1.00, 0.88, 0.30], true),
-        "return" | "eleccion_ok" => ([0.40, 0.85, 1.00], false),
+        "return" | "eleccion_ok" | "dex_enter" => ([0.40, 0.85, 1.00], false),
         SYS_QSAVE | SYS_QLOAD => ([0.62, 0.95, 0.80], false),
         SYS_FFWD => ([1.00, 0.78, 0.35], false),
         _ => ([0.55, 0.78, 1.00], false),
@@ -1149,6 +1171,8 @@ pub fn current_context() -> u16 {
         },
         // BattleROOM, BattleROOMAqua, BattleROOMLava.
         47 | 191 | 709 => BATTLE,
+        // The Pokédex's screens have their own buttons.
+        room if dex_of(room).is_some() => dex_of(room).unwrap_or(WORLD),
         // The full-screen menus: each is a room of its own, entered from the map or from a battle.
         room if screen_of(room).is_some() => screen_of(room).unwrap_or(WORLD),
         // The Safari Zone's catching room. Confirmed on the device: it reports room 715 while the
@@ -1181,6 +1205,18 @@ pub fn screen_of(room: i32) -> Option<u16> {
         // PkmnHabMenu, PkmnMovMenu, PkmnInfoMenu, OpcionesMenu, PersonajeMenu, HuevoMenu, MovilMenu,
         // XpodMenu, LogrosMenu, TorneoEliminatoriasMenu, ComandosMenu, PokedexLugarMenu.
         5 | 6 | 7 | 31 | 44 | 117 | 212 | 410 | 436 | 449 | 514 | 525 => Some(SCREEN),
+        _ => None,
+    }
+}
+
+/// The Pokédex screen a room is, if it is one: `PokedexMenu`, `Pokedex2Menu`, `Pokedex3Menu` and
+/// `PokedexLugarMenu`.
+pub fn dex_of(room: i32) -> Option<u16> {
+    match room {
+        17 => Some(DEX_LIST),
+        18 => Some(DEX_DETAIL),
+        266 => Some(DEX_FILTER),
+        525 => Some(DEX_PLACES),
         _ => None,
     }
 }
@@ -1268,7 +1304,7 @@ pub fn joystick_active() -> bool {
     !pad_active()
         && !info_window_open()
         && joystick_visible()
-        && current_context() & (WORLD | BATTLE | CHOICE | MENU_NAV | SCREEN | SCREEN_C) != 0
+        && current_context() & (WORLD | BATTLE | CHOICE | MENU_NAV | SCREEN | SCREEN_C | DEX) != 0
 }
 
 /// Returns the index of the control containing the point, if any. The point is normalised, but the
@@ -1343,18 +1379,18 @@ fn art_aspect(name: &str) -> Option<f32> {
     ART_ASPECTS.lock().unwrap().iter().find(|(known, _)| *known == name).map(|(_, aspect)| *aspect)
 }
 
-static PRESSED: AtomicU32 = AtomicU32::new(0);
+static PRESSED: AtomicU64 = AtomicU64::new(0);
 
 pub fn set_pressed(index: usize, pressed: bool) {
     if pressed {
-        PRESSED.fetch_or(1 << index, Ordering::Relaxed);
+        PRESSED.fetch_or(1u64 << index, Ordering::Relaxed);
     } else {
-        PRESSED.fetch_and(!(1 << index), Ordering::Relaxed);
+        PRESSED.fetch_and(!(1u64 << index), Ordering::Relaxed);
     }
 }
 
 pub fn is_pressed(index: usize) -> bool {
-    PRESSED.load(Ordering::Relaxed) & (1 << index) != 0
+    PRESSED.load(Ordering::Relaxed) & (1u64 << index) != 0
 }
 
 /// Controls that are pressed but no longer valid, so the caller can release their keys instead of
@@ -1459,13 +1495,117 @@ pub fn joystick_hit(nx: f32, ny: f32, ww: f32, wh: f32) -> bool {
     dx * dx + dy * dy <= r * r
 }
 
+/// What the movement control looks like and how it answers: the joystick, or one of the two
+/// crosses. The control sits in the same place whichever it is.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum PadKind {
+    /// The round stick, eight directions.
+    Stick,
+    /// A cross that presses one arrow at a time. The game's menus and lists only ever go one way.
+    Cross4,
+    /// A cross with the diagonals too.
+    Cross8,
+}
+
+static CROSS8: AtomicBool = AtomicBool::new(false);
+
+/// Whether the player chose the eight-direction cross instead of the joystick, for the map and for
+/// battles. Read from the launcher's `controls.conf`.
+pub fn cross8_chosen() -> bool {
+    CROSS8.load(Ordering::Relaxed)
+}
+
+pub fn set_cross8_chosen(value: bool) {
+    CROSS8.store(value, Ordering::Relaxed);
+}
+
+/// Whether a screen of the game is one of the menus, the lists and the Pokédex: where the movement
+/// control is always the four-direction cross, whatever the player chose for the map.
+pub fn is_menu_context(context: u16) -> bool {
+    context & (MENU_NAV | SCREEN | SCREEN_C | CHOICE | DEX) != 0
+}
+
+/// The kind of movement control to use now: the cross of four in the menus and the Pokédex, and what
+/// the player chose everywhere else.
+pub fn pad_kind() -> PadKind {
+    pad_kind_for(current_context(), cross8_chosen())
+}
+
+pub fn pad_kind_for(context: u16, cross8: bool) -> PadKind {
+    if is_menu_context(context) {
+        PadKind::Cross4
+    } else if cross8 {
+        PadKind::Cross8
+    } else {
+        PadKind::Stick
+    }
+}
+
 /// `[up, down, left, right]` to hold for a stick at (nx, ny), given the bits already held.
 pub fn joystick_dirs(nx: f32, ny: f32, ww: f32, wh: f32, held: u32) -> [bool; 4] {
     let (cx, cy) = joystick_center();
     let r = joystick_radius() * wh;
     let dx = (nx - cx) * ww;
     let dy = (ny - cy) * wh;
-    stick_dirs_held(dx / r, dy / r, held)
+    match pad_kind() {
+        PadKind::Stick => stick_dirs_held(dx / r, dy / r, held),
+        PadKind::Cross4 => cross_dirs(dx / r, dy / r, held, false),
+        PadKind::Cross8 => cross_dirs(dx / r, dy / r, held, true),
+    }
+}
+
+/// Which arrows a cross asks for with the thumb at (dx, dy), in units of its radius. The dead zone
+/// is the one of the stick, measured from the centre in a straight line: the thumb has to leave it
+/// before anything is pressed, and has to come well back inside to let go of what it holds.
+///
+/// With `diagonals` the plane is cut in eight: a diagonal is asked for when the thumb is within
+/// about 22 degrees of one (a little more once a diagonal is held, so it does not flicker), and
+/// the nearest arrow otherwise. Without them, only the arrow of the stronger axis is pressed, the
+/// axis already held getting a small head start so a thumb sliding across the middle does not
+/// flick between two directions.
+pub fn cross_dirs(dx: f32, dy: f32, held: u32, diagonals: bool) -> [bool; 4] {
+    let dead = joystick_dead();
+    let any = held != 0;
+    let limit = if any { dead * 0.7 } else { dead };
+    if (dx * dx + dy * dy).sqrt() < limit {
+        return [false; 4]
+    }
+    let (ax, ay) = (dx.abs(), dy.abs());
+    let held_vertical = held & 0b0011 != 0;
+    let held_horizontal = held & 0b1100 != 0;
+    if diagonals {
+        let (major, minor) = if ay >= ax { (ay, ax) } else { (ax, ay) };
+        let both_held = held_vertical && held_horizontal;
+        let ratio = if both_held { 0.30 } else { 0.45 };
+        let diagonal = minor >= major * ratio;
+        let (v, h) = if diagonal {
+            (true, true)
+        } else if ay >= ax {
+            (true, false)
+        } else {
+            (false, true)
+        };
+        return [v && dy < 0.0, v && dy > 0.0, h && dx < 0.0, h && dx > 0.0]
+    }
+    let vertical_weight = ay * if held_vertical && !held_horizontal { 1.25 } else { 1.0 };
+    let horizontal_weight = ax * if held_horizontal && !held_vertical { 1.25 } else { 1.0 };
+    if vertical_weight >= horizontal_weight {
+        [dy < 0.0, dy > 0.0, false, false]
+    } else {
+        [false, false, dx < 0.0, dx > 0.0]
+    }
+}
+
+/// Which arrows the movement control is holding right now (bit 0 up, 1 down, 2 left, 3 right), for
+/// drawing the cross's lit arms.
+static PAD_HELD: AtomicU32 = AtomicU32::new(0);
+
+pub fn set_pad_held(bits: u32) {
+    PAD_HELD.store(bits, Ordering::Relaxed);
+}
+
+pub fn pad_held() -> u32 {
+    PAD_HELD.load(Ordering::Relaxed)
 }
 
 /// Which directions a stick pushed by (dx, dy) is asking for: up, down, left, right.
@@ -1984,7 +2124,7 @@ mod tests {
     #[test]
     fn the_menus_show_only_the_buttons_they_need() {
         // The bag, the team, the map: the stick, Z, X and C. Nothing of the overworld.
-        for room in [32, 4, 21, 17, 516] {
+        for room in [32, 4, 21, 516] {
             assert_eq!(screen_of(room), Some(SCREEN_C), "room {room}");
         }
         assert_eq!(shown_on(SCREEN_C), ["z", "x", "c"]);
@@ -1997,6 +2137,97 @@ mod tests {
         for room in [0, 2, 47, 191, 715, 22, 465, 8] {
             assert_eq!(screen_of(room), None, "room {room}");
         }
+    }
+
+    #[test]
+    fn the_pokedex_has_its_own_buttons_on_each_screen() {
+        assert_eq!(dex_of(17), Some(DEX_LIST));
+        assert_eq!(dex_of(18), Some(DEX_DETAIL));
+        assert_eq!(dex_of(266), Some(DEX_FILTER));
+        assert_eq!(dex_of(525), Some(DEX_PLACES));
+        for room in [0, 4, 21, 47, 514] {
+            assert_eq!(dex_of(room), None, "room {room}");
+        }
+        // The search needs B (the filter screen) and F, and then Enter and Space there.
+        assert_eq!(shown_on(DEX_LIST), ["z", "x", "c", "v", "dex_b", "dex_f", "dex_m"]);
+        assert_eq!(shown_on(DEX_FILTER), ["z", "x", "dex_enter", "dex_clear"]);
+        assert_eq!(shown_on(DEX_DETAIL), ["z", "x", "c", "v", "dex_a", "dex_s"]);
+        assert_eq!(shown_on(DEX_PLACES), ["z", "x"]);
+        // Every Pokédex button presses the key its script reads.
+        let key = |name: &str| CONTROLS.iter().find(|c| c.name == name).map(|c| c.key);
+        assert!(key("dex_b") == Some(Key::B) && key("dex_f") == Some(Key::F) && key("dex_m") == Some(Key::M));
+        assert!(key("dex_enter") == Some(Key::Return) && key("dex_clear") == Some(Key::Space));
+        assert!(key("dex_a") == Some(Key::A) && key("dex_s") == Some(Key::S));
+        // They keep their letters: the world's pictures for B, A and S would say the wrong thing.
+        set_function_icons(true);
+        for name in ["dex_b", "dex_f", "dex_enter", "dex_clear", "dex_a", "dex_s", "c", "v"] {
+            assert!(icon_for(name, DEX_LIST | DEX_DETAIL | DEX_FILTER).is_none(), "{name}");
+        }
+    }
+
+    #[test]
+    fn every_button_fits_in_the_pressed_masks() {
+        assert!(CONTROLS.len() <= 64, "{} controls", CONTROLS.len());
+        // The last of them: the old 32-bit masks wrapped around and lit the first buttons instead.
+        let last = CONTROLS.len() - 1;
+        set_pressed(last, true);
+        assert!(is_pressed(last) && !is_pressed(last % 32));
+        set_pressed(last, false);
+        assert!(!is_pressed(last));
+    }
+
+    #[test]
+    fn menus_and_the_pokedex_get_the_four_way_cross() {
+        for context in [MENU_NAV, SCREEN, SCREEN_C, CHOICE, DEX_LIST, DEX_DETAIL, DEX_FILTER, DEX_PLACES] {
+            for chosen in [false, true] {
+                assert_eq!(pad_kind_for(context, chosen), PadKind::Cross4, "context {context}");
+            }
+        }
+        for context in [WORLD, BATTLE, SAFARI] {
+            assert_eq!(pad_kind_for(context, false), PadKind::Stick);
+            assert_eq!(pad_kind_for(context, true), PadKind::Cross8);
+        }
+    }
+
+    #[test]
+    fn the_four_way_cross_presses_one_arrow_at_a_time() {
+        set_joystick_dead(0.35);
+        let up = [true, false, false, false];
+        let down = [false, true, false, false];
+        let left = [false, false, true, false];
+        let right = [false, false, false, true];
+        assert_eq!(cross_dirs(0.0, 0.0, 0, false), [false; 4]);
+        assert_eq!(cross_dirs(0.2, 0.1, 0, false), [false; 4]);
+        assert_eq!(cross_dirs(0.0, -0.8, 0, false), up);
+        assert_eq!(cross_dirs(0.0, 0.8, 0, false), down);
+        assert_eq!(cross_dirs(-0.8, 0.0, 0, false), left);
+        assert_eq!(cross_dirs(0.8, 0.0, 0, false), right);
+        // A diagonal thumb still gives a single arrow: the stronger axis.
+        assert_eq!(cross_dirs(0.6, -0.5, 0, false), right);
+        assert_eq!(cross_dirs(0.5, -0.6, 0, false), up);
+        // The axis already held keeps priority over a nearly equal one.
+        assert_eq!(cross_dirs(0.55, -0.6, 0b0001, false), up);
+        assert_eq!(cross_dirs(0.6, -0.55, 0b0100, false), right);
+        // Once something is held, it takes a return well inside the dead zone to let go.
+        assert_eq!(cross_dirs(0.0, -0.30, 0b0001, false), up);
+        assert_eq!(cross_dirs(0.0, -0.20, 0b0001, false), [false; 4]);
+    }
+
+    #[test]
+    fn the_eight_way_cross_has_the_diagonals() {
+        set_joystick_dead(0.35);
+        assert_eq!(cross_dirs(0.0, 0.0, 0, true), [false; 4]);
+        assert_eq!(cross_dirs(0.0, -0.8, 0, true), [true, false, false, false]);
+        assert_eq!(cross_dirs(0.8, 0.0, 0, true), [false, false, false, true]);
+        // Within ~24 degrees of an axis it is that axis alone.
+        assert_eq!(cross_dirs(0.8, -0.2, 0, true), [false, false, false, true]);
+        // Around the diagonal it is both arrows.
+        assert_eq!(cross_dirs(0.6, -0.6, 0, true), [true, false, false, true]);
+        assert_eq!(cross_dirs(-0.6, 0.5, 0, true), [false, true, true, false]);
+        assert_eq!(cross_dirs(-0.5, -0.7, 0, true), [true, false, true, false]);
+        // A held diagonal is kept a little longer.
+        assert_eq!(cross_dirs(0.8, -0.28, 0b0001 | 0b1000, true), [true, false, false, true]);
+        assert_eq!(cross_dirs(0.8, -0.28, 0, true), [false, false, false, true]);
     }
 
     #[test]

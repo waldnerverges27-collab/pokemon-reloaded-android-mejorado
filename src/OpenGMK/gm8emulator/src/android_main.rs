@@ -174,6 +174,9 @@ fn load_controls() {
                 if let Ok(dead) = value.trim().parse::<f32>() {
                     crate::touch_controls::set_joystick_dead(dead);
                 }
+            } else if name.trim() == "dpad" {
+                // The map and the battles use the eight-direction cross instead of the joystick.
+                crate::touch_controls::set_cross8_chosen(value.trim() != "0");
             } else if name.trim() == "floating" {
                 crate::touch_controls::set_joystick_floating(value.trim() != "0");
             } else if name.trim() == "haptics" {
@@ -960,6 +963,7 @@ fn joystick_update(x: f32, y: f32) {
         }
     }
     JOYSTICK_STATE.store(state, Ordering::Relaxed);
+    crate::touch_controls::set_pad_held(state);
     // A tick each time the stick engages a new direction, like a d-pad clicking.
     if state & !before != 0 {
         haptic(HapticKind::Tick);
@@ -987,6 +991,7 @@ fn joystick_release() {
         }
     }
     crate::touch_controls::set_joystick_offset(0.0, 0.0);
+    crate::touch_controls::set_pad_held(0);
     crate::touch_controls::reset_joystick_center();
     *JOYSTICK_PTR.lock().unwrap() = None;
 }

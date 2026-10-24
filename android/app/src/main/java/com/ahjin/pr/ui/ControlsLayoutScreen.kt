@@ -87,6 +87,9 @@ private val screens = listOf(
     Screen("Dialogos", Layout.DIALOG),
     Screen("Menus", Layout.MENU or Layout.MENU_NAV),
     Screen("Pantallas", Layout.SCREEN or Layout.SCREEN_C),
+    Screen("Pokedex: lista", Layout.DEX_LIST),
+    Screen("Pokedex: ficha", Layout.DEX_DETAIL),
+    Screen("Pokedex: filtro", Layout.DEX_FILTER or Layout.DEX_PLACES),
     Screen("Combate", Layout.BATTLE),
     Screen("Safari", Layout.SAFARI),
     Screen("Elegir personaje", Layout.CHARACTER),
@@ -127,7 +130,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
     fun placementOf(spec: ControlSpec) = placements[spec.name] ?: Placement(spec.cx, spec.cy)
 
     val shown = allControls.filter { it.contexts and screen.mask != 0 } +
-        (if (screen.mask and (Layout.WORLD or Layout.BATTLE or Layout.CHOICE) != 0) listOf(defaults.joystick) else emptyList())
+        (if (screen.mask and (Layout.WORLD or Layout.BATTLE or Layout.CHOICE or Layout.MENU_NAV or Layout.SCREEN or Layout.SCREEN_C or Layout.DEX) != 0) listOf(defaults.joystick) else emptyList())
     // The touch handlers outlive a single composition; they read the current list through this.
     val shownNow by rememberUpdatedState(shown)
 
@@ -316,7 +319,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
             } else {
                 val p = placementOf(spec)
                 val rows = if (spec.name == JOYSTICK) 2 else 3
-                SettingsGroup(if (spec.name == JOYSTICK) "Joystick" else "Boton ${Layout.iconOf(spec.label)?.let { Layout.ICON_TITLES[it] } ?: spec.label}") {
+                SettingsGroup(if (spec.name == JOYSTICK) "Joystick y cruceta" else "Boton ${Layout.iconOf(spec.label)?.let { Layout.ICON_TITLES[it] } ?: spec.label}") {
                     SliderRow(
                         icon = Icons.Filled.ZoomOutMap,
                         title = "Tamano",
