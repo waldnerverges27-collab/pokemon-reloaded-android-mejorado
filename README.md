@@ -162,6 +162,31 @@ Si ya jugabas en PC, tu partida entra desde **Ajustes → Partidas → Importar*
 - **Mandos físicos:** detección automática, reasignación de teclas, vibración y atajos propios:
   guardado rápido, cargar, avance rápido, mostrar u ocultar los FPS y cambiar de ranura de guardado rápido.
 
+### Habilidades externas (MO)
+
+Ya no hay botones fijos `1 2 3 5 7`. Tres huecos junto a los botones de acción (a la izquierda de `C` y `V`)
+enseñan **solo la habilidad que el juego pide en ese momento**, cada una con su dibujo. La app mira lo mismo
+que mira el juego: qué hay delante del jugador, hacia dónde mira, las medallas y los movimientos del equipo.
+
+| Dibujo | Cuándo sale | Qué hace al tocarlo |
+| --- | --- | --- |
+| Corte | un arbusto delante | tecla `1` |
+| Golpe Roca | una roca delante | tecla `6` |
+| Fuerza | una roca redonda delante | tecla `4` |
+| Destello | una sala oscura aún sin iluminar | tecla `5` |
+| Surf | agua pegada al jugador | tecla `3` |
+| Buceo | un punto de buceo bajo el jugador, o la salida | tecla `7` |
+| Cascada | surfeando junto a una cascada | la activa directamente |
+| Ola Lava | lava pegada al jugador | la activa directamente |
+| Treparocas | una pared de roca delante | la activa directamente |
+| Torbellino | un remolino cerca | lo activa directamente |
+| Daño Secreto | la puerta de una base secreta cerca | la activa directamente |
+| Excavar | dentro de una cueva | la activa directamente |
+
+Para que salga hacen falta la medalla y un Pokémon del equipo que sepa el movimiento, como en el juego. Vuelo,
+Teletransporte, Velocidad Extrema, Gran Ojo y Dulce Aroma no dependen de un lugar: se usan con la lista de `8`.
+Los dibujos de esas cinco también están en el editor, para ponérselos a un botón propio.
+
 ### Botones según la pantalla
 
 Cada pantalla enseña solo lo que sirve en ella. La app lee del juego en qué pantalla está (la sala, el
@@ -169,7 +194,7 @@ tipo de ventana que dibuja y los objetos que ha creado, como una tienda) y cambi
 
 | Pantalla | Botones |
 | --- | --- |
-| **Mundo** | Joystick, `Z`, `X`, `C` (caña), `V` (bici), números `1 2 3 5 7` (MO), equipo, mochila, mapa, `E`, `T`, `L`, `P`, `A`, `N`, OK, ESC y los accesos del sistema |
+| **Mundo** | Joystick, `Z`, `X`, `C` (caña), `V` (bici), `8` (lista de habilidades, solo si ya hay una medalla y se está al aire libre), equipo, mochila, mapa, `E`, `T`, `L`, `P`, `A`, `N` (objetos clave, solo si hay alguno), OK, ESC y los accesos del sistema. **Habilidades externas:** su botón (con su dibujo) sale solo cuando el juego lo pide y desaparece después, ver más abajo |
 | **Combate** | Joystick, ataques `Z X C V`, `B` (bola), `S` (cambiar), rueda **SEL** (elegir Pokémon), equipo, mochila, mega, huir, reloj, `L`, `P`, OK, ESC y los accesos del sistema |
 | **Zona Safari** | Como el mundo, más la bola, sin los ataques |
 | **Mochila, equipo, Pokédex, mapa y misiones** | Joystick, `Z`, `X` y `C` (ordena la lista, o mueve el cursor del mapa) |
@@ -455,6 +480,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.9.0-dev1** (versión de pruebas) | **Habilidades externas con su dibujo y solo cuando se piden.** Los botones fijos `1 2 3 5 7` desaparecen. Tres huecos junto a los botones de acción enseñan, con su dibujo propio, la habilidad que el juego pide en ese momento: Corte ante un arbusto, Golpe Roca ante una roca, Fuerza ante una roca redonda, Destello en una sala oscura, Surf junto al agua, Buceo en un punto de buceo, y Cascada, Ola Lava, Treparocas, Torbellino, Daño Secreto y Excavar en su lugar. El botón `8` (lista de habilidades) sale solo con medalla y al aire libre, y `N` (objetos clave) solo si hay alguno, con una medalla y una llave como dibujo. 19 dibujos nuevos (en el editor de botones propios también están Vuelo, Teletransporte, Velocidad Extrema, Gran Ojo y Dulce Aroma). |
 | **0.8.1** | **Iconos nuevos en todos los botones.** Cada botón lleva un dibujo pixel-art propio, con contorno negro y sombreado, pintado al estilo de la Poké Ball y la mochila: zapatilla de correr, caña con flotador, bici, mapa con marcador, Piedra activadora, carnet de entrenador, poción, cara de Pikachu, tabla de tipos, carpeta de cargar, flechas de Enter y espacio… Las letras y los números (Z X C V, A, B, E, F, L, M, N, O, P, S, T, 1 2 3 5 7) también son dibujos. El editor de posiciones muestra los mismos iconos. Se **quita el aspecto Pixel art** de Ajustes: queda solo el Nativo (quien tenía Pixel art pasa a Nativo) y se retira el arte antiguo de los botones. Los iconos se generan con `tools/gen-icons.py`. |
 | **0.8.0** | **Cruceta, Pokédex completa.** En **Ajustes → Control de movimiento** eliges entre el joystick y una **cruceta de 8 direcciones** (con diagonales) para el mundo y los combates. En los **menús, las listas y la Pokédex** el control cambia solo a una **cruceta de 4 direcciones**, en el mismo sitio, con el mismo tamaño y con el aspecto elegido (Nativo o Pixel art). La **Pokédex** tiene sus botones: en la lista C, V, **B** (filtro), F (buscar por nombre) y M (lugares); en el filtro **ENTER** (aplicar) y ESP (borrar); en la ficha A (grito) y S (shiny). Cada pantalla tiene su pestaña en el editor de posiciones. Además, se corrige un fallo interno por el que los botones propios 5 a 8 podían iluminarse o pulsarse junto a otros botones. |
 | **0.7.9** | **El menú principal y los demás menús ya responden al joystick con partidas de PC.** En 0.7.8 la app cambiaba las teclas del juego mientras mantenías un botón, pero los menús, las listas y los diálogos leen sus teclas una sola vez al abrirse y luego esperan, así que el cambio llegaba tarde (por eso el joystick no hacía nada en el menú principal). Ahora, mientras juegas con la pantalla táctil o con un mando, todas las acciones del juego tienen puestas las teclas de siempre desde el principio, y las de tu partida se guardan aparte: vuelven **antes de guardar** (partida normal, opciones o guardado rápido) y cuando pulsas una tecla de un teclado físico. En **Comandos** (sala de teclas del juego) ves y cambias las teclas reales de tu partida. Una partida con las teclas de siempre sigue sin tocarse. |

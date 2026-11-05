@@ -151,6 +151,8 @@ object Layout {
         "act", "run", "hook", "bike", "ball", "team", "bag", "map", "star", "exit", "swap", "bolt", "box",
         "person", "magnifier", "chat", "smile", "clock", "heart", "check", "plus", "menu", "pause", "back",
         "save", "load", "forward", "chart", "up", "down", "left", "right",
+        "cut", "fly", "surf", "strength", "flash", "rocksmash", "dive", "teleport", "speed", "dig", "eye", "scent",
+        "secret", "climb", "whirl", "lava", "waterfall", "medal", "key",
     )
 
     /**
@@ -167,6 +169,11 @@ object Layout {
         "clock" to "Reloj", "heart" to "Corazon", "check" to "Ok", "plus" to "Mas", "menu" to "Menu", "pause" to "Pausa",
         "back" to "Atras", "save" to "Guardar", "load" to "Cargar", "forward" to "Rapido", "chart" to "Tabla", "up" to "Arriba",
         "down" to "Abajo", "left" to "Izquierda", "right" to "Derecha",
+        "cut" to "Corte", "fly" to "Vuelo", "surf" to "Surf", "strength" to "Fuerza", "flash" to "Destello",
+        "rocksmash" to "Golpe Roca", "dive" to "Buceo", "teleport" to "Teletransporte", "speed" to "Vel. Extrema",
+        "dig" to "Excavar", "eye" to "Gran Ojo", "scent" to "Dulce Aroma", "secret" to "Dano Secreto",
+        "climb" to "Treparocas", "whirl" to "Torbellino", "lava" to "Ola Lava", "waterfall" to "Cascada",
+        "medal" to "Medalla", "key" to "Llave",
     )
 
     /** A picture's name in the label field: `~star`. */
@@ -193,6 +200,9 @@ object Layout {
             "sys_qsave" -> return "save"
             "sys_qload" -> return "load"
             "sys_ffwd" -> return "forward"
+            // The abilities' list, and the three slots that show the ability the game is asking for.
+            "alpha8" -> return "medal"
+            "hab1", "hab2", "hab3" -> return "cut"
         }
         if (!functionIcons) return null
         val battle = context and BATTLE != 0
@@ -208,7 +218,7 @@ object Layout {
             "t" -> if (battle) "clock" else "chat"
             "l" -> "magnifier"
             "p" -> "person"
-            "n" -> "bolt"
+            "n" -> "key"
             "a" -> "box"
             "s" -> "swap"
             "dex_m" -> "map"

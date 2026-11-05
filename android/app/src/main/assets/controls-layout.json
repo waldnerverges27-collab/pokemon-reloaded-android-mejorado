@@ -6,43 +6,35 @@
  },
  "controls": [
   {
-   "name": "alpha1",
-   "label": "1",
+   "name": "alpha8",
+   "label": "8",
    "cx": 0.3,
    "cy": 0.055,
    "r": 0.02,
    "contexts": 66
   },
   {
-   "name": "alpha2",
-   "label": "2",
-   "cx": 0.372,
-   "cy": 0.055,
-   "r": 0.02,
+   "name": "hab1",
+   "label": "HAB",
+   "cx": 0.712,
+   "cy": 0.84,
+   "r": 0.03,
    "contexts": 66
   },
   {
-   "name": "alpha3",
-   "label": "3",
-   "cx": 0.444,
-   "cy": 0.055,
-   "r": 0.02,
+   "name": "hab2",
+   "label": "HAB",
+   "cx": 0.712,
+   "cy": 0.7,
+   "r": 0.03,
    "contexts": 66
   },
   {
-   "name": "alpha5",
-   "label": "5",
-   "cx": 0.516,
-   "cy": 0.055,
-   "r": 0.02,
-   "contexts": 66
-  },
-  {
-   "name": "alpha7",
-   "label": "7",
-   "cx": 0.588,
-   "cy": 0.055,
-   "r": 0.02,
+   "name": "hab3",
+   "label": "HAB",
+   "cx": 0.79,
+   "cy": 0.545,
+   "r": 0.03,
    "contexts": 66
   },
   {

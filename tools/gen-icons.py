@@ -416,6 +416,232 @@ ICONS['space'] = parse([
  'WWWWWWWWWWWW',
 ])
 
+# ---- Habilidades externas (MO y otras) y los botones de su menu ----------------------------------
+# Corte: una hoja de cuchillo cortando la hierba.
+ICONS['cut'] = parse([
+ '.........WW.',
+ '........WWW.',
+ '.N.....WWW.N',
+ '.NN...WWW.NN',
+ '.NNN.WWW.NNN',
+ '..NNWWWNNNN.',
+ '..NWWWNNNN..',
+ '.TWWWNNNNN..',
+ 'TTWW.NNN....',
+ 'TT..........',
+])
+# Vuelo: un ala.
+ICONS['fly'] = parse([
+ '..........WW',
+ '........WWWW',
+ '......WWWWW.',
+ '.....WWWWWW.',
+ '..WWWWWWWG..',
+ '.WWWWWWWG...',
+ 'WWWWWWGG....',
+ 'WW.WW.GG....',
+ 'W..W..G.....',
+])
+# Surf: la cresta de una ola.
+ICONS['surf'] = parse([
+ '....CCCC....',
+ '..CCCWWCCC..',
+ '.CCWWCCCCCC.',
+ 'CCWCCCCCCWCC',
+ 'CWCCCCCCCCCC',
+ 'CCCCCCCCCCCC',
+ 'BBBBBBBBBBBB',
+ '.BBWBBBWBBB.',
+])
+# Fuerza: una roca redonda y la flecha que la empuja.
+ICONS['strength'] = parse([
+ '.....GGGG...',
+ '...GGGGGGGG.',
+ 'WW.GGWWGGGGG',
+ 'WWWGGWGGGGGG',
+ 'WW.GGGGGGGGG',
+ '...GGGGGGGGG',
+ '....GGGGGGG.',
+ '.....GGGGG..',
+])
+# Destello: un sol con rayos.
+ICONS['flash'] = parse([
+ '.....YY.....',
+ '..Y..YY..Y..',
+ '...Y....Y...',
+ '....YYYY....',
+ '.YY.YWYYY.YY',
+ '.YY.YYYYY.YY',
+ '....YYYY....',
+ '...Y....Y...',
+ '..Y..YY..Y..',
+ '.....YY.....',
+])
+# Golpe Roca: una roca agrietada y un golpe.
+ICONS['rocksmash'] = parse([
+ '.R.......R..',
+ '..R.....R...',
+ '...TTTTT....',
+ '..TTTTKTTT..',
+ '.TTTTKKTTTT.',
+ '.TTTKTKTTTT.',
+ '.TTTTTKKTTT.',
+ '..TTTTTKTT..',
+ '...TTTTTT...',
+])
+# Buceo: burbujas sobre el agua.
+ICONS['dive'] = parse([
+ '.....WW.....',
+ '....W..W....',
+ '.....WW..WW.',
+ '........W..W',
+ '...WW....WW.',
+ '..W..W......',
+ '...WW.......',
+ 'CCCCCCCCCCCC',
+ 'BBBBBBBBBBBB',
+ '.BBBBBBBBBB.',
+])
+# Teletransporte: un portal.
+ICONS['teleport'] = parse([
+ '....MMMM....',
+ '..MMFFFFMM..',
+ '.MMF....FMM.',
+ 'MMF..MM..FMM',
+ 'MF..MMMM..FM',
+ 'MF..MMMM..FM',
+ 'MMF..MM..FMM',
+ '.MMF....FMM.',
+ '..MMFFFFMM..',
+ '....MMMM....',
+])
+# Velocidad extrema: una punta de flecha con rayas de viento.
+ICONS['speed'] = parse([
+ '.WW.........',
+ '............',
+ '.WWW...OO...',
+ '.......OOOO.',
+ 'WWWWW..OOOOO',
+ '.......OOOO.',
+ '.WWW...OO...',
+ '............',
+ '.WW.........',
+])
+# Excavar: una pala clavada en tierra.
+ICONS['dig'] = parse([
+ '......KK....',
+ '.....KK.....',
+ '....TT......',
+ '...TT.......',
+ '..GGG.......',
+ '.GGGGG......',
+ '.GGGG.TTTTT.',
+ '..TTTTTTTTTT',
+ '.TTTTTTTTTTT',
+])
+# Gran Ojo: un ojo.
+ICONS['eye'] = parse([
+ '...WWWWWW...',
+ '.WWWWBBWWWW.',
+ 'WWWWBBKKBWWW',
+ 'WWWWBKKKBWWW',
+ '.WWWWBBBWWW.',
+ '...WWWWWW...',
+])
+# Dulce Aroma: una flor.
+ICONS['scent'] = parse([
+ '...FF..FF...',
+ '..FFFFFFFF..',
+ '..FFFYYFFF..',
+ '.FFFYYYYFFF.',
+ '.FFFYYYYFFF.',
+ '..FFFYYFFF..',
+ '..FFFFFFFF..',
+ '...FF..FF...',
+ '.....NN.....',
+ '.....NN.....',
+])
+# Poder Secreto: el arbol con la puerta de la base.
+ICONS['secret'] = parse([
+ '...NNNNNN...',
+ '..NNNNNNNN..',
+ '.NNNNNNNNNN.',
+ '.NNNNNNNNNN.',
+ '.NNNKKKKNNN.',
+ '..NNKTTKNN..',
+ '...NKTTKN...',
+ '....KTTK....',
+ '....TTTT....',
+])
+# Trepa rocas: una montana y una flecha hacia arriba.
+ICONS['climb'] = parse([
+ '....W.......',
+ '...WWW......',
+ '..WWWWW.....',
+ '....W...TT..',
+ '....W..TTTT.',
+ '.TT.W.TTTTTT',
+ 'TTTTTTTTTTTT',
+])
+# Torbellino: un remolino de agua.
+ICONS['whirl'] = parse([
+ '..CCCCCCC...',
+ '.CC.....CC..',
+ 'CC..CCC..CC.',
+ 'C..CC.CC..C.',
+ 'C..C...C..C.',
+ 'C..CC.CC..C.',
+ 'CC..CCC..CC.',
+ '.CC.....CCC.',
+ '..CCCCCCCC..',
+])
+# Ola Lava: la cresta de una ola, de lava.
+ICONS['lava'] = parse([
+ '....YYYY....',
+ '..YYYWWYYY..',
+ '.YYWWYYYYYY.',
+ 'YYWYYYYYYWYY',
+ 'YWYYYYYYYYYY',
+ 'OOOOOOOOOOOO',
+ 'RRRRRRRRRRRR',
+ '.RRORRRORRR.',
+])
+# Cascada: un salto de agua por la roca.
+ICONS['waterfall'] = parse([
+ 'TTTTTTTTTTTT',
+ 'TTTCCCCCCTTT',
+ 'TTCCWCCWCCTT',
+ '.TCCCWCCCCT.',
+ '..CCWCCWCC..',
+ '..CCCCCCCC..',
+ '.CCWCCCWCCC.',
+ 'BBBBBBBBBBBB',
+])
+# La medalla: el menu de las habilidades.
+ICONS['medal'] = parse([
+ '..RR....RR..',
+ '...RR..RR...',
+ '....RRRR....',
+ '....RRRR....',
+ '...YYYYYY...',
+ '..YYYWWYYY..',
+ '..YYWYYYYY..',
+ '..YYYYYYYY..',
+ '...YYYYYY...',
+])
+# La llave: usar un objeto clave.
+ICONS['key'] = parse([
+ '...YYYY.....',
+ '..YY..YY....',
+ '..YY..YY....',
+ '...YYYY.....',
+ '....YY......',
+ '....YYYYY...',
+ '....YY......',
+ '....YYYY....',
+ '....YY......',
+])
+
 GLYPHS = {
  'A': [[(0, 10), (4.5, 0), (9, 10)], [(2, 6.5), (7, 6.5)]],
  'B': [[(1, 0), (1, 10)], [(1, 0), (6, 0), (8, 2), (8, 3.5), (6, 5), (1, 5)], [(6, 5), (8, 6.5), (8, 8.5), (6, 10), (1, 10)]],

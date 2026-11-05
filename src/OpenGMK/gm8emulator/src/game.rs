@@ -1,3 +1,4 @@
+pub mod abilities;
 pub mod audio;
 pub mod background;
 pub mod draw;
@@ -2009,6 +2010,8 @@ impl Game {
         crate::touch_controls::set_modal_open(self.modal_system() > 0);
         crate::touch_controls::set_modal_id(self.modal_system());
         crate::touch_controls::set_party(self.party_species());
+        let abilities = self.ability_readout();
+        crate::touch_controls::set_abilities(abilities.wanted, abilities.menu, abilities.items);
     }
 
     /// Binds the buttons, the joystick and the pad to the game's actions instead of to keys.
@@ -2331,7 +2334,10 @@ impl Game {
 
         // The touch overlay shows different controls depending on where we are in the game.
         #[cfg(target_os = "android")]
-        self.sync_overlay();
+        {
+            self.sync_overlay();
+            self.run_ability_request();
+        }
 
         if self.esc_close_game && self.input.keyboard_lastkey() == input::Button::Escape as u8 {
             self.scene_change = Some(SceneChange::End);

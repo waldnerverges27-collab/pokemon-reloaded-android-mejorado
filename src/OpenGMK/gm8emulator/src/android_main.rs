@@ -403,6 +403,19 @@ fn control_key_down(index: usize) {
         run_sys_action(action);
         return
     }
+    // An ability's slot does what the ability it shows is started with: a key, or an alarm the game
+    // thread sets between two frames.
+    if crate::touch_controls::is_ability_slot(index) {
+        use crate::touch_controls::AbilityAction;
+        match crate::touch_controls::ability_press(index) {
+            Some(AbilityAction::Key(key)) => push_key(key, true),
+            Some(AbilityAction::Alarm { object, alarm, nearest }) => {
+                crate::touch_controls::request_alarm(object, alarm, nearest)
+            },
+            None => {},
+        }
+        return
+    }
     // TEMP: the trick combination needs both keys held at once, so it is not one key like the rest.
     if crate::touch_controls::CONTROLS[index].name == crate::touch_controls::COMBO_BUTTON_NAME {
         for key in [Key::LeftControl, Key::P] {
@@ -442,6 +455,12 @@ fn control_key_down(index: usize) {
 fn control_key_up(index: usize) {
     crate::touch_controls::set_pressed(index, false);
     if crate::touch_controls::sys_action(index).is_some() {
+        return
+    }
+    if crate::touch_controls::is_ability_slot(index) {
+        if let Some(key) = crate::touch_controls::ability_release(index) {
+            push_key(key, false);
+        }
         return
     }
     if crate::touch_controls::CONTROLS[index].name == crate::touch_controls::COMBO_BUTTON_NAME {
