@@ -78,7 +78,7 @@ fun HomeScreen(
     onRequestNetwork: () -> Unit,
     onLog: () -> Unit,
     onAbout: () -> Unit,
-    onLaunch: () -> Unit,
+    onLaunch: (originalSlot: Int?) -> Unit,
     onMySaves: () -> Unit,
     launching: Boolean = false,
     onSettings: () -> Unit,
@@ -185,7 +185,7 @@ fun HomeScreen(
                     val gold = MaterialTheme.colorScheme.primary
                     val sheen = goldBrush()
                     Button(
-                        onClick = onLaunch,
+                        onClick = { onLaunch(latestSave?.index) },
                         enabled = installed != null && !busy && !launching,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -220,6 +220,17 @@ fun HomeScreen(
                             if (launching) "Cargando..." else if (latestSave == null) "Jugar" else "Continuar",
                             style = MaterialTheme.typography.titleLarge,
                         )
+                    }
+                    if (latestSave != null) {
+                        TextButton(
+                            onClick = { onLaunch(null) },
+                            enabled = canPlay,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Jugar desde el inicio")
+                        }
                     }
                     if (installed == null) {
                         Text(
@@ -304,7 +315,7 @@ private fun ContinueCard(slot: GameRepository.SaveSlot?, onMySaves: () -> Unit) 
                     )
                 }
                 Text(
-                    "Continuar abre el juego por su inicio normal; la carga se hace con el sistema original.",
+                    "Continuar carga directamente esta partida con la rutina original del juego, sin la intro ni los menus.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

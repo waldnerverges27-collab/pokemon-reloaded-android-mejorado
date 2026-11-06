@@ -197,6 +197,9 @@ fn load_controls() {
     // The extras: fast-forward, filters, the stats readout and so on.
     let extras = PathBuf::from(format!("/data/data/{}/files/extras.conf", PACKAGE_DIR));
     crate::extras::load(&fs::read_to_string(&extras).unwrap_or_default());
+    // One-shot request for the original LoadFileSav routine; empty/missing means the normal intro.
+    let original_continue = PathBuf::from(format!("/data/data/{}/files/continue.conf", PACKAGE_DIR));
+    crate::game::original_continue::configure(&fs::read_to_string(&original_continue).unwrap_or_default());
     // Held-button and overlay timing starts over with the game.
     TICKS.store(0, std::sync::atomic::Ordering::Relaxed);
     if let Ok(mut map) = PAD_ACTIONS.get_or_init(|| Mutex::new(HashMap::new())).lock() {

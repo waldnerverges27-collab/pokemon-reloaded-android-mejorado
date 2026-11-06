@@ -40,7 +40,8 @@ object Shortcuts {
             }
             // Started from the activity itself, as the Play button does. If it still fails, the launcher
             // stays open and says so, instead of the app closing.
-            runCatching { Emulator.start(activity) }.onFailure {
+            val latest = latestOriginalSave(repo.saveSlots())
+            runCatching { Emulator.start(activity, latest?.index) }.onFailure {
                 Toast.makeText(activity, "No se pudo abrir el juego: ${it.message}", Toast.LENGTH_LONG).show()
             }
         }

@@ -189,7 +189,7 @@ fun App(repo: GameRepository, prefs: Preferences, incoming: android.net.Uri? = n
                         onRequestNetwork = { requestNetwork.launch(Manifest.permission.INTERNET) },
                         onLog = { scope.launch { pagerState.animateScrollToPage(Tab.Log.ordinal) } },
                         onAbout = { pushed = Pushed.About },
-                        onLaunch = {
+                        onLaunch = { originalSlot ->
                             if (CryPacks.isBusy) {
                                 Toast.makeText(context, "Espera a que termine el cambio de gritos.", Toast.LENGTH_SHORT).show()
                             } else {
@@ -200,7 +200,10 @@ fun App(repo: GameRepository, prefs: Preferences, incoming: android.net.Uri? = n
                                     if (prefs.autoBackup) {
                                         runCatching { withTimeoutOrNull(4_000) { repo.backup(SaveBackups.Reason.PLAY) } }
                                     }
-                                    Emulator.start(context)
+                                    runCatching { Emulator.start(context, originalSlot) }.onFailure {
+                                        launching = false
+                                        Toast.makeText(context, "No se pudo abrir el juego: ${it.message}", Toast.LENGTH_LONG).show()
+                                    }
                                 }
                             }
                         },

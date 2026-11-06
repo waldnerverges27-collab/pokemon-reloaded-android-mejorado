@@ -9,6 +9,8 @@ pub mod includedfile;
 pub mod info_window;
 pub mod model;
 pub mod movement;
+#[cfg(target_os = "android")]
+pub mod original_continue;
 pub mod particle;
 pub mod pathfinding;
 pub mod platform;
@@ -2738,6 +2740,13 @@ impl Game {
     // Plays the game normally
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.init()?;
+        // Only Continue adds a startup step; an ordinary launch keeps the original control flow.
+        #[cfg(target_os = "android")]
+        if crate::game::original_continue::requested() {
+            // Finish the official constructor restart while still in the invisible initial room.
+            handle_scene_change!(self);
+            crate::game::original_continue::run(self)?;
+        }
         handle_scene_change!(self);
 
         // Loading is over: give back what it only needed while it ran, and tell Android how long a
