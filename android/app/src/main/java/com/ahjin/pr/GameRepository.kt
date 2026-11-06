@@ -325,6 +325,7 @@ class GameRepository(private val context: Context) {
     /** Imports a zip picked with the system file chooser. */
     suspend fun import(uri: Uri, onProgress: (Int) -> Unit): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
+            check(!CryPacks.isBusy) { "Espera a que termine el cambio de gritos antes de reinstalar el juego." }
             val temp = File(files, "import.zip")
             try {
                 trace("import: uri=$uri")
@@ -393,6 +394,7 @@ class GameRepository(private val context: Context) {
     /** Downloads a zip from a direct URL (following redirects) and installs it. */
     suspend fun download(url: String, cookies: String?, onProgress: (Int) -> Unit): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
+            check(!CryPacks.isBusy) { "Espera a que termine el cambio de gritos antes de reinstalar el juego." }
             val temp = File(files, "download.zip")
             try {
                 val connection = (URL(url).openConnection() as HttpURLConnection).apply {
@@ -518,6 +520,11 @@ class GameRepository(private val context: Context) {
                 .put("sizeBytes", gameDir.walkTopDown().filter { it.isFile }.sumOf { it.length() })
                 .toString(),
         )
+        // Optional cries live outside the game folder. If they were enabled, overlay them on the new
+        // installation too; a failure leaves the new, original game usable and Ajustes offers a retry.
+        runCatching { CryPackStore(files, context.cacheDir).reapplyAfterGameInstall() }
+            .onSuccess { reapplied -> if (reapplied) trace("gritos del anime: reaplicados tras instalar el juego") }
+            .onFailure { trace("gritos del anime: no se pudieron reaplicar: ${it.message}") }
         onProgress(100)
         kept
     }

@@ -222,6 +222,21 @@ Las minijuegos (casino, cartas, tragaperras) conservan de momento los botones de
   preparación al cargar de los sonidos con frecuencia especial (los gritos).
 - Si hubiera huecos, se registran en el log (`[aaudio] N huecos de audio`).
 - Música MIDI sintetizada con SoundFont integrado.
+- **Gritos del anime opcionales**, desde **Ajustes → Audio → Gritos del anime**. El paquete de
+  terceros no va dentro del APK: se descarga de una
+  [release pública independiente](https://github.com/waldnerverges27-collab/pokemon-reloaded-android-mejorado/releases/tag/gritos-anime-20261029)
+  (205 MiB, se recomienda Wi-Fi) y no es una actualización de la aplicación.
+  - Antes de tocar el juego comprueba tamaño, SHA-256, rutas del ZIP, CRC y las cabeceras de los
+    1.284 WAV. La descarga se puede cancelar y reanudar; el espacio se comprueba en cada fase.
+  - Hace una copia completa de `data/audio/grito` y **fusiona** el paquete: sustituye los archivos
+    incluidos, pero conserva los gritos originales ausentes del ZIP. Los nombres atípicos se mantienen
+    tal cual, sin inventar equivalencias.
+  - **Restaurar originales** deshace el cambio. El paquete verificado queda guardado fuera de
+    `files/game`, por lo que se puede volver a aplicar sin descargarlo y se reaplica tras reimportar
+    o actualizar el juego si estaba activado. «Mantener originales» desactiva esa reaplicación sin
+    copiar archivos de una versión antigua del juego.
+  - Hay que aplicar o restaurar con el juego cerrado y reiniciarlo después. Las partidas no cambian.
+    Desinstalar la app sí borra el paquete y la copia de originales.
 
 ### Imagen
 
@@ -484,6 +499,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.9.0-dev5** (versión de pruebas) | **Paquete opcional de gritos del anime.** Ajustes → Audio descarga el ZIP verificado desde una release pública independiente, con progreso, cancelación y reanudación. Comprueba tamaño, SHA-256, rutas, CRC y los 1.284 WAV; hace copia de los originales, fusiona sin borrar los gritos ausentes del paquete y permite restaurarlos. El paquete queda fuera del juego para reaplicarlo tras una reimportación o actualización, y «Mantener originales» desactiva esa reaplicación. No cambia las partidas ni se incluye en los APK. |
 | **0.9.0-dev4** (versión de pruebas) | **Guardar y cargar usan el sistema original del juego.** Los dos iconos fijos de la izquierda envían ahora `F5` y `F6`, en lugar de las ranuras rápidas de la app; los botones especiales y atajos de mando de guardado rápido se conservan. **El mapa de Vuelo tiene su propia capa táctil:** joystick o cruceta y solo `Z`, `X`, `C`, `V` y `P`, ocultando habilidades, guardar/cargar y demás controles del mundo. El editor añade la pestaña «Mapa de vuelo». |
 | **0.9.0-dev3** (versión de pruebas) | **Habilidades de uso libre siempre visibles cuando están disponibles.** Vuelo, Teletransporte, Velocidad Extrema, Gran Ojo y Dulce Aroma tienen botones propios en la fila superior, según las medallas y los movimientos del equipo, sin quitar los tres huecos a las habilidades contextuales. Los botones personalizados recién añadidos ya se pueden arrastrar. El joystick empieza al 80 % y las instalaciones nuevas usan píxeles perfectos, sin cambiar elecciones guardadas. Se entregan dos APK independientes, ARM64 y ARMv7, y el actualizador escoge la arquitectura compatible. |
 | **0.9.0-dev2** (versión de pruebas) | **Todos los iconos se renuevan con diseños vectoriales.** Son 74 dibujos nítidos y con formas relacionadas con su función: 19 para habilidades y sus menús, 35 para botones y 20 letras o números. Vuelo es un ala, Fuerza un brazo con el bíceps flexionado y Velocidad Extrema una zapatilla alada. Los SVG están en `tools/icon-svg/`; `tools/gen-icons.py` genera los PNG de alta resolución del juego y del editor, y el escalado suave sustituye al antiguo escalado de pixel-art. No cambian las teclas, las posiciones ni la lógica de los controles. |

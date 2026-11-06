@@ -2,6 +2,7 @@ package com.ahjin.pr.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,6 +37,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.ahjin.pr.CryPacks
 import com.ahjin.pr.Emulator
 import com.ahjin.pr.GameRepository
 import com.ahjin.pr.Preferences
@@ -211,14 +213,18 @@ fun App(repo: GameRepository, prefs: Preferences, incoming: android.net.Uri? = n
                         onLog = { scope.launch { pagerState.animateScrollToPage(Tab.Log.ordinal) } },
                         onAbout = { pushed = Pushed.About },
                         onLaunch = {
-                            launching = true
-                            scope.launch {
-                                // The copy is quick (the saves are small) and is only made when they
-                                // changed. Whatever happens to it, the game starts.
-                                if (prefs.autoBackup) {
-                                    runCatching { withTimeoutOrNull(4_000) { repo.backup(SaveBackups.Reason.PLAY) } }
+                            if (CryPacks.isBusy) {
+                                Toast.makeText(context, "Espera a que termine el cambio de gritos.", Toast.LENGTH_SHORT).show()
+                            } else {
+                                launching = true
+                                scope.launch {
+                                    // The copy is quick (the saves are small) and is only made when they
+                                    // changed. Whatever happens to it, the game starts.
+                                    if (prefs.autoBackup) {
+                                        runCatching { withTimeoutOrNull(4_000) { repo.backup(SaveBackups.Reason.PLAY) } }
+                                    }
+                                    Emulator.start(context)
                                 }
-                                Emulator.start(context)
                             }
                         },
                         launching = launching,

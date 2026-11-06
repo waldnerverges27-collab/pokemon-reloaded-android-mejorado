@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Save
@@ -52,14 +53,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.ahjin.pr.CryPacks
 import com.ahjin.pr.GameRepository
 import com.ahjin.pr.Diagnostics
 import com.ahjin.pr.Preferences
@@ -105,6 +109,26 @@ fun SettingsScreen(
     }
     var confirmingDelete by remember { mutableStateOf(false) }
     val installed = status as? GameRepository.Status.Ready
+    val cryWork by CryPacks.work.collectAsState()
+    val cryChanges by CryPacks.changes.collectAsState()
+    var showCryPack by rememberSaveable { mutableStateOf(false) }
+    val cryStatus = remember(cryChanges, revision) { CryPacks.status(context) }
+
+    if (showCryPack) {
+        CryPackDialog(
+            status = cryStatus,
+            work = cryWork,
+            onInstall = { CryPacks.start(context, CryPacks.Action.INSTALL) },
+            onApply = { CryPacks.start(context, CryPacks.Action.APPLY) },
+            onRestore = { CryPacks.start(context, CryPacks.Action.RESTORE) },
+            onCancel = { CryPacks.cancel() },
+            onOpenPage = { openInBrowser(context, com.ahjin.pr.ANIME_CRY_PACK.pageUrl) },
+            onDismiss = {
+                showCryPack = false
+                CryPacks.dismiss()
+            },
+        )
+    }
 
     if (confirmingDelete) {
         AlertDialog(
@@ -156,9 +180,34 @@ fun SettingsScreen(
                         subtitle = "Libera ${formatBytes(installed.sizeBytes)} del almacenamiento",
                         items = 4,
                         index = 3,
+                        enabled = cryWork !is CryPacks.Work.Running,
                         onClick = { confirmingDelete = true },
                     )
                 }
+            }
+
+            SettingsGroup("Audio") {
+                val running = cryWork as? CryPacks.Work.Running
+                val subtitle = when {
+                    running != null -> "${running.stage} · ${running.percent} %"
+                    cryStatus.active -> "Activados; los originales tienen copia de seguridad"
+                    cryStatus.needsReapply && cryStatus.downloaded -> "El juego cambio: reaplicalos sin descargar"
+                    cryStatus.needsReapply -> "El juego cambio: descarga el paquete otra vez o manten los originales"
+                    cryStatus.downloaded -> "Paquete descargado; listo para aplicar sin usar datos"
+                    else -> "Descarga opcional de 205 MB, con copia y restauracion de originales"
+                }
+                NavRow(
+                    icon = Icons.Filled.RecordVoiceOver,
+                    title = "Gritos del anime",
+                    subtitle = subtitle,
+                    items = 1,
+                    index = 0,
+                    enabled = installed != null,
+                    onClick = {
+                        CryPacks.dismiss()
+                        showCryPack = true
+                    },
+                )
             }
 
             SettingsGroup("Partidas") {

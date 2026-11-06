@@ -61,6 +61,7 @@ class GameActivity : NativeActivity() {
         }
         super.onCreate(savedInstanceState)
         instance = this
+        Emulator.isRunning = true
         if (Preferences(applicationContext).keepScreenOn) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
@@ -79,6 +80,7 @@ class GameActivity : NativeActivity() {
         stopWatchingDeviceState()
         perfStop()
         if (instance === this) instance = null
+        Emulator.isRunning = false
         super.onDestroy()
     }
 

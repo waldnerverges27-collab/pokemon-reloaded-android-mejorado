@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SportsEsports
@@ -99,6 +100,16 @@ private val TOPICS = listOf(
             "La app guarda copias de tus partidas por su cuenta: al abrir el juego (si han cambiado) y siempre antes de importar, borrar, reinstalar el juego o actualizar la app.",
             "Estan en Ajustes > Copias de seguridad. Desde ahi puedes restaurar una, compartirla o guardarla fuera del telefono. Restaurar guarda antes lo que tengas, asi que se puede deshacer.",
             "Las copias viven aparte del juego: borrar o reinstalar el juego no las toca. Desinstalar la app si las borra, asi que comparte una copia si vas a cambiar de telefono.",
+        ),
+    ),
+    HelpTopic(
+        Icons.Filled.RecordVoiceOver,
+        "Gritos del anime",
+        listOf(
+            "En Ajustes > Audio > Gritos del anime tienes un paquete opcional de terceros. La descarga ocupa 205 MB; se recomienda Wi-Fi. No va dentro del APK y puedes ver su procedencia y su hash desde la propia ventana.",
+            "Antes de cambiar nada, la app comprueba el ZIP y todos los WAV, y guarda una copia completa de los gritos originales. Despues fusiona el paquete: sustituye los que trae, pero conserva los originales que faltan en el. Tus partidas no cambian.",
+            "Aplica o restaura con el juego cerrado y reinicia despues. Restaurar originales deshace el cambio; el paquete queda guardado para volver a aplicarlo sin descargar. Si reimportas o actualizas el juego, se reaplica solo si estaba activado. Mantener originales desactiva esa reaplicacion.",
+            "Desinstalar la app borra tanto el paquete como la copia de los gritos originales. No asi borrar o reimportar el juego, porque se guardan aparte.",
         ),
     ),
     HelpTopic(

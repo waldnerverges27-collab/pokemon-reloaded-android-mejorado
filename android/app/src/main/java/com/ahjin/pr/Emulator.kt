@@ -7,6 +7,11 @@ import android.content.Intent
 object Emulator {
     private const val GAME_ACTIVITY = "com.ahjin.pr.GameActivity"
 
+    /** Kept outside GameActivity so checking it does not initialise the native library. */
+    @Volatile
+    var isRunning: Boolean = false
+        internal set
+
     /** [quickLoad]: the game loads the quick-save slot by itself as soon as it is up (the launcher shortcut). */
     fun start(context: Context, quickLoad: Boolean = false) {
         // The emulator reads the pad layout and the video mode once, at startup, so they have to be
