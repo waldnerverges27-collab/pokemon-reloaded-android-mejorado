@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.Icon
@@ -49,6 +50,7 @@ fun Onboarding(
     var post by remember { mutableStateOf<Blog.Post?>(null) }
     var keepScreenOn by remember { mutableStateOf(prefs.keepScreenOn) }
     var busy by remember { mutableStateOf(false) }
+    var showDoctor by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<Int?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -74,6 +76,10 @@ fun Onboarding(
     fun finish() {
         prefs.onboardingDone = true
         onFinish()
+    }
+
+    if (showDoctor) {
+        InstallationDoctorDialog(repo = repo, prefs = prefs, onDismiss = { showDoctor = false })
     }
 
     when (step) {
@@ -135,7 +141,7 @@ fun Onboarding(
                 icon = Icons.Filled.Download,
                 title = "Descargar del blog",
                 subtitle = if (postVersion != null) "Version $postVersion, enlace directo" else "Abre la pagina de descarga",
-                items = 2,
+                items = 3,
                 index = 0,
                 enabled = downloadUrl != null && !busy,
                 onClick = { downloadUrl?.let { openInBrowser(context, it) } },
@@ -144,10 +150,19 @@ fun Onboarding(
                 icon = Icons.Filled.FolderOpen,
                 title = "Importar un zip",
                 subtitle = "Elige el archivo que ya tengas",
-                items = 2,
+                items = 3,
                 index = 1,
                 enabled = !busy,
                 onClick = { picker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
+            )
+            BigActionRow(
+                icon = Icons.Filled.Build,
+                title = "Comprobar instalacion",
+                subtitle = "Revisa los archivos y te ayuda si algo falta",
+                items = 3,
+                index = 2,
+                enabled = !busy,
+                onClick = { showDoctor = true },
             )
             if (busy) {
                 LinearWavyProgressIndicator(progress = { (progress ?: 0) / 100f }, modifier = Modifier.fillMaxWidth())

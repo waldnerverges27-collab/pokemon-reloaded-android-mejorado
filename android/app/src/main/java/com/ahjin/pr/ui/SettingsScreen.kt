@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
@@ -112,6 +113,7 @@ fun SettingsScreen(
     val cryWork by CryPacks.work.collectAsState()
     val cryChanges by CryPacks.changes.collectAsState()
     var showCryPack by rememberSaveable { mutableStateOf(false) }
+    var showDoctor by rememberSaveable { mutableStateOf(false) }
     val cryStatus = remember(cryChanges, revision) { CryPacks.status(context) }
 
     if (showCryPack) {
@@ -126,6 +128,18 @@ fun SettingsScreen(
             onDismiss = {
                 showCryPack = false
                 CryPacks.dismiss()
+            },
+        )
+    }
+
+    if (showDoctor) {
+        InstallationDoctorDialog(
+            repo = repo,
+            prefs = prefs,
+            onDismiss = { showDoctor = false },
+            onBackups = {
+                showDoctor = false
+                onBackups()
             },
         )
     }
@@ -501,16 +515,24 @@ fun SettingsScreen(
                     icon = Icons.AutoMirrored.Filled.HelpOutline,
                     title = "Guia de uso",
                     subtitle = "Como importar el juego, usar los controles, guardar y resolver problemas",
-                    items = 4,
+                    items = 5,
                     index = 0,
                     onClick = onHelp,
+                )
+                NavRow(
+                    icon = Icons.Filled.Build,
+                    title = "Asistente de instalacion",
+                    subtitle = "Comprueba el juego, archivos, espacio y escritura, y te indica como resolverlo",
+                    items = 5,
+                    index = 1,
+                    onClick = { showDoctor = true },
                 )
                 NavRow(
                     icon = Icons.Filled.BugReport,
                     title = if (preparingReport) "Preparando informe..." else "Informe de diagnostico",
                     subtitle = "Un toque: reune version, dispositivo, ajustes y logs para compartirlo",
-                    items = 4,
-                    index = 1,
+                    items = 5,
+                    index = 2,
                     enabled = !preparingReport,
                     onClick = {
                         preparingReport = true
@@ -525,16 +547,16 @@ fun SettingsScreen(
                     icon = Icons.Filled.Article,
                     title = "Logs",
                     subtitle = "En caso de un error, comparte los logs, me ayudarán a saber qué falló",
-                    items = 4,
-                    index = 2,
+                    items = 5,
+                    index = 3,
                     onClick = onLog,
                 )
                 NavRow(
                     icon = Icons.Filled.Info,
                     title = "Acerca de",
                     subtitle = "Version, creditos y aviso",
-                    items = 4,
-                    index = 3,
+                    items = 5,
+                    index = 4,
                     onClick = onAbout,
                 )
             }

@@ -85,10 +85,10 @@ private val TOPICS = listOf(
         listOf(
             "Guardar dentro del juego funciona igual que en el original y es lo que debes usar para jugar de verdad.",
             "Los iconos de guardar y cargar situados a la izquierda pulsan F5 y F6, las mismas teclas que usa el juego original. Guardar y cargar se hace siempre con las partidas originales.",
-            "Inicio muestra la ultima partida original con su nombre, ranura, lugar y fecha. Continuar abre el juego por su inicio normal y Otras partidas abre el gestor de ranuras. Si todavia no hay ninguna, Inicio explica como empezar.",
+            "Inicio muestra la ultima partida original con su nombre, ranura, lugar y fecha. Continuar la carga directamente con la rutina original, sin la intro ni los menus. Jugar desde el inicio conserva el arranque normal y Otras partidas abre el gestor de ranuras. Si todavia no hay ninguna, Inicio explica como empezar.",
             "La velocidad del juego se elige en Extras: camara lenta (x0,5 y x0,75) o avance rapido (x1,5, x2, x3 y x4). El boton de avance rapido alterna entre velocidad normal y la elegida. A otra velocidad el sonido se silencia (se puede cambiar en Extras).",
             "En Botones especiales (dentro de Posicion y tamano de los botones) hay cuatro botones que no existen por defecto: Correr fijo (un toque deja X pulsada y otro la suelta), Boton turbo (mantenerlo pulsa Z una y otra vez), Velocidad (cada toque pasa a la siguiente velocidad) y Tabla de tipos (en combate, muestra las ventajas y debilidades del juego; un toque la cierra). Tambien puedes dar el modo Turbo o Fijo a cualquier boton propio.",
-            "Si mantienes pulsado el icono de la app en el lanzador de Android aparece el atajo Continuar, que abre el juego por su inicio normal.",
+            "Si mantienes pulsado el icono de la app en el lanzador de Android aparece el atajo Continuar, que carga directamente la ultima partida original.",
         ),
     ),
     HelpTopic(
@@ -135,6 +135,7 @@ private val TOPICS = listOf(
         Icons.Filled.BugReport,
         "Si algo falla",
         listOf(
+            "Empieza por Ajustes > Ayuda > Asistente de instalacion. Comprueba la arquitectura, el juego, sus archivos basicos, el audio MIDI, el espacio y la escritura, y te ofrece las acciones seguras para cada caso.",
             "Pantalla negra o cierre al abrir: reimporta el .zip del juego y comprueba que tienes espacio libre. Tus partidas estan a salvo en las copias de seguridad.",
             "Sin sonido: sube el volumen multimedia, desconecta auriculares Bluetooth y reabre el juego.",
             "Va lento o se calienta: activa el ahorro de bateria, quita el efecto de imagen y cierra otras apps.",
