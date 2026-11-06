@@ -307,8 +307,10 @@ que eso nunca sea una pérdida, la app guarda copias aparte, en su propia carpet
   **Ajustes → Logs**, y que sobrevive a un reinicio.
 - **Segundo plano:** al salir de la app el bucle se detiene y el audio se corta; al volver, el juego
   continúa donde estaba.
-- **Actualizaciones:** la app consulta las releases de este repositorio, descarga el APK y lo
-  instala tras verificar que el paquete y la firma coinciden con los de la app instalada.
+- **Actualizaciones:** la app consulta las releases de este repositorio y descarga el APK compatible
+  con reanudación, cancelación y progreso que sobrevive a una rotación o a la reapertura. Antes de
+  instalar comprueba tamaño, SHA-256 publicado, paquete, versión y certificado; si Android pide
+  permiso para instalar, el APK verificado se conserva para reintentar sin descargarlo de nuevo.
 
 ## Rendimiento y fotogramas por segundo
 
@@ -477,9 +479,15 @@ puede instalarse encima de la oficial**, y la app rechaza actualizarse con un AP
 firma no coincidan con los de la instalada.
 
 El actualizador consulta `releases/latest` de este repositorio (las prereleases se ignoran), elige
-el asset `.apk` compatible con la primera ABI admitida por el teléfono, compara versiones
-numéricamente y entrega el archivo al instalador del sistema mediante un `FileProvider`. Los APK
-antiguos sin sufijo de arquitectura siguen siendo válidos.
+el asset `.apk` compatible con la primera ABI admitida por el teléfono y compara versiones
+numéricamente. Los APK antiguos sin sufijo de arquitectura siguen siendo válidos.
+
+La descarga usa `update.apk.part` y solicita `Range` para continuar desde los bytes realmente
+presentes; si el servidor responde con el archivo completo, reinicia la escritura para no duplicar
+datos. Un diario interno conserva la release y el estado al girar o reabrir la app. La cancelación
+no borra el parcial. Antes de entregar el APK al instalador mediante `FileProvider` se comprueban
+el tamaño, el `digest` SHA-256 del asset (cuando la release lo publica), el paquete, que la versión
+sea más nueva y el certificado. Un hash incorrecto se descarta; un parcial de red se conserva.
 
 ## Herramientas de diagnóstico
 
@@ -499,6 +507,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.9.0-dev6** (versión de pruebas) | **Actualizador reanudable y verificado.** Las descargas de APK se pueden cancelar y continuar después de un corte, una rotación o una reapertura, sin duplicar bytes si el servidor no admite `Range`. Los errores de red, espacio y respuesta se explican con una acción concreta. Antes de instalar se comprueba también el SHA-256 publicado por GitHub, además del tamaño, paquete, versión y certificado. Si falta el permiso de instalación, se reintenta con el APK ya descargado. No cambia los controles, el juego ni las partidas. |
 | **0.9.0-dev5** (versión de pruebas) | **Paquete opcional de gritos del anime.** Ajustes → Audio descarga el ZIP verificado desde una release pública independiente, con progreso, cancelación y reanudación. Comprueba tamaño, SHA-256, rutas, CRC y los 1.284 WAV; hace copia de los originales, fusiona sin borrar los gritos ausentes del paquete y permite restaurarlos. El paquete queda fuera del juego para reaplicarlo tras una reimportación o actualización, y «Mantener originales» desactiva esa reaplicación. No cambia las partidas ni se incluye en los APK. |
 | **0.9.0-dev4** (versión de pruebas) | **Guardar y cargar usan el sistema original del juego.** Los dos iconos fijos de la izquierda envían ahora `F5` y `F6`, en lugar de las ranuras rápidas de la app; los botones especiales y atajos de mando de guardado rápido se conservan. **El mapa de Vuelo tiene su propia capa táctil:** joystick o cruceta y solo `Z`, `X`, `C`, `V` y `P`, ocultando habilidades, guardar/cargar y demás controles del mundo. El editor añade la pestaña «Mapa de vuelo». |
 | **0.9.0-dev3** (versión de pruebas) | **Habilidades de uso libre siempre visibles cuando están disponibles.** Vuelo, Teletransporte, Velocidad Extrema, Gran Ojo y Dulce Aroma tienen botones propios en la fila superior, según las medallas y los movimientos del equipo, sin quitar los tres huecos a las habilidades contextuales. Los botones personalizados recién añadidos ya se pueden arrastrar. El joystick empieza al 80 % y las instalaciones nuevas usan píxeles perfectos, sin cambiar elecciones guardadas. Se entregan dos APK independientes, ARM64 y ARMv7, y el actualizador escoge la arquitectura compatible. |

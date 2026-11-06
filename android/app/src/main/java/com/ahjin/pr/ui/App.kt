@@ -42,8 +42,8 @@ import com.ahjin.pr.Emulator
 import com.ahjin.pr.GameRepository
 import com.ahjin.pr.Preferences
 import com.ahjin.pr.Update
+import com.ahjin.pr.UpdateManager
 import com.ahjin.pr.ZipIntake
-import com.ahjin.pr.installUpdate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import com.ahjin.pr.SaveBackups
@@ -106,74 +106,43 @@ fun App(repo: GameRepository, prefs: Preferences, incoming: android.net.Uri? = n
         repo.prepare()
     }
 
-    // A newer build, offered once per run. Nothing is downloaded until the player says so.
-    var update by remember { mutableStateOf<Update.Release?>(null) }
-    var updating by remember { mutableStateOf(false) }
-    var written by remember { mutableStateOf(0L) }
-    var total by remember { mutableStateOf(0L) }
-    var problem by remember { mutableStateOf<String?>(null) }
-
+    // Update work belongs to the process, not this composition: rotation cannot cancel it and the
+    // journal can restore an interrupted download after reopening the app.
+    val updateWork by UpdateManager.work.collectAsState()
     LaunchedEffect(Unit) {
-        val installed = runCatching {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrNull().orEmpty()
-        if (installed.isNotEmpty()) {
-            Update.check(installed).getOrNull()?.let { update = it }
+        if (UpdateManager.initialize(context)) {
+            val installed = runCatching {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            }.getOrNull().orEmpty()
+            if (installed.isNotEmpty()) {
+                Update.check(installed).getOrNull()?.let { UpdateManager.offer(context, it) }
+            }
         }
     }
 
-    update?.let { release ->
+    updateWork.release?.let { release ->
         UpdateDialog(
             release = release,
-            busy = updating,
-            written = written,
-            total = total,
-            problem = problem,
+            busy = updateWork.running,
+            verifying = updateWork.verifying,
+            written = updateWork.written,
+            total = updateWork.total,
+            resumable = updateWork.resumable,
+            readyToInstall = updateWork.readyToInstall,
+            problem = updateWork.problem,
             onDownload = {
-                val url = release.apkUrl
-                if (url == null) {
-                    // No APK attached to the release: the page is the honest fallback.
+                if (release.apkUrl == null) {
                     openInBrowser(context, release.pageUrl)
-                    update = null
+                    UpdateManager.dismiss()
                 } else {
-                    updating = true
-                    written = 0
-                    total = 0
-                    problem = null
-                    scope.launch {
-                        val result = Update.download(url, java.io.File(context.cacheDir, "update.apk")) { done, size ->
-                            written = done
-                            total = size
-                        }
-                        updating = false
-                        val file = result.getOrNull()
-                        if (file == null) {
-                            // It used to fail in silence and open the browser, which looked exactly
-                            // like nothing happening. Now it says so.
-                            problem = "No pude descargar la actualizacion: ${result.exceptionOrNull()?.message}"
-                        } else {
-                            problem = Update.verify(context, file, release)
-                            if (problem == null) {
-                                // The installer replaces the app; the saves are copied first, just in case.
-                                runCatching { repo.backup(SaveBackups.Reason.BEFORE_UPDATE) }
-                                problem = installUpdate(context, file)
-                            }
-                            if (problem == null) {
-                                update = null
-                            } else if (problem!!.startsWith("La descarga") || problem!!.startsWith("El archivo")) {
-                                file.delete()
-                            }
-                        }
-                    }
+                    UpdateManager.start(context, repo)
                 }
             },
-            onDismiss = {
-                update = null
-                problem = null
-            },
+            onCancelDownload = UpdateManager::cancel,
+            onDismiss = UpdateManager::dismiss,
             onOpenReleases = {
                 openInBrowser(context, Update.RELEASES_PAGE)
-                update = null
+                UpdateManager.dismiss()
             },
         )
     }
@@ -243,7 +212,7 @@ fun App(repo: GameRepository, prefs: Preferences, incoming: android.net.Uri? = n
                         onMySaves = { pushed = Pushed.MySaves },
                         onBackups = { pushed = Pushed.Backups },
                         onHelp = { pushed = Pushed.Help },
-                        onUpdateFound = { update = it },
+                        onUpdateFound = { UpdateManager.offer(context, it) },
                     )
                 }
             }

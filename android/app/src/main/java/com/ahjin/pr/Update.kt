@@ -37,6 +37,8 @@ object Update {
         val pageUrl: String,
         /** Size the release says the APK has, to catch a download that stopped halfway. 0 if unknown. */
         val apkSize: Long = 0,
+        /** GitHub's asset digest, when present. Empty keeps compatibility with older releases. */
+        val apkSha256: String = "",
         /** What changed, as written in the release. */
         val notes: String = "",
     )
@@ -60,6 +62,7 @@ object Update {
                 apkUrl = asset?.optString("browser_download_url")?.takeIf { it.isNotEmpty() },
                 pageUrl = json.optString("html_url").ifEmpty { RELEASES_PAGE },
                 apkSize = asset?.optLong("size", 0L) ?: 0L,
+                apkSha256 = sha256FromDigest(asset?.optString("digest")),
                 notes = json.optString("body").trim(),
             )
         }
@@ -72,30 +75,17 @@ object Update {
      * apart from a download that has died. Everything that happens is also written to the log, since
      * the failure used to be swallowed and the app simply opened the browser as if nothing was wrong.
      */
-    suspend fun download(url: String, target: File, onProgress: (Long, Long) -> Unit): Result<File> = withContext(Dispatchers.IO) {
-        runCatching {
-            val connection = open(url)
-            connection.connect()
-            val code = connection.responseCode
-            val total = connection.contentLengthLong
-            trace("update: descarga $code, $total bytes desde $url")
-            if (code !in 200..299) error("La descarga respondio $code.")
-            connection.inputStream.use { input ->
-                target.outputStream().use { output ->
-                    val buffer = ByteArray(64 * 1024)
-                    var written = 0L
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read < 0) break
-                        output.write(buffer, 0, read)
-                        written += read
-                        onProgress(written, total)
-                    }
-                    trace("update: descargados $written bytes")
-                }
-            }
-            target
-        }.onFailure { trace("update: FALLO la descarga: ${it::class.java.simpleName}: ${it.message}") }
+    suspend fun download(
+        url: String,
+        target: File,
+        onProgress: (Long, Long) -> Unit,
+        expectedSize: Long = 0,
+        cancelled: () -> Boolean = { false },
+    ): Result<File> = withContext(Dispatchers.IO) {
+        trace("update: descarga desde $url; parcial=${target.length()} bytes")
+        runCatching { downloadFile(url, target, expectedSize, cancelled, onProgress) }
+            .onSuccess { trace("update: descargados ${it.length()} bytes") }
+            .onFailure { trace("update: FALLO la descarga: ${it::class.java.simpleName}: ${it.message}") }
     }
 
     /**
@@ -107,6 +97,14 @@ object Update {
     fun verify(context: android.content.Context, file: File, release: Release): String? {
         if (release.apkSize > 0 && file.length() != release.apkSize) {
             return "La descarga quedo incompleta (${file.length()} de ${release.apkSize} bytes). Vuelve a intentarlo."
+        }
+        if (release.apkSha256.isNotEmpty()) {
+            val actual = runCatching { fileSha256(file) }.getOrElse {
+                return "No pude calcular el SHA-256 del APK: ${it.message}"
+            }
+            if (actual != release.apkSha256) {
+                return "El SHA-256 del APK no coincide con el publicado por GitHub. Se ha descartado la descarga."
+            }
         }
         return runCatching {
             val pm = context.packageManager
@@ -169,6 +167,117 @@ object Update {
     }
 }
 
+/** Returns a lowercase SHA-256 only when GitHub supplied a complete `sha256:` digest. */
+internal fun sha256FromDigest(digest: String?): String {
+    val value = digest.orEmpty().trim()
+    return value.removePrefix("sha256:").takeIf {
+        value.startsWith("sha256:") && it.length == 64 && it.all { c -> c in '0'..'9' || c in 'a'..'f' || c in 'A'..'F' }
+    }?.lowercase().orEmpty()
+}
+
+internal fun fileSha256(file: File): String {
+    val digest = java.security.MessageDigest.getInstance("SHA-256")
+    file.inputStream().buffered().use { input ->
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            digest.update(buffer, 0, count)
+        }
+    }
+    return digest.digest().joinToString("") { "%02x".format(it) }
+}
+
+/**
+ * Blocking downloader, separate from Android and coroutines so its range behavior can be tested on
+ * the JVM. A `.part` file is deliberately kept after an error. A 206 response is accepted only for
+ * the exact range requested; a server answering 200 starts from zero instead of duplicating bytes.
+ */
+internal fun downloadFile(
+    url: String,
+    target: File,
+    expectedSize: Long,
+    cancelled: () -> Boolean,
+    onProgress: (Long, Long) -> Unit,
+): File {
+    target.parentFile?.mkdirs()
+    var existing = if (target.isFile) target.length() else 0L
+    if (expectedSize > 0 && existing > expectedSize) {
+        target.delete()
+        existing = 0
+    }
+    if (expectedSize > 0 && existing == expectedSize) {
+        onProgress(existing, expectedSize)
+        return target
+    }
+    val needed = if (expectedSize > existing) expectedSize - existing + 16 * 1024 * 1024 else 0L
+    val usable = target.parentFile?.usableSpace ?: 0L
+    if (needed > 0 && usable in 1 until needed) {
+        error("No hay espacio suficiente para terminar la actualizacion. Libera espacio y vuelve a intentarlo.")
+    }
+
+    val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+        connectTimeout = 20_000
+        readTimeout = 20_000
+        instanceFollowRedirects = true
+        setRequestProperty("User-Agent", "ReloadedLauncher/1.0")
+        setRequestProperty("Accept", "application/octet-stream")
+        if (existing > 0) setRequestProperty("Range", "bytes=$existing-")
+    }
+    try {
+        connection.connect()
+        val code = connection.responseCode
+        if (code == 416 && existing > 0) {
+            target.delete()
+            error("El servidor ya no acepta el punto de reanudacion. Vuelve a intentarlo para empezar una descarga limpia.")
+        }
+        if (code !in 200..299) error("La descarga respondio $code.")
+
+        val contentRange = connection.getHeaderField("Content-Range").orEmpty()
+        val rangeStart = contentRange.substringAfter("bytes ", "").substringBefore('-').toLongOrNull()
+        val append = code == HttpURLConnection.HTTP_PARTIAL && rangeStart == existing
+        if (code == HttpURLConnection.HTTP_PARTIAL && !append) {
+            target.delete()
+            error("El servidor devolvio un rango distinto al solicitado. Vuelve a intentarlo.")
+        }
+        if (!append) existing = 0
+        val rangeTotal = contentRange.substringAfterLast('/', "").toLongOrNull() ?: 0L
+        val total = when {
+            expectedSize > 0 -> expectedSize
+            rangeTotal > 0 -> rangeTotal
+            connection.contentLengthLong > 0 -> existing + connection.contentLengthLong
+            else -> 0L
+        }
+        var written = existing
+        onProgress(written, total)
+        connection.inputStream.use { input ->
+            java.io.FileOutputStream(target, append).buffered().use { output ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    if (cancelled()) throw kotlinx.coroutines.CancellationException("Descarga cancelada.")
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    output.write(buffer, 0, read)
+                    written += read
+                    onProgress(written, total)
+                }
+                output.flush()
+            }
+        }
+        if (cancelled()) throw kotlinx.coroutines.CancellationException("Descarga cancelada.")
+        if (expectedSize > 0 && written != expectedSize) {
+            error("La conexion se corto: $written de $expectedSize bytes. Puedes continuar la descarga.")
+        }
+        if (total > 0 && written < total) {
+            error("La conexion se corto antes de terminar. Puedes continuar la descarga.")
+        }
+        onProgress(written, total)
+        return target
+    } finally {
+        connection.disconnect()
+    }
+}
+
 /**
  * Hands a downloaded APK to the system installer, which is the only thing allowed to replace the
  * app. Android asks the user to allow installs from this app the first time, and if that has not
@@ -184,7 +293,7 @@ fun installUpdate(context: android.content.Context, apk: File): String? {
                     .setData(android.net.Uri.parse("package:${context.packageName}"))
                     .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
             )
-            "Activa \"Permitir desde esta fuente\" y vuelve a darle a Descargar."
+            "Activa \"Permitir desde esta fuente\" y vuelve a darle a Instalar."
         }.getOrElse { "Android no deja instalar desde esta app: ${it.message}" }
     }
     return runCatching {
