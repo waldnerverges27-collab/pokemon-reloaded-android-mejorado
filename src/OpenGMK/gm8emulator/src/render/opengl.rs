@@ -529,7 +529,7 @@ impl RendererImpl {
                         self.gl.PixelStorei(gl::PACK_ALIGNMENT, 1);
                         self.gl.ReadPixels(0, 0, width, height, gl::RGBA, gl::UNSIGNED_BYTE, pixels.as_mut_ptr().cast());
                         if self.gl.GetError() != 0 {
-                            eprintln!("[quicksave] no pude leer la textura {}", atlas_id);
+                            eprintln!("[savestate] no pude leer la textura {}", atlas_id);
                             None
                         } else {
                             Some(SavedTexture { width, height, pixels: pixels.into_boxed_slice(), zbuf: None })

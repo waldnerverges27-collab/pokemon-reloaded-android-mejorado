@@ -395,8 +395,8 @@ fun SettingsScreen(
             SettingsGroup("Extras") {
                 NavRow(
                     icon = Icons.Filled.Speed,
-                    title = "Guardado rapido, avance rapido y mas",
-                    subtitle = "Guardar y cargar al instante, acelerar el juego, filtros, bateria y mando",
+                    title = "Velocidad, imagen y mas",
+                    subtitle = "Avance rapido, filtros, botones tactiles, bateria y mando",
                     items = 1,
                     index = 0,
                     onClick = onExtras,

@@ -12,8 +12,6 @@ pub mod movement;
 pub mod particle;
 pub mod pathfinding;
 pub mod platform;
-#[cfg(target_os = "android")]
-pub mod quicksave;
 pub mod recording;
 pub mod replay;
 pub mod savestate;
@@ -2807,12 +2805,9 @@ impl Game {
             }
             handle_scene_change!(self);
 
-            // A save or load asked for with the buttons or the pad, now that the frame is complete.
+            // Held buttons, locks and overlays that follow the state of the completed frame.
             #[cfg(target_os = "android")]
-            {
-                crate::android_main::input_tick();
-                self.handle_quick_request();
-            }
+            crate::android_main::input_tick();
 
             // Exit if the window was closed by the user, such as by pressing 'X'
             if self.close_requested {

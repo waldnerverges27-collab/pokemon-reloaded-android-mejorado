@@ -83,13 +83,12 @@ rendimiento (FPS, milisegundos por fotograma y memoria) activado.
 
 <table>
   <tr>
-    <td width="25%"><img src="docs/screenshots/app-inicio.jpg" alt="Pantalla de inicio de la app"><br><sub><b>Inicio.</b> Noticias del juego, <b>Jugar</b>, descargar o importar el .zip.</sub></td>
+    <td width="25%"><img src="docs/screenshots/app-inicio.jpg" alt="Pantalla de inicio de la app"><br><sub><b>Inicio.</b> Noticias del juego, <b>Jugar</b> o <b>Continuar</b>, última partida original, descargar o importar el .zip.</sub></td>
     <td width="25%"><img src="docs/screenshots/ajustes-juego.jpg" alt="Ajustes: juego y partidas"><br><sub><b>Juego y partidas.</b> Versión instalada, espacio, <i>Mis partidas</i> y copias de seguridad.</sub></td>
     <td width="25%"><img src="docs/screenshots/ajustes-controles.jpg" alt="Ajustes: controles"><br><sub><b>Controles.</b> Iconos en los botones y posición y tamaño.</sub></td>
     <td width="25%"><img src="docs/screenshots/editor-botones.jpg" alt="Editor de posición de los botones"><br><sub><b>Editor.</b> Una pestaña por pantalla (Mundo, Diálogos, Menús, Pantallas…), botones propios y especiales.</sub></td>
   </tr>
   <tr>
-    <td width="25%"><img src="docs/screenshots/extras-guardado.jpg" alt="Extras: guardado rápido"><br><sub><b>Guardado rápido.</b> Tres ranuras, con fecha y tamaño.</sub></td>
     <td width="25%"><img src="docs/screenshots/extras-velocidad.jpg" alt="Extras: velocidad del juego"><br><sub><b>Velocidad.</b> De cámara lenta ×0,5 a avance rápido ×4, con sonido silenciable.</sub></td>
     <td width="25%"><img src="docs/screenshots/extras-imagen.jpg" alt="Extras: imagen"><br><sub><b>Imagen.</b> Suavizado, rejilla LCD, líneas CRT y respeto de la cámara.</sub></td>
     <td width="25%"><img src="docs/screenshots/extras-mando.jpg" alt="Extras: vibración y rendimiento"><br><sub><b>Mando y rendimiento.</b> Vibración, indicador de FPS y ahorro de batería.</sub></td>
@@ -116,7 +115,7 @@ rendimiento (FPS, milisegundos por fotograma y memoria) activado.
 
 1. Descarga el APK de la [última versión](../../releases/latest) e instálalo.
 2. Abre la app y pulsa **Importar** para elegir el `.zip` del juego (o **Descargar**, que abre el enlace de la última versión del juego).
-3. Pulsa **Jugar**.
+3. Pulsa **Jugar**. Cuando ya tengas una partida original, Inicio mostrará su nombre, ranura, lugar y fecha, y el botón pasará a **Continuar**.
 
 También puedes mantener pulsado el `.zip` en tu administrador de archivos y elegir **Abrir con →
 Pokemon Reloaded** (o **Compartir** con la app). La app mira dentro del zip, te dice si es el juego, un
@@ -161,8 +160,8 @@ Si ya jugabas en PC, tu partida entra desde **Ajustes → Partidas → Importar*
   pantalla excluidos del gesto «atrás» del sistema.
 - **Tamaño y opacidad global** de los botones, joystick flotante y zona muerta del joystick desde
   **Ajustes**.
-- **Mandos físicos:** detección automática, reasignación de teclas, vibración y atajos propios:
-  guardado rápido, cargar, avance rápido, mostrar u ocultar los FPS y cambiar de ranura de guardado rápido.
+- **Mandos físicos:** detección automática, reasignación de teclas, vibración y dos acciones propias
+  opcionales: avance rápido y mostrar u ocultar los FPS. Guardar y cargar usa las teclas originales del juego.
 
 ### Habilidades externas (MO)
 
@@ -253,12 +252,11 @@ Se configuran en **Ajustes → Extras**.
 
 | Extra | Descripción |
 | --- | --- |
-| **Guardado rápido** | Tres ranuras independientes del guardado del juego. Guardar es un toque; cargar exige pulsar dos veces seguidas, para no perder progreso por error. El archivo se escribe aparte y se renombra, de modo que un fallo nunca estropea la ranura anterior. La música en bucle vuelve a empezar al cargar. |
 | **Velocidad del juego** | **Cámara lenta** ×0,5 y ×0,75 y **avance rápido** ×1,5, ×2, ×3 y ×4, con el sonido silenciable fuera de la velocidad normal. Solo cambia la espera entre fotogramas: la lógica del juego no cambia. Se puede fijar en Extras o alternar con un botón especial. Si el móvil no llega, va a la máxima que pueda; el avance rápido se desactiva solo si se calienta mucho. |
 | **Tabla de tipos** | Botón especial para combate que muestra la imagen de efectividades **del propio juego** sobre la partida. El juego se **detiene** mientras está abierta (el rival no ataca) y se cierra con un toque en la pantalla o con cualquier botón del mando. |
 | **Correr fijo** | Botón especial: un toque deja `X` pulsada y otro la suelta. Se libera solo al abrir un menú, un diálogo o un combate. |
 | **Botón turbo** | Botón especial: mientras lo mantienes, pulsa `Z` unas 7 veces por segundo (textos y menús a toda prisa). |
-| **Atajos de Android** | Al mantener pulsado el icono de la app: **Continuar** (abre el juego directamente) y **Guardado rápido** (abre el juego y carga el guardado rápido; si el juego ya estaba abierto, solo lo trae al frente). |
+| **Atajo de Android** | Al mantener pulsado el icono de la app, **Continuar** abre el juego por su inicio normal. |
 | **Imagen** | Suavizado opcional, rejilla LCD, líneas CRT y respeto de la cámara frontal. |
 | **Botones táctiles** | Ocultarse solos tras unos segundos sin tocar, vibración (apagada, ligera o fuerte). |
 | **Indicador de rendimiento** | FPS, tiempo por fotograma y memoria residente en una esquina. |
@@ -304,7 +302,8 @@ que eso nunca sea una pérdida, la app guarda copias aparte, en su propia carpet
 
 ### Gestión de partidas, registros y actualizaciones
 
-- **Partidas:** ver, exportar, importar, borrar y mover entre ranuras.
+- **Inicio para continuar:** muestra la última partida original por la fecha del `.savc`, con nombre, ranura, lugar y fecha. **Continuar** abre el juego por su inicio normal; **Otras partidas** abre el gestor. Si no hay ninguna, muestra los primeros pasos.
+- **Partidas:** ver, exportar, importar, borrar y mover entre ranuras. Guardar y cargar dentro del juego usa siempre el sistema original (`F5`/`F6`); la app no mantiene guardados rápidos aparte.
 - **Registros:** la app guarda un log que se puede compartir como archivo de texto desde
   **Ajustes → Logs**, y que sobrevive a un reinicio.
 - **Segundo plano:** al salir de la app el bucle se detiene y el audio se corta; al volver, el juego
@@ -362,7 +361,7 @@ flowchart TB
         render["Render OpenGL ES"]
         audio["Audio · AAudio + MIDI"]
         touch["Capa táctil"]
-        extras["Guardado rápido · avance rápido · efectos"]
+        extras["Avance rápido · efectos · mando"]
     end
 
     juego[("Datos del juego original (tu .zip)")]
@@ -509,6 +508,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.9.0-dev8** (versión de pruebas) | **Inicio para continuar y retirada del guardado rápido.** Inicio identifica la última partida original por la fecha de su `.savc` y muestra nombre, ranura, lugar y fecha, con acceso a las demás ranuras y primeros pasos si no hay ninguna. Se eliminan las ranuras rápidas, sus acciones de mando, el atajo de carga rápida y la carga automática del motor. Los iconos fijos conservan el guardado original `F5`/`F6`. No se borran partidas ni los archivos de las antiguas ranuras rápidas. |
 | **0.9.0-dev7** (versión de pruebas) | **Editor de controles con borrador.** Deshacer/rehacer incluye posiciones, tamaños, visibilidad y botones propios; cada arrastre o ajuste de tamaño cuenta como una sola acción. Se puede restaurar un botón sin perder el resto del diseño, ensayar el borrador en una pantalla táctil interactiva y recibir un aviso al salir sin guardar. El juego solo lee los cambios después de pulsar Guardar. No cambia las teclas, los contextos ni los controles en ejecución. |
 | **0.9.0-dev6** (versión de pruebas) | **Actualizador reanudable y verificado.** Las descargas de APK se pueden cancelar y continuar después de un corte, una rotación o una reapertura, sin duplicar bytes si el servidor no admite `Range`. Los errores de red, espacio y respuesta se explican con una acción concreta. Antes de instalar se comprueba también el SHA-256 publicado por GitHub, además del tamaño, paquete, versión y certificado. Si falta el permiso de instalación, se reintenta con el APK ya descargado. No cambia los controles, el juego ni las partidas. |
 | **0.9.0-dev5** (versión de pruebas) | **Paquete opcional de gritos del anime.** Ajustes → Audio descarga el ZIP verificado desde una release pública independiente, con progreso, cancelación y reanudación. Comprueba tamaño, SHA-256, rutas, CRC y los 1.284 WAV; hace copia de los originales, fusiona sin borrar los gritos ausentes del paquete y permite restaurarlos. El paquete queda fuera del juego para reaplicarlo tras una reimportación o actualización, y «Mantener originales» desactiva esa reaplicación. No cambia las partidas ni se incluye en los APK. |
@@ -548,7 +548,6 @@ Cada versión, con su APK, está en [Releases](../../releases).
 - Desarrollado y probado en un **RedMagic 8S Pro** (Snapdragon 8 Gen 2, Android 13, arm64). También se ha
   probado en un **Samsung Galaxy S21 5G** y en un **Samsung Galaxy A53 5G**.
 - El motor de **32 bits (armeabi-v7a)** se compila y empaqueta, pero no se ha probado en ningún móvil de 32 bits.
-- El **guardado rápido** es una función experimental. Si algo falla, el log lo registrará.
 - Los **botones con teclas de PC** (joystick desde 0.7.7, el resto desde 0.7.8, menús desde 0.7.9) escriben en las variables del propio juego, pero no se han probado en un móvil con una partida de PC real; si algo no responde, un log de **Ajustes → Logs** con la línea `[teclas] la partida trae` dice si ha actuado.
 - La **pulsación larga en la caja del PC** (0.7.5) está hecha leyendo el propio juego, pero no se ha probado en un móvil; si el menú no se abre o no responde a los toques, avísalo con un log de **Ajustes → Logs** (aparece la línea `caja: pulsacion larga`).
 - **Abrir con** (0.7.3) se ha probado con pruebas automáticas sobre zips de ejemplo, pero no en

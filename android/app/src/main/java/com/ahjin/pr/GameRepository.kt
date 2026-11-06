@@ -102,6 +102,8 @@ class GameRepository(private val context: Context) {
         val seen: String?,
         val caught: String?,
         val place: String?,
+        /** Last write of the real `.savc`; null for an empty or metadata-only slot. */
+        val savedAt: Long? = null,
     )
 
     object Slots {
@@ -137,7 +139,7 @@ class GameRepository(private val context: Context) {
                 // as the number of captured.
                 .filter { it.isNotBlank() }
             fun field(at: Int) = lines.getOrNull(at)?.trim()?.takeIf { it.isNotEmpty() }
-            SaveSlot(index, field(0), field(1), field(2), field(3))
+            SaveSlot(index, field(0), field(1), field(2), field(3), originalSaveTimestamp(folder, index))
         }
     }
 

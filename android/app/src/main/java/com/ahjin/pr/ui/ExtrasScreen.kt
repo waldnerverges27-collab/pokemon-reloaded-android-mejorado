@@ -11,26 +11,21 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BatteryChargingFull
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Monitor
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.Wallpaper
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,20 +36,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ahjin.pr.Preferences
-import com.ahjin.pr.QUICK_SLOTS
-import com.ahjin.pr.QuickSaves
 import com.ahjin.pr.SPEED_CHOICES
 import com.ahjin.pr.speedLabel
 import java.io.File
 
 /**
- * What goes beyond the game itself: quick save, fast-forward, the picture, the battery and the pad.
+ * What goes beyond the game itself: fast-forward, the picture, the battery and the pad.
  * Every change is written to `extras.conf` at once; the engine reads it when the game starts.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExtrasScreen(prefs: Preferences, filesDir: File, onBack: () -> Unit) {
-    var quickSlot by remember { mutableIntStateOf(prefs.quickSlot) }
     var speedPercent by remember { mutableIntStateOf(prefs.speedPercent) }
     var ffwdMute by remember { mutableStateOf(prefs.ffwdMute) }
     var autoHide by remember { mutableIntStateOf(prefs.autoHideSeconds) }
@@ -64,27 +56,7 @@ fun ExtrasScreen(prefs: Preferences, filesDir: File, onBack: () -> Unit) {
     var stats by remember { mutableStateOf(prefs.showStats) }
     var battery by remember { mutableIntStateOf(prefs.batteryMode) }
     var rumble by remember { mutableIntStateOf(prefs.padRumble) }
-    // Bumped after a delete so the slot descriptions are read again.
-    var slotsRevision by remember { mutableIntStateOf(0) }
-    var deleting by remember { mutableStateOf<Int?>(null) }
-
     fun persist() = prefs.writeExtras(filesDir)
-
-    deleting?.let { slot ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text("Borrar la ranura $slot?") },
-            text = { Text("Se pierde el guardado rapido de esa ranura. Las partidas del juego no se tocan.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    QuickSaves.delete(filesDir, slot)
-                    slotsRevision++
-                    deleting = null
-                }) { Text("Borrar") }
-            },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancelar") } },
-        )
-    }
 
     Scaffold(
         topBar = {
@@ -101,50 +73,6 @@ fun ExtrasScreen(prefs: Preferences, filesDir: File, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             Spacer(Modifier.height(4.dp))
-
-            SettingsGroup("Guardado rapido (experimental)") {
-                InfoRow(
-                    icon = Icons.Filled.Warning,
-                    title = "Como funciona",
-                    value = "En el juego, el boton de guardar toma una foto de toda la partida y el de cargar la devuelve. " +
-                        "Es aparte de guardar dentro del juego, que sigue igual. Cargar pide pulsar dos veces. " +
-                        "La musica en bucle vuelve a empezar desde el principio.",
-                    items = QUICK_SLOTS + 1,
-                    index = 0,
-                )
-                for (slot in 1..QUICK_SLOTS) {
-                    val description = remember(slotsRevision, slot) {
-                        val size = QuickSaves.size(filesDir, slot)
-                        val base = QuickSaves.describe(filesDir, slot)
-                        if (size > 0) "$base (${formatBytes(size)})" else base
-                    }
-                    ChoiceRow(
-                        icon = Icons.Filled.Save,
-                        title = "Ranura $slot",
-                        subtitle = description,
-                        selected = quickSlot == slot,
-                        items = QUICK_SLOTS + 1,
-                        index = slot,
-                        onSelect = {
-                            quickSlot = slot
-                            prefs.quickSlot = slot
-                            persist()
-                        },
-                    )
-                }
-            }
-            val hasSave = remember(slotsRevision, quickSlot) { QuickSaves.savedAt(filesDir, quickSlot) != null }
-            SettingsGroup("Ranura $quickSlot") {
-                NavRow(
-                    icon = Icons.Filled.Delete,
-                    title = "Borrar el guardado de la ranura $quickSlot",
-                    subtitle = if (hasSave) "Libera el espacio que ocupa" else "Esta vacia",
-                    items = 1,
-                    index = 0,
-                    enabled = hasSave,
-                    onClick = { deleting = quickSlot },
-                )
-            }
 
             SettingsGroup("Velocidad del juego") {
                 SPEED_CHOICES.forEachIndexed { position, speed ->

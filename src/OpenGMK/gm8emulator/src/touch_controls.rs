@@ -204,9 +204,9 @@ pub const CONTROLS: &[Control] = &[
     // the pair is pressed together (see `control_key_down`). Centred along the very top, and drawn
     // smaller than the rest because its label is a wide one.
     Control { name: COMBO_BUTTON_NAME, key: Key::LeftControl, shape: Shape::Circle { cx: 0.500, cy: 0.060, r: 0.018 }, label: Label::Text("C+P"), contexts: CHARACTER },
-    // The game's own save and load (`F5` and `F6`), plus the app's fast-forward. The save/load
-    // names are kept for compatibility with existing layout files, but they no longer trigger a
-    // quick-save state: they press the same keys as the original game.
+    // The game's own save and load (`F5` and `F6`), plus the app's fast-forward. The legacy
+    // save/load identifiers are kept for compatibility with existing layout files; these are
+    // ordinary key controls, never actions that create or restore an app save-state.
     Control { name: SYS_QSAVE, key: Key::F5, shape: Shape::Circle { cx: 0.045, cy: 0.110, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
     Control { name: SYS_QLOAD, key: Key::F6, shape: Shape::Circle { cx: 0.045, cy: 0.215, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
     Control { name: SYS_FFWD, key: Key::Space, shape: Shape::Circle { cx: 0.045, cy: 0.320, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
@@ -238,13 +238,9 @@ pub const SYS_FFWD: &str = "sys_ffwd";
 /// What a control of the app itself does instead of pressing a key.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum SysAction {
-    QuickSave,
-    QuickLoad,
     FastForward,
     /// Shows or hides the readout of frames per second.
     Stats,
-    /// Moves on to the next quick-save slot.
-    NextSlot,
     /// Goes through the speeds one by one (normal, slow motion, fast-forward, normal again).
     Speed,
     /// Shows or hides the table of what each type is strong and weak against.

@@ -373,7 +373,7 @@ class GameActivity : NativeActivity() {
             }
         }
 
-        /** A short message from the engine (quick save done, fast-forward on...). */
+        /** A short message from the engine (fast-forward on, controls restored...). */
         @JvmStatic
         fun toast(message: String) {
             val activity = instance ?: return

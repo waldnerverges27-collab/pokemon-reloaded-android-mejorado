@@ -76,7 +76,7 @@ private val TOPICS = listOf(
         "Mando fisico",
         listOf(
             "Conecta el mando por Bluetooth o cable antes de abrir el juego. Con un mando activo, los controles tactiles se ocultan solos; tocar la pantalla los trae de vuelta.",
-            "En Ajustes > Mando > Controles asignas cada boton. Ademas de las teclas del juego hay acciones de la app: guardado rapido, cargar, avance rapido, mostrar el indicador de FPS y cambiar de ranura de guardado rapido. Estas dos ultimas no tienen boton de fabrica.",
+            "En Ajustes > Mando > Controles asignas cada boton. Ademas de las teclas del juego puedes asignar dos acciones de la app: avance rapido y mostrar u ocultar el indicador de FPS. Ninguna tiene boton asignado de fabrica.",
         ),
     ),
     HelpTopic(
@@ -84,11 +84,11 @@ private val TOPICS = listOf(
         "Guardar partida",
         listOf(
             "Guardar dentro del juego funciona igual que en el original y es lo que debes usar para jugar de verdad.",
-            "Los iconos de guardar y cargar situados a la izquierda pulsan F5 y F6, las mismas teclas que usa el juego original. No son las ranuras rapidas de la app.",
-            "El guardado rapido (experimental, en Ajustes > Extras) saca una foto de toda la partida en 3 ranuras. Es aparte del guardado del juego. Cargar pide pulsar dos veces para evitar accidentes, y la musica en bucle vuelve a empezar.",
+            "Los iconos de guardar y cargar situados a la izquierda pulsan F5 y F6, las mismas teclas que usa el juego original. Guardar y cargar se hace siempre con las partidas originales.",
+            "Inicio muestra la ultima partida original con su nombre, ranura, lugar y fecha. Continuar abre el juego por su inicio normal y Otras partidas abre el gestor de ranuras. Si todavia no hay ninguna, Inicio explica como empezar.",
             "La velocidad del juego se elige en Extras: camara lenta (x0,5 y x0,75) o avance rapido (x1,5, x2, x3 y x4). El boton de avance rapido alterna entre velocidad normal y la elegida. A otra velocidad el sonido se silencia (se puede cambiar en Extras).",
             "En Botones especiales (dentro de Posicion y tamano de los botones) hay cuatro botones que no existen por defecto: Correr fijo (un toque deja X pulsada y otro la suelta), Boton turbo (mantenerlo pulsa Z una y otra vez), Velocidad (cada toque pasa a la siguiente velocidad) y Tabla de tipos (en combate, muestra las ventajas y debilidades del juego; un toque la cierra). Tambien puedes dar el modo Turbo o Fijo a cualquier boton propio.",
-            "Si mantienes pulsado el icono de la app en el lanzador de Android salen dos atajos: Continuar (entra directo al juego) y Guardado rapido (entra y carga la ranura de guardado rapido elegida).",
+            "Si mantienes pulsado el icono de la app en el lanzador de Android aparece el atajo Continuar, que abre el juego por su inicio normal.",
         ),
     ),
     HelpTopic(

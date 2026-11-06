@@ -194,10 +194,10 @@ fn load_controls() {
     // The player's own layout, if the launcher's editor has written one.
     let layout = PathBuf::from(format!("/data/data/{}/files/layout.conf", PACKAGE_DIR));
     crate::touch_controls::load_layout(&fs::read_to_string(&layout).unwrap_or_default());
-    // The extras: quick save slot, fast-forward, filters, the stats readout and so on.
+    // The extras: fast-forward, filters, the stats readout and so on.
     let extras = PathBuf::from(format!("/data/data/{}/files/extras.conf", PACKAGE_DIR));
     crate::extras::load(&fs::read_to_string(&extras).unwrap_or_default());
-    // The count that times the load of the "load quick save" shortcut starts over with the game.
+    // Held-button and overlay timing starts over with the game.
     TICKS.store(0, std::sync::atomic::Ordering::Relaxed);
     if let Ok(mut map) = PAD_ACTIONS.get_or_init(|| Mutex::new(HashMap::new())).lock() {
         *map = actions;
@@ -208,17 +208,14 @@ fn load_controls() {
     }
 }
 
-/// Pad buttons bound to the app's own actions (quick save, quick load, fast-forward).
+/// Pad buttons bound to the app's own actions (fast-forward and the stats readout).
 static PAD_ACTIONS: std::sync::OnceLock<Mutex<HashMap<AKeyCode, crate::touch_controls::SysAction>>> = std::sync::OnceLock::new();
 
 fn pad_action_named(name: &str) -> Option<crate::touch_controls::SysAction> {
     use crate::touch_controls::SysAction;
     match name.to_ascii_uppercase().as_str() {
-        "QSAVE" => Some(SysAction::QuickSave),
-        "QLOAD" => Some(SysAction::QuickLoad),
         "FFWD" => Some(SysAction::FastForward),
         "STATS" => Some(SysAction::Stats),
-        "QSLOT" => Some(SysAction::NextSlot),
         _ => None,
     }
 }
@@ -227,29 +224,10 @@ fn pad_action(code: i32) -> Option<crate::touch_controls::SysAction> {
     PAD_ACTIONS.get()?.lock().ok()?.get(&code).copied()
 }
 
-/// Does what an action of the app's own asks for. Quick save and load only leave a request: the
-/// game thread carries it out between two frames.
+/// Does what an action of the app's own asks for.
 fn run_sys_action(action: crate::touch_controls::SysAction) {
     use crate::touch_controls::SysAction;
     match action {
-        SysAction::QuickSave => crate::extras::request_quick(true),
-        SysAction::QuickLoad => {
-            // Loading throws away whatever was played since the save, so one stray tap must not do
-            // it: the first asks, a second one within two seconds goes ahead.
-            static ASKED: Mutex<Option<Instant>> = Mutex::new(None);
-            let confirmed = {
-                let mut asked = ASKED.lock().unwrap();
-                let now = Instant::now();
-                let confirmed = asked.map(|at| now.duration_since(at) < Duration::from_secs(2)).unwrap_or(false);
-                *asked = if confirmed { None } else { Some(now) };
-                confirmed
-            };
-            if confirmed {
-                crate::extras::request_quick(false);
-            } else {
-                toast("Toca otra vez para cargar el guardado rapido");
-            }
-        },
         SysAction::FastForward => {
             if crate::extras::toggle_ffwd() {
                 announce_speed(crate::extras::speed_percent());
@@ -272,9 +250,6 @@ fn run_sys_action(action: crate::touch_controls::SysAction) {
         },
         SysAction::Stats => {
             toast(if crate::extras::toggle_stats() { "Indicador de FPS activado" } else { "Indicador de FPS oculto" });
-        },
-        SysAction::NextSlot => {
-            toast(&format!("Ranura de guardado rapido: {}", crate::extras::next_quick_slot()));
         },
     }
 }
@@ -555,13 +530,8 @@ fn release_holds() {
     }
 }
 
-/// How many frames into the game the quick load asked for by the shortcut is made: the game needs
-/// a moment to be up before a saved state can replace it.
-const STARTUP_LOAD_FRAME: u32 = 60;
-
 /// Called by the game thread once per frame: the work of the buttons that keep acting after the
-/// finger went down (turbo taps, locked keys), the table of types following its screen, and the
-/// load that the launcher shortcut asked for.
+/// finger went down (turbo taps, locked keys) and the table of types following its screen.
 pub fn input_tick() {
     let frame = TICKS.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
     crate::touch_controls::type_chart_follow();
@@ -575,9 +545,6 @@ pub fn input_tick() {
         }
     }
     sync_locks();
-    if frame >= STARTUP_LOAD_FRAME && crate::extras::take_startup_load() {
-        crate::extras::request_quick(false);
-    }
 }
 
 /// Pointers whose press was swallowed to bring the on-screen controls back, so that their release

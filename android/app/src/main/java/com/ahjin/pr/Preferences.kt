@@ -167,14 +167,7 @@ class Preferences(context: Context) {
     fun writeVideo(filesDir: File) = writeVideoFile(filesDir, videoMode)
 
     // ------------------------------------------------------------------------------------------
-    // Extras: quick save, fast-forward, picture, battery, pad. See `Extras.kt`.
-
-    /** Which of the quick-save slots the buttons use (1 to 3). */
-    var quickSlot: Int
-        get() = prefs.getInt("quickSlot", 1).coerceIn(1, QUICK_SLOTS)
-        set(value) {
-            prefs.edit().putInt("quickSlot", value.coerceIn(1, QUICK_SLOTS)).apply()
-        }
+    // Extras: fast-forward, picture, battery and pad. See `Extras.kt`.
 
     /**
      * The speed the speed button switches to, as a percentage of normal (one of [SPEED_CHOICES]).
@@ -247,11 +240,11 @@ class Preferences(context: Context) {
         }
 
     /** Mirrors the extras into the file the emulator reads at startup. */
-    fun writeExtras(filesDir: File, quickLoadAtStart: Boolean = false) = writeExtrasFile(
+    fun writeExtras(filesDir: File) = writeExtrasFile(
         filesDir,
         ExtraSettings(
-            quickSlot, speedPercent, ffwdMute, autoHideSeconds, smoothFilter, screenEffect, safeArea,
-            showStats, batteryMode, padRumble, quickLoadAtStart,
+            speedPercent, ffwdMute, autoHideSeconds, smoothFilter, screenEffect, safeArea,
+            showStats, batteryMode, padRumble,
         ),
     )
 }

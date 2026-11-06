@@ -35,7 +35,7 @@ pub mod touch_controls;
 /// The pictures the on-screen buttons borrow from the game's own sprites.
 pub mod game_art;
 
-/// Settings and live state of the extras of the Android build (quick save, fast-forward, filters).
+/// Settings and live state of the extras of the Android build (fast-forward, filters and pad).
 pub mod extras;
 
 mod main_impl;

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -60,11 +61,13 @@ import androidx.compose.ui.unit.dp
 import com.ahjin.pr.Blog
 import com.ahjin.pr.Emulator
 import com.ahjin.pr.GameRepository
+import com.ahjin.pr.latestOriginalSave
+import com.ahjin.pr.originalSaveDate
 import kotlinx.coroutines.launch
 
 /**
- * The home surface is the author's news plus the three things the user can do. Nothing else: the
- * game's own state is expressed through whether "Jugar" is available, not through a status panel.
+ * The home surface is the author's news, the latest original save and the things the user can do.
+ * The one-handed actions stay at the bottom; "Jugar" becomes "Continuar" when a real save exists.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +79,7 @@ fun HomeScreen(
     onLog: () -> Unit,
     onAbout: () -> Unit,
     onLaunch: () -> Unit,
+    onMySaves: () -> Unit,
     launching: Boolean = false,
     onSettings: () -> Unit,
     bottomBar: @Composable () -> Unit = {},
@@ -85,6 +89,7 @@ fun HomeScreen(
     val snackbar = remember { SnackbarHostState() }
     // Re-read on every revision, so it reflects what happened in the other tabs.
     var status by remember(revision) { mutableStateOf(repo.status()) }
+    val latestSave = remember(revision, status) { latestOriginalSave(repo.saveSlots()) }
     var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<Int?>(null) }
     var post by remember { mutableStateOf<Blog.Post?>(null) }
@@ -154,6 +159,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
+                if (installed != null) ContinueCard(latestSave, onMySaves)
                 when {
                     loadingPost -> NewsPlaceholder()
                     post != null -> NewsFeed(post!!)
@@ -210,7 +216,10 @@ fun HomeScreen(
                             Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(28.dp))
                         }
                         Spacer(Modifier.width(12.dp))
-                        Text(if (launching) "Cargando..." else "Jugar", style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            if (launching) "Cargando..." else if (latestSave == null) "Jugar" else "Continuar",
+                            style = MaterialTheme.typography.titleLarge,
+                        )
                     }
                     if (installed == null) {
                         Text(
@@ -251,6 +260,62 @@ fun HomeScreen(
         }
     }
 }
+}
+
+/** The original save closest to where the player left off, or first steps when there is none. */
+@Composable
+private fun ContinueCard(slot: GameRepository.SaveSlot?, onMySaves: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    if (slot == null) Icons.Filled.Info else Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    if (slot == null) "Tu primera partida" else "Continua tu aventura",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+            if (slot == null) {
+                Text(
+                    "Pulsa Jugar para empezar. Guarda con el menu original o con el icono Guardar (F5); " +
+                        "al volver, veras aqui tu ultima partida.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(slot.name ?: "Partida sin nombre", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "Ranura ${slot.index} · ${slot.place ?: "Lugar no disponible"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                slot.savedAt?.let { savedAt ->
+                    Text(
+                        "Guardada el ${originalSaveDate(savedAt)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(
+                    "Continuar abre el juego por su inicio normal; la carga se hace con el sistema original.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TextButton(onClick = onMySaves, modifier = Modifier.align(Alignment.End)) {
+                Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(if (slot == null) "Mis partidas" else "Otras partidas")
+            }
+        }
+    }
 }
 
 /**

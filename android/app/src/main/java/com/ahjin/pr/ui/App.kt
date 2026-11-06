@@ -75,7 +75,11 @@ fun App(repo: GameRepository, prefs: Preferences, incoming: android.net.Uri? = n
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) launching = false
+            if (event == Lifecycle.Event.ON_RESUME) {
+                launching = false
+                // A session may have written another original save; Inicio reads its date afresh.
+                revision++
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -157,7 +161,11 @@ fun App(repo: GameRepository, prefs: Preferences, incoming: android.net.Uri? = n
         return
     }
 
-    BackHandler(enabled = pushed != null) { pushed = null }
+    BackHandler(enabled = pushed != null) {
+        val refreshSaves = pushed == Pushed.MySaves
+        pushed = null
+        if (refreshSaves) revision++
+    }
 
     when (pushed) {
         Pushed.About -> AboutScreen(onBack = { pushed = null })
@@ -167,7 +175,7 @@ fun App(repo: GameRepository, prefs: Preferences, incoming: android.net.Uri? = n
             onBack = { pushed = null },
         )
         Pushed.Layout -> ControlsLayoutScreen(filesDir = context.filesDir, onBack = { pushed = null })
-        Pushed.MySaves -> MySavesScreen(repo = repo, onBack = { pushed = null })
+        Pushed.MySaves -> MySavesScreen(repo = repo, onBack = { pushed = null; revision++ })
         Pushed.Extras -> ExtrasScreen(prefs = prefs, filesDir = context.filesDir, onBack = { pushed = null })
         Pushed.Backups -> BackupsScreen(repo = repo, prefs = prefs, onBack = { pushed = null })
         Pushed.Help -> HelpScreen(onBack = { pushed = null })
@@ -196,6 +204,7 @@ fun App(repo: GameRepository, prefs: Preferences, incoming: android.net.Uri? = n
                                 }
                             }
                         },
+                        onMySaves = { pushed = Pushed.MySaves },
                         launching = launching,
                         onSettings = { scope.launch { pagerState.animateScrollToPage(Tab.Settings.ordinal) } },
                     )

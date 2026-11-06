@@ -76,7 +76,6 @@ object Diagnostics {
         line("Partidas") {
             partidas.listFiles { f -> SaveBackups.isSlotFile("partidas/" + f.name) }?.size ?: 0
         }
-        line("Guardados rapidos") { (1..QUICK_SLOTS).count { QuickSaves.savedAt(context.filesDir, it) != null } }
         runCatching { repo.backups.list() }.onSuccess { copies ->
             line("Copias de seguridad") { "${copies.size} (${formatBytes(copies.sumOf { it.sizeBytes })}), ultima: ${copies.firstOrNull()?.let { DateFormat.getDateTimeInstance().format(Date(it.createdAt)) } ?: "ninguna"}" }
         }
@@ -92,7 +91,6 @@ object Diagnostics {
         line("Controles tactiles") { "iconos=${prefs.functionIcons}, escala=${prefs.touchScale}, opacidad=${prefs.touchOpacity}, joystick=${prefs.stickEnabled}, movimiento=${if (prefs.movementCross8) "cruceta de 8" else "joystick"}, flotante=${prefs.floatingStick}, zona muerta=${prefs.stickDeadzone}" }
         line("Vibracion") { "tactil=${prefs.hapticLevel}, mando=${prefs.padRumble}" }
         line("Ocultar controles") { "${prefs.autoHideSeconds} s" }
-        line("Guardado rapido") { "ranura=${prefs.quickSlot}" }
         line("Avance rapido") { "${speedLabel(prefs.speedPercent)}, silenciar=${prefs.ffwdMute}" }
         line("Copia automatica") { prefs.autoBackup }
         line("Botones propios") {

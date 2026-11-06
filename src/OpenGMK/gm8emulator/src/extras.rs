@@ -1,5 +1,5 @@
-//! Settings and live state of the Android extras that are not part of the original game: quick save
-//! and load, fast-forward, hiding the buttons when idle, the screen filters, the on-screen stats and
+//! Settings and live state of the Android extras that are not part of the original game:
+//! fast-forward, hiding the buttons when idle, the screen filters, the on-screen stats and
 //! the battery saver.
 //!
 //! The launcher writes `extras.conf` (`name=value` lines) before it starts the game and this module
@@ -13,57 +13,6 @@ use std::{
     },
     time::{Duration, Instant},
 };
-
-// ---------------------------------------------------------------------------------------------
-// Quick save / load. The buttons only leave a request here; the game thread acts on it between two
-// frames, when the game is in a state that can be saved.
-
-const NO_REQUEST: u8 = 0;
-const SAVE_REQUEST: u8 = 1;
-const LOAD_REQUEST: u8 = 2;
-
-static QUICK_REQUEST: AtomicU8 = AtomicU8::new(NO_REQUEST);
-static QUICK_SLOT: AtomicU8 = AtomicU8::new(1);
-
-/// How many slots there are. The launcher picks which one the buttons use.
-pub const QUICK_SLOTS: u8 = 3;
-
-pub fn request_quick(save: bool) {
-    QUICK_REQUEST.store(if save { SAVE_REQUEST } else { LOAD_REQUEST }, Ordering::SeqCst);
-}
-
-/// `Some(true)` for a pending save, `Some(false)` for a pending load. Taking it clears it.
-pub fn take_quick_request() -> Option<bool> {
-    match QUICK_REQUEST.swap(NO_REQUEST, Ordering::SeqCst) {
-        SAVE_REQUEST => Some(true),
-        LOAD_REQUEST => Some(false),
-        _ => None,
-    }
-}
-
-pub fn quick_slot() -> u8 {
-    QUICK_SLOT.load(Ordering::Relaxed).clamp(1, QUICK_SLOTS)
-}
-
-/// The slot after the current one (1 -> 2 -> 3 -> 1), for this run of the game. Returns the new slot.
-pub fn next_quick_slot() -> u8 {
-    let next = quick_slot() % QUICK_SLOTS + 1;
-    QUICK_SLOT.store(next, Ordering::Relaxed);
-    next
-}
-
-/// Set when the launcher was opened from the "load quick save" shortcut: the game loads the slot by
-/// itself once it is up, and asks only once.
-static STARTUP_LOAD: AtomicBool = AtomicBool::new(false);
-
-/// Whether a quick load is still waiting to be done because of the shortcut. Taking it clears it.
-pub fn take_startup_load() -> bool {
-    STARTUP_LOAD.swap(false, Ordering::SeqCst)
-}
-
-pub fn startup_load_pending() -> bool {
-    STARTUP_LOAD.load(Ordering::SeqCst)
-}
 
 // ---------------------------------------------------------------------------------------------
 // Fast-forward.
@@ -298,8 +247,6 @@ pub fn pad_device() -> i32 {
 
 /// Applies `extras.conf`. Unknown names and unreadable values are skipped.
 pub fn load(text: &str) {
-    // Asked for afresh by each start of the game: an old request must not carry over.
-    STARTUP_LOAD.store(false, Ordering::SeqCst);
     for line in text.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {
@@ -309,11 +256,6 @@ pub fn load(text: &str) {
         let (name, value) = (name.trim(), value.trim());
         let flag = value != "0" && !value.eq_ignore_ascii_case("false");
         match name {
-            "quick_slot" => {
-                if let Ok(slot) = value.parse::<u8>() {
-                    QUICK_SLOT.store(slot.clamp(1, QUICK_SLOTS), Ordering::Relaxed);
-                }
-            },
             // The first launcher wrote a whole factor (2 to 4); it still reads.
             "ffwd_speed" => {
                 if let Ok(speed) = value.parse::<u16>() {
@@ -327,7 +269,6 @@ pub fn load(text: &str) {
                     }
                 }
             },
-            "startup" => STARTUP_LOAD.store(value == "qload", Ordering::Relaxed),
             "ffwd_mute" => FFWD_MUTE.store(flag, Ordering::Relaxed),
             "autohide_ms" => {
                 if let Ok(ms) = value.parse::<u32>() {
@@ -368,18 +309,7 @@ mod tests {
     static SPEED_TESTS: Mutex<()> = Mutex::new(());
 
     #[test]
-    fn pad_shortcuts_cycle_the_slot_and_flip_the_readout() {
-        let start = quick_slot();
-        let mut seen = Vec::new();
-        for _ in 0..QUICK_SLOTS {
-            seen.push(next_quick_slot());
-        }
-        assert_eq!(quick_slot(), start, "a full turn comes back to the same slot");
-        seen.sort_unstable();
-        seen.dedup();
-        assert_eq!(seen.len(), usize::from(QUICK_SLOTS), "every slot comes up once");
-        assert!(seen.iter().all(|slot| (1..=QUICK_SLOTS).contains(slot)));
-
+    fn the_stats_readout_flips() {
         let before = stats_on();
         assert_eq!(toggle_stats(), !before);
         assert_eq!(stats_on(), !before);
@@ -413,20 +343,17 @@ mod tests {
     }
 
     #[test]
-    fn the_shortcut_load_is_asked_once_and_never_carried_over() {
+    fn the_speed_file_accepts_the_legacy_factor_and_rejects_unknown_values() {
         let _turn = SPEED_TESTS.lock().unwrap_or_else(|e| e.into_inner());
-        load("startup=qload\nspeed_percent=150\n");
-        assert!(startup_load_pending());
+        load("speed_percent=150\n");
         assert_eq!(selected_speed(), 150);
-        assert!(take_startup_load());
-        assert!(!take_startup_load(), "it is done once");
-        load("startup=qload\n");
-        load("quick_slot=2\n");
-        assert!(!startup_load_pending(), "a later start without it does not inherit it");
         // The first launcher's whole factor still reads, and a speed outside the list is ignored.
         load("ffwd_speed=3\n");
         assert_eq!(selected_speed(), 300);
         load("speed_percent=120\n");
+        assert_eq!(selected_speed(), 300);
+        // Obsolete quick-save keys are just unknown settings and cannot schedule any work.
+        load("startup=qload\nquick_slot=2\n");
         assert_eq!(selected_speed(), 300);
     }
 }
