@@ -86,6 +86,7 @@ private val screens = listOf(
     Screen("Dialogos", Layout.DIALOG),
     Screen("Menus", Layout.MENU or Layout.MENU_NAV),
     Screen("Pantallas", Layout.SCREEN or Layout.SCREEN_C),
+    Screen("Mapa de vuelo", Layout.FLY_MAP),
     Screen("Pokedex: lista", Layout.DEX_LIST),
     Screen("Pokedex: ficha", Layout.DEX_DETAIL),
     Screen("Pokedex: filtro", Layout.DEX_FILTER or Layout.DEX_PLACES),
@@ -130,7 +131,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
         placements[spec.name] ?: Placement(spec.cx, spec.cy, Layout.defaultScale(spec.name))
 
     val shown = allControls.filter { it.contexts and screen.mask != 0 } +
-        (if (screen.mask and (Layout.WORLD or Layout.BATTLE or Layout.CHOICE or Layout.MENU_NAV or Layout.SCREEN or Layout.SCREEN_C or Layout.DEX) != 0) listOf(defaults.joystick) else emptyList())
+        (if (screen.mask and (Layout.WORLD or Layout.BATTLE or Layout.CHOICE or Layout.MENU_NAV or Layout.SCREEN or Layout.SCREEN_C or Layout.DEX or Layout.FLY_MAP) != 0) listOf(defaults.joystick) else emptyList())
     // The touch handlers outlive a single composition; they read the current list through this.
     val shownNow by rememberUpdatedState(shown)
 

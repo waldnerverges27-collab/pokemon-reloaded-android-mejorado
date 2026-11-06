@@ -184,8 +184,9 @@ que mira el juego: qué hay delante del jugador, hacia dónde mira, las medallas
 | Excavar | dentro de una cueva | la activa directamente |
 
 Para que salga hacen falta la medalla y un Pokémon del equipo que sepa el movimiento, como en el juego. Vuelo,
-Teletransporte, Velocidad Extrema, Gran Ojo y Dulce Aroma no dependen de un lugar: se usan con la lista de `8`.
-Los dibujos de esas cinco también están en el editor, para ponérselos a un botón propio.
+Teletransporte, Velocidad Extrema, Gran Ojo y Dulce Aroma no dependen de un lugar: cuando están disponibles
+tienen su propio botón en la fila superior, además de la lista de `8`. Los dibujos de esas cinco también están
+en el editor, para ponérselos a un botón propio.
 
 ### Botones según la pantalla
 
@@ -194,10 +195,11 @@ tipo de ventana que dibuja y los objetos que ha creado, como una tienda) y cambi
 
 | Pantalla | Botones |
 | --- | --- |
-| **Mundo** | Joystick, `Z`, `X`, `C` (caña), `V` (bici), `8` (lista de habilidades, solo si ya hay una medalla y se está al aire libre), equipo, mochila, mapa, `E`, `T`, `L`, `P`, `A`, `N` (objetos clave, solo si hay alguno), OK, ESC y los accesos del sistema. **Habilidades externas:** su botón (con su dibujo) sale solo cuando el juego lo pide y desaparece después, ver más abajo |
+| **Mundo** | Joystick, `Z`, `X`, `C` (caña), `V` (bici), `8` (lista de habilidades, solo si ya hay una medalla y se está al aire libre), equipo, mochila, mapa, `E`, `T`, `L`, `P`, `A`, `N` (objetos clave, solo si hay alguno), OK, ESC y los accesos del sistema. **Habilidades externas:** tres huecos contextuales cuando el juego los pide y botones propios para las cinco de uso libre cuando están disponibles |
 | **Combate** | Joystick, ataques `Z X C V`, `B` (bola), `S` (cambiar), rueda **SEL** (elegir Pokémon), equipo, mochila, mega, huir, reloj, `L`, `P`, OK, ESC y los accesos del sistema |
 | **Zona Safari** | Como el mundo, más la bola, sin los ataques |
 | **Mochila, equipo, Pokédex, mapa y misiones** | Joystick, `Z`, `X` y `C` (ordena la lista, o mueve el cursor del mapa) |
+| **Mapa de Vuelo** | Joystick o cruceta, `Z` (confirmar), `X` (cancelar), `C` (mover el cursor), `V` (estilo del mapa) y `P` (ocultar o mostrar al protagonista). Se ocultan las habilidades y los demás controles del mundo |
 | **Movimientos, habilidades e información del Pokémon, entrenador, opciones, móvil, huevos, logros y torneo** | Joystick, `Z` y `X` |
 | **Tiendas** (comprar, vender, canjear) **y PC de objetos** | Joystick, `Z` y `X` |
 | **Diálogos** | Solo el botón que avanza (`Z`), para no tapar el texto |
@@ -207,7 +209,7 @@ tipo de ventana que dibuja y los objetos que ha creado, como una tienda) y cambi
 | **Preferencias del juego nuevo** | Joystick, `Z` y `X` |
 
 Los botones de cada grupo se colocan en **Posición y tamaño de los botones**, una pestaña por grupo
-(**Mundo**, **Diálogos**, **Menús**, **Pantallas**, **Combate**, **Safari**…). Un botón tiene una sola posición:
+(**Mundo**, **Diálogos**, **Menús**, **Pantallas**, **Mapa de vuelo**, **Combate**, **Safari**…). Un botón tiene una sola posición:
 si lo mueves en una pestaña se mueve en todas en las que aparece.
 
 Las minijuegos (casino, cartas, tragaperras) conservan de momento los botones del mundo.
@@ -482,6 +484,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.9.0-dev4** (versión de pruebas) | **Guardar y cargar usan el sistema original del juego.** Los dos iconos fijos de la izquierda envían ahora `F5` y `F6`, en lugar de las ranuras rápidas de la app; los botones especiales y atajos de mando de guardado rápido se conservan. **El mapa de Vuelo tiene su propia capa táctil:** joystick o cruceta y solo `Z`, `X`, `C`, `V` y `P`, ocultando habilidades, guardar/cargar y demás controles del mundo. El editor añade la pestaña «Mapa de vuelo». |
 | **0.9.0-dev3** (versión de pruebas) | **Habilidades de uso libre siempre visibles cuando están disponibles.** Vuelo, Teletransporte, Velocidad Extrema, Gran Ojo y Dulce Aroma tienen botones propios en la fila superior, según las medallas y los movimientos del equipo, sin quitar los tres huecos a las habilidades contextuales. Los botones personalizados recién añadidos ya se pueden arrastrar. El joystick empieza al 80 % y las instalaciones nuevas usan píxeles perfectos, sin cambiar elecciones guardadas. Se entregan dos APK independientes, ARM64 y ARMv7, y el actualizador escoge la arquitectura compatible. |
 | **0.9.0-dev2** (versión de pruebas) | **Todos los iconos se renuevan con diseños vectoriales.** Son 74 dibujos nítidos y con formas relacionadas con su función: 19 para habilidades y sus menús, 35 para botones y 20 letras o números. Vuelo es un ala, Fuerza un brazo con el bíceps flexionado y Velocidad Extrema una zapatilla alada. Los SVG están en `tools/icon-svg/`; `tools/gen-icons.py` genera los PNG de alta resolución del juego y del editor, y el escalado suave sustituye al antiguo escalado de pixel-art. No cambian las teclas, las posiciones ni la lógica de los controles. |
 | **0.9.0-dev1** (versión de pruebas) | **Habilidades externas con su dibujo y solo cuando se piden.** Los botones fijos `1 2 3 5 7` desaparecen. Tres huecos junto a los botones de acción enseñan, con su dibujo propio, la habilidad que el juego pide en ese momento: Corte ante un arbusto, Golpe Roca ante una roca, Fuerza ante una roca redonda, Destello en una sala oscura, Surf junto al agua, Buceo en un punto de buceo, y Cascada, Ola Lava, Treparocas, Torbellino, Daño Secreto y Excavar en su lugar. El botón `8` (lista de habilidades) sale solo con medalla y al aire libre, y `N` (objetos clave) solo si hay alguno, con una medalla y una llave como dibujo. 19 dibujos nuevos (en el editor de botones propios también están Vuelo, Teletransporte, Velocidad Extrema, Gran Ojo y Dulce Aroma). |

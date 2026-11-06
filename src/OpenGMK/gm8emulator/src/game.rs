@@ -2002,6 +2002,9 @@ impl Game {
         crate::touch_controls::set_room(self.room.id);
         crate::touch_controls::set_dialogue(self.dialogue_open());
         crate::touch_controls::set_box_open(self.inside_box());
+        crate::touch_controls::set_fly_map_open(
+            self.room.instance_list.count(crate::touch_controls::FLY_MAP_OBJECT) != 0,
+        );
         crate::touch_controls::set_shop_open(
             crate::touch_controls::SHOP_OBJECTS.iter().any(|&object| self.room.instance_list.count(object) != 0),
         );

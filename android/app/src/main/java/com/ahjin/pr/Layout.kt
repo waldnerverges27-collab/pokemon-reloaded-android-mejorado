@@ -64,6 +64,7 @@ object Layout {
     const val DEX_FILTER = 4096
     const val DEX_PLACES = 8192
     const val DEX = DEX_LIST or DEX_DETAIL or DEX_FILTER or DEX_PLACES
+    const val FLY_MAP = 16384
 
     class Defaults(val controls: List<ControlSpec>, val joystick: ControlSpec)
 
@@ -85,7 +86,7 @@ object Layout {
         val j = root.getJSONObject("joystick")
         val stick = ControlSpec(
             JOYSTICK, "", j.getDouble("cx").toFloat(), j.getDouble("cy").toFloat(), j.getDouble("r").toFloat(),
-            WORLD or BATTLE or CHOICE or MENU_NAV or SCREEN or SCREEN_C or DEX,
+            WORLD or BATTLE or CHOICE or MENU_NAV or SCREEN or SCREEN_C or DEX or FLY_MAP,
         )
         return Defaults(controls, stick)
     }

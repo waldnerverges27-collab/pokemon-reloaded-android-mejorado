@@ -7,7 +7,7 @@ import re
 
 SRC = 'src/OpenGMK/gm8emulator/src/touch_controls.rs'
 OUT = 'android/app/src/main/assets/controls-layout.json'
-CONTEXTS = {'MENU': 1, 'WORLD': 2, 'BATTLE': 4, 'DIALOG': 8, 'CHARACTER': 16, 'CHOICE': 32, 'SAFARI': 64, 'MENU_NAV': 128, 'SCREEN': 256, 'SCREEN_C': 512, 'DEX_LIST': 1024, 'DEX_DETAIL': 2048, 'DEX_FILTER': 4096, 'DEX_PLACES': 8192, 'DEX': 15360}
+CONTEXTS = {'MENU': 1, 'WORLD': 2, 'BATTLE': 4, 'DIALOG': 8, 'CHARACTER': 16, 'CHOICE': 32, 'SAFARI': 64, 'MENU_NAV': 128, 'SCREEN': 256, 'SCREEN_C': 512, 'DEX_LIST': 1024, 'DEX_DETAIL': 2048, 'DEX_FILTER': 4096, 'DEX_PLACES': 8192, 'DEX': 15360, 'FLY_MAP': 16384}
 
 text = open(SRC).read()
 SYSTEM_LABELS = {'sys_qsave': 'Guardar', 'sys_qload': 'Cargar', 'sys_ffwd': 'Rápido'}
@@ -28,7 +28,7 @@ for name, cx, cy, r, kind, label, ctx in pattern.findall(text):
     mask = 0
     for part in ctx.split('|'):
         mask |= CONTEXTS[part.strip()]
-    if name in SYSTEM_LABELS:  # quick save, quick load, fast-forward: drawn as icons, movable
+    if name in SYSTEM_LABELS:  # game save/load and app fast-forward: drawn as icons, movable
         label = SYSTEM_LABELS[name]
     elif mask & 8 or kind != 'Text':  # the dialogue box and the picture buttons are not movable
         continue

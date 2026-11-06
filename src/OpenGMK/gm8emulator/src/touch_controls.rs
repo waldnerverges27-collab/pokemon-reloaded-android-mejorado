@@ -103,6 +103,11 @@ pub const DEX_FILTER: u16 = 4096;
 pub const DEX_PLACES: u16 = 8192;
 /// Any of the Pokédex screens.
 pub const DEX: u16 = DEX_LIST | DEX_DETAIL | DEX_FILTER | DEX_PLACES;
+/// The map opened by Fly. Its `obj_pantallavuelo` (153) reads Z/Enter to confirm, X to cancel,
+/// arrows to move, C for the mouse cursor, V for the map style and P to hide/show the protagonist.
+/// Enter and Fly's own 2 key only duplicate confirm/cancel, so the overlay does not repeat them.
+pub const FLY_MAP: u16 = 16384;
+pub const FLY_MAP_OBJECT: i32 = 153;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Shape {
@@ -163,14 +168,14 @@ pub const CONTROLS: &[Control] = &[
     Control { name: "e", key: Key::E, shape: Shape::Circle { cx: 0.516, cy: 0.145, r: 0.022 }, label: Label::Text("E"), contexts: WORLD | BATTLE | SAFARI },
     Control { name: "t", key: Key::T, shape: Shape::Circle { cx: 0.588, cy: 0.145, r: 0.022 }, label: Label::Text("T"), contexts: WORLD | BATTLE | SAFARI },
     Control { name: "l", key: Key::L, shape: Shape::Circle { cx: 0.660, cy: 0.145, r: 0.022 }, label: Label::Text("L"), contexts: WORLD | BATTLE | SAFARI },
-    Control { name: "p", key: Key::P, shape: Shape::Circle { cx: 0.732, cy: 0.145, r: 0.022 }, label: Label::Text("P"), contexts: WORLD | BATTLE | SAFARI },
+    Control { name: "p", key: Key::P, shape: Shape::Circle { cx: 0.732, cy: 0.145, r: 0.022 }, label: Label::Text("P"), contexts: WORLD | BATTLE | SAFARI | FLY_MAP },
     // Main actions, in the diamond a gamepad's face buttons use: the main one at the bottom, cancel
     // to the right, and the other two on the left and on top. The cluster is about the size of the
     // movement joystick and sits at the same height, so the two thumbs fall in the same place.
-    Control { name: "z", key: Key::Z, shape: Shape::Circle { cx: 0.865, cy: 0.851, r: 0.033 }, label: Label::Text("Z"), contexts: WORLD | BATTLE | CHOICE | SCREEN | SCREEN_C | DEX },
-    Control { name: "x", key: Key::X, shape: Shape::Circle { cx: 0.933, cy: 0.700, r: 0.033 }, label: Label::Text("X"), contexts: WORLD | BATTLE | CHOICE | MENU_NAV | SCREEN | SCREEN_C | DEX },
-    Control { name: "c", key: Key::C, shape: Shape::Circle { cx: 0.797, cy: 0.700, r: 0.033 }, label: Label::Text("C"), contexts: WORLD | BATTLE | SCREEN_C | DEX_LIST | DEX_DETAIL },
-    Control { name: "v", key: Key::V, shape: Shape::Circle { cx: 0.865, cy: 0.549, r: 0.033 }, label: Label::Text("V"), contexts: WORLD | BATTLE | DEX_LIST | DEX_DETAIL },
+    Control { name: "z", key: Key::Z, shape: Shape::Circle { cx: 0.865, cy: 0.851, r: 0.033 }, label: Label::Text("Z"), contexts: WORLD | BATTLE | CHOICE | SCREEN | SCREEN_C | DEX | FLY_MAP },
+    Control { name: "x", key: Key::X, shape: Shape::Circle { cx: 0.933, cy: 0.700, r: 0.033 }, label: Label::Text("X"), contexts: WORLD | BATTLE | CHOICE | MENU_NAV | SCREEN | SCREEN_C | DEX | FLY_MAP },
+    Control { name: "c", key: Key::C, shape: Shape::Circle { cx: 0.797, cy: 0.700, r: 0.033 }, label: Label::Text("C"), contexts: WORLD | BATTLE | SCREEN_C | DEX_LIST | DEX_DETAIL | FLY_MAP },
+    Control { name: "v", key: Key::V, shape: Shape::Circle { cx: 0.865, cy: 0.549, r: 0.033 }, label: Label::Text("V"), contexts: WORLD | BATTLE | DEX_LIST | DEX_DETAIL | FLY_MAP },
     // Secondary.
     Control { name: "b", key: Key::B, shape: Shape::Circle { cx: 0.712, cy: 0.840, r: 0.026 }, label: Label::Text("B"), contexts: BATTLE | SAFARI },
     Control { name: "s", key: Key::S, shape: Shape::Circle { cx: 0.712, cy: 0.700, r: 0.026 }, label: Label::Text("S"), contexts: BATTLE },
@@ -199,10 +204,11 @@ pub const CONTROLS: &[Control] = &[
     // the pair is pressed together (see `control_key_down`). Centred along the very top, and drawn
     // smaller than the rest because its label is a wide one.
     Control { name: COMBO_BUTTON_NAME, key: Key::LeftControl, shape: Shape::Circle { cx: 0.500, cy: 0.060, r: 0.018 }, label: Label::Text("C+P"), contexts: CHARACTER },
-    // Controls of the app itself, not of the game: quick save, quick load and fast-forward. They
-    // press no key (see `sys_action`) and sit in the top-left corner, clear of the stick and the rest.
-    Control { name: SYS_QSAVE, key: Key::Space, shape: Shape::Circle { cx: 0.045, cy: 0.110, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
-    Control { name: SYS_QLOAD, key: Key::Space, shape: Shape::Circle { cx: 0.045, cy: 0.215, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
+    // The game's own save and load (`F5` and `F6`), plus the app's fast-forward. The save/load
+    // names are kept for compatibility with existing layout files, but they no longer trigger a
+    // quick-save state: they press the same keys as the original game.
+    Control { name: SYS_QSAVE, key: Key::F5, shape: Shape::Circle { cx: 0.045, cy: 0.110, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
+    Control { name: SYS_QLOAD, key: Key::F6, shape: Shape::Circle { cx: 0.045, cy: 0.215, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
     Control { name: SYS_FFWD, key: Key::Space, shape: Shape::Circle { cx: 0.045, cy: 0.320, r: 0.022 }, label: Label::None, contexts: WORLD | BATTLE | SAFARI },
     // The Pokédex's own buttons. They sit where the battle's B and S do, left of the main diamond, so
     // the thumb already knows the place. Each press is the key the Pokédex's own script reads.
@@ -247,8 +253,6 @@ pub enum SysAction {
 
 pub fn sys_action_named(name: &str) -> Option<SysAction> {
     match name {
-        SYS_QSAVE => Some(SysAction::QuickSave),
-        SYS_QLOAD => Some(SysAction::QuickLoad),
         SYS_FFWD => Some(SysAction::FastForward),
         _ => None,
     }
@@ -1070,6 +1074,18 @@ pub fn box_open() -> bool {
     BOX_OPEN.load(Ordering::Relaxed)
 }
 
+/// Whether Fly's map is open. The engine reports the presence of `obj_pantallavuelo` (153), whose
+/// step event runs `KeyActionsPantallaVuelo`; this is not the ordinary map room or the flight itself.
+static FLY_MAP_OPEN: AtomicBool = AtomicBool::new(false);
+
+pub fn set_fly_map_open(open: bool) {
+    FLY_MAP_OPEN.store(open, Ordering::Relaxed);
+}
+
+pub fn fly_map_open() -> bool {
+    FLY_MAP_OPEN.load(Ordering::Relaxed)
+}
+
 /// Whether the game has its own text-entry dialog open (the modal that draws the on-screen keyboard,
 /// GML script 7754). The engine reports it every time it draws, and the Android side raises the
 /// system keyboard while it is true.
@@ -1500,6 +1516,11 @@ pub fn current_context() -> u16 {
     if modal_id() == LIST_MODAL {
         return MENU_NAV
     }
+    // Fly uses an overlay object in the current room, not a room of its own. Its own key script is
+    // active only while that object exists, so this cannot hide controls on the ordinary map.
+    if fly_map_open() {
+        return FLY_MAP
+    }
     match ROOM.load(Ordering::Relaxed) {
         // IntroROOM, InicioROOM, CargarPartida, MultijugadorMenu, CreditosInicioScreen, OptionsROOM:
         // these screens are fully clickable (once the game's own click boxes are fixed, see
@@ -1665,7 +1686,7 @@ pub fn joystick_active() -> bool {
     !pad_active()
         && !info_window_open()
         && joystick_visible()
-        && current_context() & (WORLD | BATTLE | CHOICE | MENU_NAV | SCREEN | SCREEN_C | DEX) != 0
+        && current_context() & (WORLD | BATTLE | CHOICE | MENU_NAV | SCREEN | SCREEN_C | DEX | FLY_MAP) != 0
 }
 
 /// Returns the index of the control containing the point, if any. The point is normalised, but the
@@ -1883,7 +1904,7 @@ pub fn set_cross8_chosen(value: bool) {
 /// Whether a screen of the game is one of the menus, the lists and the Pokédex: where the movement
 /// control is always the four-direction cross, whatever the player chose for the map.
 pub fn is_menu_context(context: u16) -> bool {
-    context & (MENU_NAV | SCREEN | SCREEN_C | CHOICE | DEX) != 0
+    context & (MENU_NAV | SCREEN | SCREEN_C | CHOICE | DEX | FLY_MAP) != 0
 }
 
 /// The kind of movement control to use now: the cross of four in the menus and the Pokédex, and what
@@ -2449,6 +2470,8 @@ mod tests {
         assert_eq!(find("key_ex_correr"), Some(88));
         assert_eq!(find("key_bt_tiempo"), Some(17));
         assert_eq!(find("key_menu_principal"), Some(13));
+        assert_eq!(find("key_global_guardar"), Some(116));
+        assert_eq!(find("key_global_cargar"), Some(117));
         assert_eq!(find("key_p2_mov_arriba"), None, "the second player's keys are not ours");
         assert!(KEY_DEFAULTS.len() > 200);
         let mut names: Vec<_> = KEY_DEFAULTS.iter().map(|(n, _)| *n).collect();
@@ -2577,6 +2600,19 @@ mod tests {
     }
 
     #[test]
+    fn the_fly_map_has_only_the_keys_its_script_reads() {
+        assert_eq!(FLY_MAP_OBJECT, 153);
+        // No abilities, save/load, bag, ordinary map, Enter or duplicate Fly shortcut.
+        assert_eq!(shown_on(FLY_MAP), ["p", "z", "x", "c", "v"]);
+        let key = |name: &str| key_of(index_of(name).unwrap());
+        assert_eq!(key("z"), Key::Z);
+        assert_eq!(key("x"), Key::X);
+        assert_eq!(key("c"), Key::C);
+        assert_eq!(key("v"), Key::V);
+        assert_eq!(key("p"), Key::P);
+    }
+
+    #[test]
     fn the_pokedex_has_its_own_buttons_on_each_screen() {
         assert_eq!(dex_of(17), Some(DEX_LIST));
         assert_eq!(dex_of(18), Some(DEX_DETAIL));
@@ -2616,7 +2652,7 @@ mod tests {
 
     #[test]
     fn menus_and_the_pokedex_get_the_four_way_cross() {
-        for context in [MENU_NAV, SCREEN, SCREEN_C, CHOICE, DEX_LIST, DEX_DETAIL, DEX_FILTER, DEX_PLACES] {
+        for context in [MENU_NAV, SCREEN, SCREEN_C, CHOICE, DEX_LIST, DEX_DETAIL, DEX_FILTER, DEX_PLACES, FLY_MAP] {
             for chosen in [false, true] {
                 assert_eq!(pad_kind_for(context, chosen), PadKind::Cross4, "context {context}");
             }
@@ -2670,8 +2706,13 @@ mod tests {
 
     #[test]
     fn system_actions_are_found_by_name() {
-        assert_eq!(sys_action_named(SYS_QSAVE), Some(SysAction::QuickSave));
+        assert_eq!(sys_action_named(SYS_FFWD), Some(SysAction::FastForward));
         assert_eq!(sys_action_named("z"), None);
+        // The two fixed icons use the game's original save/load, not an app save-state.
+        assert_eq!(sys_action_named(SYS_QSAVE), None);
+        assert_eq!(sys_action_named(SYS_QLOAD), None);
+        assert_eq!(key_of(index_of(SYS_QSAVE).unwrap()), Key::F5);
+        assert_eq!(key_of(index_of(SYS_QLOAD).unwrap()), Key::F6);
     }
 
     #[test]
