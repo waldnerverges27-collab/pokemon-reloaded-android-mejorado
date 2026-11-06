@@ -239,13 +239,19 @@ fun SliderRow(
     modifier: Modifier = Modifier,
     valueRange: ClosedFloatingPointRange<Float> = 0.15f..1f,
     onValueChange: (Float) -> Unit,
+    onValueChangeFinished: (() -> Unit)? = null,
 ) {
     GroupListItem(
         headlineContent = { Text(title, style = MaterialTheme.typography.titleMedium) },
         supportingContent = {
             Column {
                 Text(subtitle, style = MaterialTheme.typography.bodyMedium)
-                Slider(value = value, onValueChange = onValueChange, valueRange = valueRange)
+                Slider(
+                    value = value,
+                    onValueChange = onValueChange,
+                    valueRange = valueRange,
+                    onValueChangeFinished = { onValueChangeFinished?.invoke() },
+                )
             }
         },
         leadingContent = { Icon(icon, contentDescription = null) },

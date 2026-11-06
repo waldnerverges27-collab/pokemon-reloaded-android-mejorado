@@ -193,6 +193,42 @@ class LayoutTest {
     }
 
     @Test
+    fun `resetting one button preserves the rest of the design and the original snapshot`() {
+        val original = LayoutFile(
+            placements = mapOf(
+                "z" to Placement(0.2f, 0.3f, 1.4f, false),
+                "x" to Placement(0.7f, 0.6f, 0.9f, true),
+                "custom1" to Placement(0.5f, 0.4f, 1.1f, true),
+            ),
+            customs = mapOf(1 to CustomButton(1, "X:lock", "~run", Layout.WORLD)),
+        )
+        val restored = original.resetButton("z")
+        assertFalse(restored.placements.containsKey("z"))
+        assertEquals(original.placements["x"], restored.placements["x"])
+        assertEquals(original.placements["custom1"], restored.placements["custom1"])
+        assertEquals(original.customs, restored.customs)
+        assertTrue(original.placements.containsKey("z"))
+
+        val restoredCustom = original.resetButton("custom1")
+        assertFalse(restoredCustom.placements.containsKey("custom1"))
+        assertEquals(original.customs, restoredCustom.customs)
+        assertEquals(original.placements["z"], restoredCustom.placements["z"])
+        assertEquals(original.placements["x"], restoredCustom.placements["x"])
+    }
+
+    @Test
+    fun `explicit save writes the layout that a later editor or the game will read`() {
+        val dir = java.nio.file.Files.createTempDirectory("layout-save").toFile()
+        val layout = LayoutFile(
+            placements = mapOf("z" to Placement(0.4f, 0.3f, 1.2f, false)),
+            customs = emptyMap(),
+        )
+        assertTrue(Layout.write(dir, layout))
+        assertEquals(layout, Layout.read(dir))
+        dir.deleteRecursively()
+    }
+
+    @Test
     fun `the movement choice reaches the engine`() {
         val dir = java.nio.file.Files.createTempDirectory("controls").toFile()
         writeControlsFile(dir, emptyMap(), true, false, TouchSettings(cross8 = true))

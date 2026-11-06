@@ -261,7 +261,7 @@ fun SettingsScreen(
                 NavRow(
                     icon = Icons.Filled.ZoomOutMap,
                     title = "Posicion y tamano de los botones",
-                    subtitle = "Arrastra cada boton donde te venga mejor, o escondelo",
+                    subtitle = "Mueve, redimensiona, deshaz y prueba el diseño antes de guardar",
                     items = 2,
                     index = 1,
                     onClick = onLayout,

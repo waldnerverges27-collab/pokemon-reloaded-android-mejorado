@@ -149,7 +149,9 @@ Si ya jugabas en PC, tu partida entra desde **Ajustes → Partidas → Importar*
 - **Joystick de 8 direcciones** en todo el juego, con diagonales con histéresis, zona muerta
   ajustable y modo flotante que sigue al pulgar.
 - **Editor de posiciones y tamaños.** Arrastra, redimensiona u oculta cada botón por pantalla del
-  juego. Admite **diseños guardados** con nombre.
+  juego. El borrador tiene **deshacer/rehacer**, restauración individual sin tocar los demás botones,
+  aviso al salir sin guardar y una **pantalla interactiva de prueba** que no envía teclas al juego.
+  Solo el botón **Guardar** cambia el diseño que leerá el emulador; también admite copias con nombre.
 - **Botones propios:** hasta 8, con la tecla, el texto de 3 letras **o uno de 32 iconos** (los de arriba,
   flechas, estrella, corazón, pausa, tabla…) y las pantallas que elijas.
 - **Preajustes de disposición:** Estándar, Zurdo, Compacto, Grande y Zurdo compacto, con
@@ -507,6 +509,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.9.0-dev7** (versión de pruebas) | **Editor de controles con borrador.** Deshacer/rehacer incluye posiciones, tamaños, visibilidad y botones propios; cada arrastre o ajuste de tamaño cuenta como una sola acción. Se puede restaurar un botón sin perder el resto del diseño, ensayar el borrador en una pantalla táctil interactiva y recibir un aviso al salir sin guardar. El juego solo lee los cambios después de pulsar Guardar. No cambia las teclas, los contextos ni los controles en ejecución. |
 | **0.9.0-dev6** (versión de pruebas) | **Actualizador reanudable y verificado.** Las descargas de APK se pueden cancelar y continuar después de un corte, una rotación o una reapertura, sin duplicar bytes si el servidor no admite `Range`. Los errores de red, espacio y respuesta se explican con una acción concreta. Antes de instalar se comprueba también el SHA-256 publicado por GitHub, además del tamaño, paquete, versión y certificado. Si falta el permiso de instalación, se reintenta con el APK ya descargado. No cambia los controles, el juego ni las partidas. |
 | **0.9.0-dev5** (versión de pruebas) | **Paquete opcional de gritos del anime.** Ajustes → Audio descarga el ZIP verificado desde una release pública independiente, con progreso, cancelación y reanudación. Comprueba tamaño, SHA-256, rutas, CRC y los 1.284 WAV; hace copia de los originales, fusiona sin borrar los gritos ausentes del paquete y permite restaurarlos. El paquete queda fuera del juego para reaplicarlo tras una reimportación o actualización, y «Mantener originales» desactiva esa reaplicación. No cambia las partidas ni se incluye en los APK. |
 | **0.9.0-dev4** (versión de pruebas) | **Guardar y cargar usan el sistema original del juego.** Los dos iconos fijos de la izquierda envían ahora `F5` y `F6`, en lugar de las ranuras rápidas de la app; los botones especiales y atajos de mando de guardado rápido se conservan. **El mapa de Vuelo tiene su propia capa táctil:** joystick o cruceta y solo `Z`, `X`, `C`, `V` y `P`, ocultando habilidades, guardar/cargar y demás controles del mundo. El editor añade la pestaña «Mapa de vuelo». |

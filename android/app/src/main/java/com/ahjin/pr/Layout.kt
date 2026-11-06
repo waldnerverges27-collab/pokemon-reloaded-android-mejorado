@@ -42,7 +42,10 @@ data class CustomButton(val slot: Int, val key: String, val label: String, val c
 }
 
 /** What `layout.conf` holds: where each button is, and the buttons the player made. */
-data class LayoutFile(val placements: Map<String, Placement>, val customs: Map<Int, CustomButton>)
+data class LayoutFile(val placements: Map<String, Placement>, val customs: Map<Int, CustomButton>) {
+    /** Removing a placement returns just that control to the built-in position, size and visibility. */
+    fun resetButton(name: String): LayoutFile = copy(placements = placements - name)
+}
 
 /** The movement stick: radius is a fraction of the screen *height*. */
 const val JOYSTICK = "joystick"
@@ -284,10 +287,10 @@ object Layout {
     }
 
     /** Writes only what differs from the built-in layout, in the engine's format. */
-    fun write(filesDir: File, layout: LayoutFile) {
+    fun write(filesDir: File, layout: LayoutFile): Boolean {
         val text = format(layout)
         // Beside the real file and renamed over it, so an interrupted write cannot leave half a layout.
-        runCatching {
+        return runCatching {
             val target = File(filesDir, "layout.conf")
             val tmp = File(filesDir, "layout.conf.tmp")
             tmp.writeText(text)
@@ -295,7 +298,7 @@ object Layout {
                 target.writeText(text)
                 tmp.delete()
             }
-        }
+        }.isSuccess
     }
 
     fun format(layout: LayoutFile): String = buildString {
