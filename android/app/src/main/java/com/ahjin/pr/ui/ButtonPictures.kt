@@ -12,8 +12,8 @@ import com.ahjin.pr.Layout
 
 /**
  * The pictures the buttons wear in the game (`assets/icons`, the same ones the engine has built in),
- * by name. They are pixel art, so they are scaled without smoothing. A picture that cannot be read is
- * left out; the editor then shows the button's letter.
+ * by name. They are rasterized vector art, so they are scaled with high-quality smoothing. A picture that
+ * cannot be read is left out; the editor then shows the button's letter.
  */
 @Composable
 fun rememberButtonPictures(): Map<String, Painter> {
@@ -21,7 +21,7 @@ fun rememberButtonPictures(): Map<String, Painter> {
     return remember {
         Layout.PICTURES.mapNotNull { name ->
             val bitmap = runCatching { context.assets.open("icons/$name.png").use { BitmapFactory.decodeStream(it) } }.getOrNull()
-            bitmap?.let { name to BitmapPainter(it.asImageBitmap(), filterQuality = FilterQuality.None) }
+            bitmap?.let { name to BitmapPainter(it.asImageBitmap(), filterQuality = FilterQuality.High) }
         }.toMap()
     }
 }

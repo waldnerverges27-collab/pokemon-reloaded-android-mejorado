@@ -1070,8 +1070,9 @@ fn load_skin(gl: &gl::Gl) -> (GLuint, [Option<SkinSlot>; MAX_SKIN_SLOTS]) {
     }
 }
 
-/// Puts the pictures of the buttons (icons, letters and numbers) in one small texture, side by side
-/// with a transparent column between them, and says where each sits. The previous texture is released.
+/// Puts the pictures of the buttons (icons, letters and numbers) in one texture, in rows with a
+/// transparent margin around every picture, and says where each sits. The texture has power-of-two
+/// dimensions so mipmaps also work on older GLES devices. The previous texture is released.
 /// Returns 0 and no slots when none could be made (the buttons then keep their drawn icons).
 #[cfg(target_os = "android")]
 fn build_icons(gl: &gl::Gl, old: GLuint) -> (GLuint, [Option<[f32; 7]>; crate::game_art::SLOT_COUNT]) {
@@ -1085,35 +1086,61 @@ fn build_icons(gl: &gl::Gl, old: GLuint) -> (GLuint, [Option<[f32; 7]>; crate::g
     if pictures.is_empty() {
         return (0, slots)
     }
-    let width: u32 = pictures.iter().map(|p| p.width + 1).sum();
-    let height: u32 = pictures.iter().map(|p| p.height).max().unwrap_or(1);
-    let mut pixels = vec![0u8; (width * height * 4) as usize];
-    let mut x = 0u32;
+    // A wide single row would exceed the texture limit of many phones at this resolution. Shelf
+    // packing keeps the atlas below 2048 px, and 16 transparent pixels between pictures prevent
+    // neighbouring drawings from bleeding into one another when the mipmaps are sampled.
+    const MAX_SIZE: u32 = 2048;
+    const GUTTER: u32 = 16;
+    let mut places = Vec::with_capacity(pictures.len());
+    let (mut x, mut y, mut row_height, mut used_width) = (GUTTER, GUTTER, 0u32, 0u32);
     for picture in pictures {
+        if picture.width + 2 * GUTTER > MAX_SIZE {
+            return (0, [None; crate::game_art::SLOT_COUNT])
+        }
+        if x + picture.width + GUTTER > MAX_SIZE {
+            x = GUTTER;
+            y += row_height + GUTTER;
+            row_height = 0;
+        }
+        places.push((x, y));
+        used_width = used_width.max(x + picture.width + GUTTER);
+        row_height = row_height.max(picture.height);
+        x += picture.width + GUTTER;
+    }
+    let used_height = y + row_height + GUTTER;
+    if used_height > MAX_SIZE {
+        return (0, [None; crate::game_art::SLOT_COUNT])
+    }
+    let width = used_width.next_power_of_two();
+    let height = used_height.next_power_of_two();
+    let mut pixels = vec![0u8; (width * height * 4) as usize];
+    for (picture, &(x, y)) in pictures.iter().zip(places.iter()) {
         let row = (picture.width * 4) as usize;
-        for y in 0..picture.height as usize {
-            let dst = ((y as u32 * width + x) * 4) as usize;
-            pixels[dst..dst + row].copy_from_slice(&picture.rgba[y * row..(y + 1) * row]);
+        for dy in 0..picture.height as usize {
+            let dst = (((y as usize + dy) * width as usize + x as usize) * 4) as usize;
+            pixels[dst..dst + row].copy_from_slice(&picture.rgba[dy * row..(dy + 1) * row]);
         }
         slots[picture.slot] = Some([
             x as f32 / width as f32,
-            0.0,
+            y as f32 / height as f32,
             (x + picture.width) as f32 / width as f32,
-            picture.height as f32 / height as f32,
+            (y + picture.height) as f32 / height as f32,
             picture.width as f32 / picture.height as f32,
             picture.width as f32,
             picture.height as f32,
         ]);
-        x += picture.width + 1;
     }
     unsafe {
         let mut texture = 0;
         gl.GenTextures(1, &mut texture);
         gl.BindTexture(gl::TEXTURE_2D, texture);
-        gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
-        gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+        // The pictures are rasterized vector art, not pixel art: linear filtering and mipmaps keep
+        // their curves and diagonal outlines smooth at every button size.
+        gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as _);
+        gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as _);
         gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as _);
         gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as _);
+        gl.PixelStorei(gl::UNPACK_ALIGNMENT, 1);
         gl.TexImage2D(
             gl::TEXTURE_2D,
             0,
@@ -1125,6 +1152,7 @@ fn build_icons(gl: &gl::Gl, old: GLuint) -> (GLuint, [Option<[f32; 7]>; crate::g
             gl::UNSIGNED_BYTE,
             pixels.as_ptr().cast(),
         );
+        gl.GenerateMipmap(gl::TEXTURE_2D);
         if gl.GetError() != 0 {
             // Never leave the overlay without its controls over a picture that would not upload.
             gl.DeleteTextures(1, &texture);
@@ -1613,7 +1641,7 @@ impl RendererImpl {
             };
             let press = touch_controls::press_anim(i, pressed, dt);
             if !touch_controls::keeps_art(c.name) {
-                // A smooth translucent button with a small pixel-art picture on it.
+                // A smooth translucent button with a small vector picture on it.
                 let (cx, cy, r) = match touch_controls::window_shape(i) {
                     touch_controls::Shape::Circle { cx, cy, r } => (cx * ww, cy * wh, r * ww),
                     touch_controls::Shape::Rect { cx, cy, w, h } => (cx * ww, cy * wh, (w * ww + h * wh) / 4.0),
@@ -1632,14 +1660,12 @@ impl RendererImpl {
                     None => overlay.glyph_art(label),
                 };
                 if let Some(uv) = art {
-                    // Every pixel of the picture is a whole number of screen pixels, and the picture
-                    // sits on the pixel grid: that is what keeps pixel art sharp (a fractional scale
-                    // makes some pixels wider than others and the edges look smeared). The step is
-                    // the same for every picture (they are all drawn on a 16-pixel canvas), so a
-                    // pixel is the same size on every button; the size aims at two thirds of the
-                    // button, leaning to the smaller step.
+                    // All the pictures share the same 128-pixel reference canvas (the transparent
+                    // safety margin has already been cropped), so their relative sizes match the SVG
+                    // designs. Fractional scaling is intentional: the texture is linear-filtered and
+                    // mipmapped, which keeps the vector outlines smooth instead of stair-stepped.
                     let target = r * 1.34;
-                    let scale = ((target / 16.0) + 0.35).floor().max(1.0);
+                    let scale = target / crate::game_art::CANVAS_PIXELS;
                     let (pw, ph) = (uv[5] * scale, uv[6] * scale);
                     let (x1, y1) = ((cx - pw / 2.0).round(), (cy - ph / 2.0).round());
                     push_sprite(&mut icon_sprites, ww, wh, x1, y1, x1 + pw, y1 + ph, uv[0], uv[1], uv[2], uv[3], opacity);

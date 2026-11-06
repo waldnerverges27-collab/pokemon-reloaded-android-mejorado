@@ -692,7 +692,7 @@ pub fn load_layout(text: &str) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Look. The buttons are smooth translucent discs with a small pixel-art picture (or letter) on them;
+// Look. The buttons are smooth translucent discs with a small vector picture (or letter) on them;
 // the pictures are in `game_art`.
 
 /// How opaque the buttons are drawn right now: the player's setting times the fade of the idle

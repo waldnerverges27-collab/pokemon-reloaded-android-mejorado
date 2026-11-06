@@ -293,7 +293,9 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                         val painter = icon?.let { iconPainters[it] }
                         val label = if (isStick || spec.label.startsWith("~")) "" else spec.label
                         if (painter != null) {
-                            val side = r * 1.3f
+                            // The 160 px files have a transparent margin around the original 128 px
+                            // canvas. Compensate for it so the visible drawing matches the engine.
+                            val side = r * 1.3f * (160f / 128f)
                             translate(center.x - side / 2f, center.y - side / 2f) {
                                 with(painter) { draw(Size(side, side), alpha = alpha) }
                             }
