@@ -64,6 +64,18 @@ class LayoutTest {
     }
 
     @Test
+    fun `the joystick starts at eighty percent and presets resize from that default`() {
+        assertEquals(0.8f, Layout.defaultScale(JOYSTICK), 1e-6f)
+        assertEquals(1f, Layout.defaultScale("z"), 1e-6f)
+        val left = LayoutPresets.placements(defaults(), LayoutPresets.ALL.first { it.title == "Zurdo" }, emptyMap())
+        assertEquals(0.8f, left.getValue(JOYSTICK).scale, 1e-6f)
+        assertEquals(1f, left.getValue("z").scale, 1e-6f)
+        val compact = LayoutPresets.placements(defaults(), LayoutPresets.ALL.first { it.title == "Compacto" }, emptyMap())
+        assertEquals(0.68f, compact.getValue(JOYSTICK).scale, 1e-6f)
+        assertEquals(0.85f, compact.getValue("z").scale, 1e-6f)
+    }
+
+    @Test
     fun `a preset gives the same result when applied twice`() {
         for (preset in LayoutPresets.ALL) {
             val once = LayoutPresets.placements(defaults(), preset, emptyMap())

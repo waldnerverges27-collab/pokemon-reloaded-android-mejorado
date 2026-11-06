@@ -1,5 +1,6 @@
-//! Which of the game's abilities (Cut, Surf, Strength...) the game is asking for at the player's
-//! feet right now, so the touch overlay can show that one button and no other.
+//! Which of the game's abilities (Cut, Surf, Strength...) apply at the player's feet right now,
+//! and which on-demand ones their badges and party make available, so the touch overlay can show
+//! the contextual slots and the fixed buttons that should be present.
 //!
 //! The game decides this itself, scattered through its scripts: the bush, the rock and the boulder
 //! each watch for the player standing next to them and facing them; the player's own script looks for
@@ -43,8 +44,10 @@ const BLOCKERS: [i32; 2] = [273, 308];
 /// What the game is asking for.
 #[derive(Default, Clone, Copy, Debug)]
 pub struct Readout {
-    /// Bits of [tc::ABILITIES].
+    /// Contextual abilities, as bits in the game's own `AttackHabExt` numbering.
     pub wanted: u32,
+    /// Abilities usable on demand whenever the player is outdoors and has the badge and party move.
+    pub free: u32,
     /// The abilities' list (`8`) has something to open.
     pub menu: bool,
     /// The key items' list (`N`) has something to open.
@@ -364,9 +367,32 @@ impl Game {
             }
         }
 
+        // These five need no bush, rock or other field object in reach. They are available whenever
+        // the game's own outdoor ability list would offer them: the right badge plus a party member
+        // that knows the move. Each gets a fixed button, so they never displace a contextual ability.
+        let mut free = Vec::new();
+        if outdoors {
+            if self.badge(flags, 4) && can(1) {
+                free.push(Ability::Fly);
+            }
+            if self.badge(flags, 8) && can(7) {
+                free.push(Ability::Teleport);
+            }
+            if self.badge(flags, 5) && can(8) {
+                free.push(Ability::Speed);
+            }
+            if self.badge(flags, 3) && can(10) {
+                free.push(Ability::Eye);
+            }
+            if self.badge(flags, 2) && can(15) {
+                free.push(Ability::Scent);
+            }
+        }
+
         let has = |name: &[u8]| self.field(flags, name, 0) != 0.0;
         Readout {
             wanted: tc::ability_mask(&wanted),
+            free: tc::ability_mask(&free),
             // The list of abilities answers only on the outdoor map, and once the first badge is won.
             menu: outdoors && self.badge(flags, 1),
             items: ["movil", "mapa1", "notebook", "bici", "cania", "xpod_star", "mega_aro"].iter().any(|name| has(name.as_bytes())),

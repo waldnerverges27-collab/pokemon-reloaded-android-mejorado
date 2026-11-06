@@ -418,9 +418,9 @@ cd src/OpenGMK
 cargo build --release --target aarch64-linux-android -p gm8emulator --lib
 ```
 
-La biblioteca resultante debe quedar en `src/OpenGMK/target/<triple>/release/libgm8emulator.so`;
-Gradle la copia a `jniLibs` antes de empaquetar y se niega a continuar si falta la de arm64 o si
-algún `.so` no es un ELF válido. La de 32 bits es opcional.
+Las bibliotecas resultantes deben quedar en `src/OpenGMK/target/<triple>/release/libgm8emulator.so`;
+Gradle las copia a `jniLibs` antes de empaquetar y se niega a continuar si falta alguna o si algún
+`.so` no es un ELF válido. Cada APK incluye únicamente la biblioteca de su arquitectura.
 
 > La compilación del motor solo está pensada para los destinos Android: `cargo check` en un
 > ordenador de escritorio no funciona por dependencias de audio nativas.
@@ -437,7 +437,8 @@ Las pruebas de la parte Kotlin (copias de seguridad, diseños, temas) se lanzan 
 `extras.rs`) se pueden ejecutar con `cargo test` en un crate de prueba que incluya esos dos módulos,
 porque el crate completo de `gm8emulator` solo compila para Android.
 
-El APK queda en `android/app/build/outputs/apk/release/`. Con Gradle se necesitan unos 2 GB de
+Los dos APK quedan en `android/app/build/outputs/apk/release/`: `app-arm64-v8a-release.apk` y
+`app-armeabi-v7a-release.apk`. No se genera un APK universal. Con Gradle se necesitan unos 2 GB de
 memoria para el proceso; en equipos justos conviene tener swap.
 
 ## Firma y actualizaciones
@@ -458,9 +459,10 @@ Sin ese archivo, Gradle firma con la clave de depuración. **Una compilación fi
 puede instalarse encima de la oficial**, y la app rechaza actualizarse con un APK cuyo paquete o
 firma no coincidan con los de la instalada.
 
-El actualizador consulta `releases/latest` de este repositorio (las prereleases se ignoran), toma el
-primer asset `.apk`, compara versiones numéricamente y entrega el archivo al instalador del sistema
-mediante un `FileProvider`.
+El actualizador consulta `releases/latest` de este repositorio (las prereleases se ignoran), elige
+el asset `.apk` compatible con la primera ABI admitida por el teléfono, compara versiones
+numéricamente y entrega el archivo al instalador del sistema mediante un `FileProvider`. Los APK
+antiguos sin sufijo de arquitectura siguen siendo válidos.
 
 ## Herramientas de diagnóstico
 
@@ -480,6 +482,7 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.9.0-dev3** (versión de pruebas) | **Habilidades de uso libre siempre visibles cuando están disponibles.** Vuelo, Teletransporte, Velocidad Extrema, Gran Ojo y Dulce Aroma tienen botones propios en la fila superior, según las medallas y los movimientos del equipo, sin quitar los tres huecos a las habilidades contextuales. Los botones personalizados recién añadidos ya se pueden arrastrar. El joystick empieza al 80 % y las instalaciones nuevas usan píxeles perfectos, sin cambiar elecciones guardadas. Se entregan dos APK independientes, ARM64 y ARMv7, y el actualizador escoge la arquitectura compatible. |
 | **0.9.0-dev2** (versión de pruebas) | **Todos los iconos se renuevan con diseños vectoriales.** Son 74 dibujos nítidos y con formas relacionadas con su función: 19 para habilidades y sus menús, 35 para botones y 20 letras o números. Vuelo es un ala, Fuerza un brazo con el bíceps flexionado y Velocidad Extrema una zapatilla alada. Los SVG están en `tools/icon-svg/`; `tools/gen-icons.py` genera los PNG de alta resolución del juego y del editor, y el escalado suave sustituye al antiguo escalado de pixel-art. No cambian las teclas, las posiciones ni la lógica de los controles. |
 | **0.9.0-dev1** (versión de pruebas) | **Habilidades externas con su dibujo y solo cuando se piden.** Los botones fijos `1 2 3 5 7` desaparecen. Tres huecos junto a los botones de acción enseñan, con su dibujo propio, la habilidad que el juego pide en ese momento: Corte ante un arbusto, Golpe Roca ante una roca, Fuerza ante una roca redonda, Destello en una sala oscura, Surf junto al agua, Buceo en un punto de buceo, y Cascada, Ola Lava, Treparocas, Torbellino, Daño Secreto y Excavar en su lugar. El botón `8` (lista de habilidades) sale solo con medalla y al aire libre, y `N` (objetos clave) solo si hay alguno, con una medalla y una llave como dibujo. 19 dibujos nuevos (en el editor de botones propios también están Vuelo, Teletransporte, Velocidad Extrema, Gran Ojo y Dulce Aroma). |
 | **0.8.1** | **Iconos nuevos en todos los botones.** Cada botón lleva un dibujo pixel-art propio, con contorno negro y sombreado, pintado al estilo de la Poké Ball y la mochila: zapatilla de correr, caña con flotador, bici, mapa con marcador, Piedra activadora, carnet de entrenador, poción, cara de Pikachu, tabla de tipos, carpeta de cargar, flechas de Enter y espacio… Las letras y los números (Z X C V, A, B, E, F, L, M, N, O, P, S, T, 1 2 3 5 7) también son dibujos. El editor de posiciones muestra los mismos iconos. Se **quita el aspecto Pixel art** de Ajustes: queda solo el Nativo (quien tenía Pixel art pasa a Nativo) y se retira el arte antiguo de los botones. Los iconos se generan con `tools/gen-icons.py`. |

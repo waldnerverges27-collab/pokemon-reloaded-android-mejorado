@@ -67,6 +67,9 @@ object Layout {
 
     class Defaults(val controls: List<ControlSpec>, val joystick: ControlSpec)
 
+    /** Initial size before the player changes it. Explicit saved placements still take precedence. */
+    fun defaultScale(name: String): Float = if (name == JOYSTICK) 0.8f else 1f
+
     fun defaults(context: Context): Defaults {
         val text = context.assets.open("controls-layout.json").bufferedReader().use { it.readText() }
         val root = JSONObject(text)
@@ -203,6 +206,11 @@ object Layout {
             // The abilities' list, and the three slots that show the ability the game is asking for.
             "alpha8" -> return "medal"
             "hab1", "hab2", "hab3" -> return "cut"
+            "fly" -> return "fly"
+            "teleport" -> return "teleport"
+            "speed" -> return "speed"
+            "eye" -> return "eye"
+            "scent" -> return "scent"
         }
         if (!functionIcons) return null
         val battle = context and BATTLE != 0
@@ -362,14 +370,14 @@ object LayoutPresets {
             return current.filter { (name, p) -> !p.visible && !name.startsWith("custom") }
                 .mapValues { (name, p) ->
                     val spec = (defaults.controls + defaults.joystick).firstOrNull { it.name == name } ?: return@mapValues p
-                    Placement(spec.cx, spec.cy, 1f, false)
+                    Placement(spec.cx, spec.cy, Layout.defaultScale(spec.name), false)
                 }
         }
         return (defaults.controls + defaults.joystick).associate { spec ->
             spec.name to Placement(
                 cx = if (preset.mirror) 1f - spec.cx else spec.cx,
                 cy = spec.cy,
-                scale = preset.scale,
+                scale = preset.scale * Layout.defaultScale(spec.name),
                 visible = current[spec.name]?.visible ?: true,
             )
         }

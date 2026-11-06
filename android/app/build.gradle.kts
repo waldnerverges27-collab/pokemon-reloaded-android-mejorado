@@ -15,12 +15,12 @@ val keystoreProperties = Properties().apply {
 // The emulator is a Rust cdylib, one per CPU family:
 //   cd src/OpenGMK
 //   cargo ndk -t arm64-v8a -t armeabi-v7a --platform 29 build -p gm8emulator --release
-// arm64 is required. The 32-bit one is packed too when it was built, for the phones that still run
-// 32-bit Android; a phone that can run arm64 always prefers it.
-// Each is copied into jniLibs before packaging, refusing a missing or zeroed-out (unclean shutdown) .so.
+// Both are required: Gradle packs each into its own APK split, with no universal APK. A phone that
+// can run arm64 always prefers it. Each is copied into jniLibs before packaging, refusing a missing
+// or zeroed-out (unclean shutdown) .so.
 val emulatorLibs = listOf(
     Triple("arm64-v8a", "aarch64-linux-android", true),
-    Triple("armeabi-v7a", "armv7-linux-androideabi", false),
+    Triple("armeabi-v7a", "armv7-linux-androideabi", true),
 )
 fun emulatorSoOf(triple: String) = rootProject.file("../src/OpenGMK/target/$triple/release/libgm8emulator.so")
 val copyEmulatorSo by tasks.registering {
@@ -54,9 +54,17 @@ android {
         applicationId = "com.ahjin.pr"
         minSdk = 29
         targetSdk = 36
-        versionCode = 34
-        versionName = "0.9.0-dev2"
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        versionCode = 35
+        versionName = "0.9.0-dev3"
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = false
+        }
     }
 
     signingConfigs {

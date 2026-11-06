@@ -14,6 +14,46 @@
    "contexts": 66
   },
   {
+   "name": "fly",
+   "label": "VUE",
+   "cx": 0.372,
+   "cy": 0.055,
+   "r": 0.02,
+   "contexts": 66
+  },
+  {
+   "name": "teleport",
+   "label": "TP",
+   "cx": 0.444,
+   "cy": 0.055,
+   "r": 0.02,
+   "contexts": 66
+  },
+  {
+   "name": "speed",
+   "label": "VEL",
+   "cx": 0.516,
+   "cy": 0.055,
+   "r": 0.02,
+   "contexts": 66
+  },
+  {
+   "name": "eye",
+   "label": "OJO",
+   "cx": 0.588,
+   "cy": 0.055,
+   "r": 0.02,
+   "contexts": 66
+  },
+  {
+   "name": "scent",
+   "label": "ARO",
+   "cx": 0.66,
+   "cy": 0.055,
+   "r": 0.02,
+   "contexts": 66
+  },
+  {
    "name": "hab1",
    "label": "HAB",
    "cx": 0.712,

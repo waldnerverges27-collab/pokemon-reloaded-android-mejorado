@@ -143,11 +143,16 @@ pub const CONTROLS: &[Control] = &[
     // Number keys (first row along the top). They are for the base game only: in battle those keys
     // pick a party Pokémon, and that is what the SEL wheel below is for, so showing them there would
     // only get in the way.
-    // The abilities (the game's HMs and the like). They are not on the screen all the time: the engine
-    // looks at what is in front of the player and the three slots below only show the ability the
-    // game is asking for there (a bush: Cut, water: Surf...), with its own picture. `alpha8` opens the
-    // game's own list of abilities. See [Ability].
+    // The abilities (the game's HMs and the like). The three slots below show the ability the game
+    // is asking for there (a bush: Cut, water: Surf...). The five on the top row are the ones that
+    // can be used whenever they are available; each appears with its own picture only while the
+    // player's badges and party allow it. `alpha8` opens the game's own list. See [Ability].
     Control { name: "alpha8", key: Key::Alpha8, shape: Shape::Circle { cx: 0.300, cy: 0.055, r: 0.020 }, label: Label::Text("8"), contexts: WORLD | SAFARI },
+    Control { name: "fly", key: Key::Alpha2, shape: Shape::Circle { cx: 0.372, cy: 0.055, r: 0.020 }, label: Label::Text("VUE"), contexts: WORLD | SAFARI },
+    Control { name: "teleport", key: Key::Space, shape: Shape::Circle { cx: 0.444, cy: 0.055, r: 0.020 }, label: Label::Text("TP"), contexts: WORLD | SAFARI },
+    Control { name: "speed", key: Key::Space, shape: Shape::Circle { cx: 0.516, cy: 0.055, r: 0.020 }, label: Label::Text("VEL"), contexts: WORLD | SAFARI },
+    Control { name: "eye", key: Key::Space, shape: Shape::Circle { cx: 0.588, cy: 0.055, r: 0.020 }, label: Label::Text("OJO"), contexts: WORLD | SAFARI },
+    Control { name: "scent", key: Key::Space, shape: Shape::Circle { cx: 0.660, cy: 0.055, r: 0.020 }, label: Label::Text("ARO"), contexts: WORLD | SAFARI },
     Control { name: "hab1", key: Key::Space, shape: Shape::Circle { cx: 0.712, cy: 0.840, r: 0.030 }, label: Label::Text("HAB"), contexts: WORLD | SAFARI },
     Control { name: "hab2", key: Key::Space, shape: Shape::Circle { cx: 0.712, cy: 0.700, r: 0.030 }, label: Label::Text("HAB"), contexts: WORLD | SAFARI },
     Control { name: "hab3", key: Key::Space, shape: Shape::Circle { cx: 0.790, cy: 0.545, r: 0.030 }, label: Label::Text("HAB"), contexts: WORLD | SAFARI },
@@ -635,12 +640,19 @@ impl Default for Placement {
 
 static LAYOUT: Mutex<Vec<(String, Placement)>> = Mutex::new(Vec::new());
 
+/// The placement before the player changes anything. The stick starts at 80%, but an explicit
+/// `joystick=...` line always wins, including older files that stored 100%.
+fn default_placement(name: &str) -> Placement {
+    Placement { scale: if name == JOYSTICK_NAME { 0.8 } else { 1.0 }, ..Placement::default() }
+}
+
 pub fn placement(name: &str) -> Placement {
     let layout = LAYOUT.lock().unwrap();
+    let fallback = default_placement(name);
     if layout.is_empty() {
-        return Placement::default()
+        return fallback
     }
-    layout.iter().find(|(known, _)| known == name).map(|(_, p)| *p).unwrap_or_default()
+    layout.iter().find(|(known, _)| known == name).map(|(_, p)| *p).unwrap_or(fallback)
 }
 
 /// Replaces the layout with what `text` says.
@@ -842,7 +854,7 @@ pub fn icon_named(name: &str) -> Option<Icon> {
 
 /// The icon a control wears: the one the player gave a custom button, or its own.
 pub fn icon_at(index: usize) -> Option<Icon> {
-    if let Some(ability) = slot_ability(index) {
+    if let Some(ability) = slot_ability(index).or_else(|| free_ability(index)) {
         return Some(ability.icon())
     }
     match custom_def(index) {
@@ -1178,10 +1190,37 @@ pub enum Ability {
     Whirl,
     Secret,
     Dig,
+    Fly,
+    Teleport,
+    Speed,
+    Eye,
+    Scent,
 }
 
-/// Every ability, in slot order.
-pub const ABILITIES: [Ability; 12] = [
+/// Every ability. The contextual slots and the five buttons that stay available out in the world
+/// share the same pictures and actions.
+pub const ABILITIES: [Ability; 17] = [
+    Ability::Cut,
+    Ability::RockSmash,
+    Ability::Strength,
+    Ability::Flash,
+    Ability::Surf,
+    Ability::Dive,
+    Ability::Waterfall,
+    Ability::Lava,
+    Ability::Climb,
+    Ability::Whirl,
+    Ability::Secret,
+    Ability::Dig,
+    Ability::Fly,
+    Ability::Teleport,
+    Ability::Speed,
+    Ability::Eye,
+    Ability::Scent,
+];
+
+/// The abilities that compete for the three contextual slots, in their slot order.
+const CONTEXT_ABILITIES: [Ability; 12] = [
     Ability::Cut,
     Ability::RockSmash,
     Ability::Strength,
@@ -1199,8 +1238,8 @@ pub const ABILITIES: [Ability; 12] = [
 /// What touching an ability's button does in the game.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum AbilityAction {
-    /// Presses the key the game binds the ability to (`1` Cut, `3` Surf, `4` Strength, `5` Flash,
-    /// `6` Rock Smash, `7` Dive).
+    /// Presses the key the game binds the ability to (`1` Cut, `2` Fly, `3` Surf, `4` Strength,
+    /// `5` Flash, `6` Rock Smash, `7` Dive).
     Key(Key),
     /// The abilities with no key of their own are started the way the game's own list starts them: by
     /// setting an alarm of the player (`object` 14) or of the nearest instance of an object.
@@ -1225,6 +1264,11 @@ impl Ability {
             Ability::Whirl => Icon::HmWhirl,
             Ability::Secret => Icon::HmSecret,
             Ability::Dig => Icon::HmDig,
+            Ability::Fly => Icon::HmFly,
+            Ability::Teleport => Icon::HmTeleport,
+            Ability::Speed => Icon::HmSpeed,
+            Ability::Eye => Icon::HmEye,
+            Ability::Scent => Icon::HmScent,
         }
     }
 
@@ -1242,15 +1286,41 @@ impl Ability {
             Ability::Climb => AbilityAction::Alarm { object: PLAYER_OBJECT, alarm: 10, nearest: false },
             Ability::Whirl => AbilityAction::Alarm { object: 432, alarm: 0, nearest: true },
             Ability::Secret => AbilityAction::Alarm { object: 522, alarm: 0, nearest: true },
+            Ability::Fly => AbilityAction::Key(Key::Alpha2),
+            Ability::Teleport => AbilityAction::Alarm { object: PLAYER_OBJECT, alarm: 0, nearest: false },
+            Ability::Speed => AbilityAction::Alarm { object: PLAYER_OBJECT, alarm: 8, nearest: false },
+            Ability::Eye => AbilityAction::Alarm { object: PLAYER_OBJECT, alarm: 11, nearest: false },
+            Ability::Scent => AbilityAction::Alarm { object: 520, alarm: 0, nearest: false },
         }
     }
 
+    /// The bit this ability occupies in the game's own `AttackHabExt` mask. The same numbering is
+    /// used by the contextual and always-available masks, so the two cannot disagree about one.
     pub fn bit(self) -> u32 {
-        1 << (ABILITIES.iter().position(|&a| a == self).unwrap_or(0) as u32)
+        let bit = match self {
+            Ability::Cut => 0,
+            Ability::Fly => 1,
+            Ability::Surf => 2,
+            Ability::Strength => 3,
+            Ability::Flash => 4,
+            Ability::RockSmash => 5,
+            Ability::Dive => 6,
+            Ability::Teleport => 7,
+            Ability::Speed => 8,
+            Ability::Waterfall => 9,
+            Ability::Eye => 10,
+            Ability::Whirl => 11,
+            Ability::Dig => 12,
+            Ability::Climb => 13,
+            Ability::Secret => 14,
+            Ability::Scent => 15,
+            Ability::Lava => 16,
+        };
+        1 << bit
     }
 }
 
-/// The abilities that can be wanted at once as bits, in the order of [ABILITIES].
+/// Abilities as bits in the game's own `AttackHabExt` numbering.
 pub fn ability_mask(list: &[Ability]) -> u32 {
     list.iter().fold(0, |mask, ability| mask | ability.bit())
 }
@@ -1268,9 +1338,13 @@ static SLOTS: Mutex<Slots> = Mutex::new(Slots { shown: [None; ABILITY_SLOTS], go
 /// The game's list of abilities has something to open, and the player has some key item to use.
 static MENU_SHOWN: Sticky = Sticky::new();
 static ITEMS_SHOWN: Sticky = Sticky::new();
+/// Abilities usable on demand, as bits in the game's own numbering. Unlike a contextual slot these
+/// do not need a grace period: a badge or a Pokémon does not appear for just one frame.
+static FREE_SHOWN: AtomicU32 = AtomicU32::new(0);
 
 /// What the engine reports each frame about abilities.
-pub fn set_abilities(wanted: u32, menu: bool, items: bool) {
+pub fn set_abilities(wanted: u32, free: u32, menu: bool, items: bool) {
+    FREE_SHOWN.store(free, Ordering::Relaxed);
     MENU_SHOWN.report(menu);
     ITEMS_SHOWN.report(items);
     let mut slots = SLOTS.lock().unwrap();
@@ -1289,7 +1363,7 @@ pub fn set_abilities(wanted: u32, menu: bool, items: bool) {
             }
         }
     }
-    for ability in ABILITIES {
+    for ability in CONTEXT_ABILITIES {
         if wanted & ability.bit() == 0 || slots.shown.contains(&Some(ability)) {
             continue
         }
@@ -1302,6 +1376,7 @@ pub fn set_abilities(wanted: u32, menu: bool, items: bool) {
 
 /// Forgets everything (a new room, the overlay not shown): no ability is being asked for.
 pub fn clear_abilities() {
+    FREE_SHOWN.store(0, Ordering::Relaxed);
     let mut slots = SLOTS.lock().unwrap();
     slots.shown = [None; ABILITY_SLOTS];
     slots.gone = [None; ABILITY_SLOTS];
@@ -1318,39 +1393,63 @@ pub fn slot_ability(index: usize) -> Option<Ability> {
     SLOTS.lock().unwrap().shown[slot]
 }
 
+/// The on-demand ability a fixed control performs, if it is one of those five.
+fn free_ability(index: usize) -> Option<Ability> {
+    match CONTROLS.get(index)?.name {
+        "fly" => Some(Ability::Fly),
+        "teleport" => Some(Ability::Teleport),
+        "speed" => Some(Ability::Speed),
+        "eye" => Some(Ability::Eye),
+        "scent" => Some(Ability::Scent),
+        _ => None,
+    }
+}
+
 /// Whether the game is asking for the control at `index`: the slots only while they have an
-/// ability, the abilities' list only while there is something in it, the key items' only while the
-/// player has one. Every other control is always up to its context.
+/// ability, the on-demand abilities only while the party and badges allow them, the abilities'
+/// list only while there is something in it, and the key items' only while the player has one.
 fn shown_by_game(index: usize) -> bool {
     match CONTROLS[index].name {
         "alpha8" => MENU_SHOWN.get(),
         "n" => ITEMS_SHOWN.get(),
-        _ => slot_of(index).is_none() || slot_ability(index).is_some(),
+        _ => {
+            if let Some(ability) = free_ability(index) {
+                FREE_SHOWN.load(Ordering::Relaxed) & ability.bit() != 0
+            } else {
+                slot_of(index).is_none() || slot_ability(index).is_some()
+            }
+        },
     }
 }
 
-/// What touching the control at `index` does, if it is an ability's slot: the action, and the key
-/// is noted so that letting go lets go of the same key even if the slot has changed since.
+/// What touching an ability control does. For a contextual key, the key is noted so that letting
+/// go releases the same key even if the slot has changed since. Fixed abilities cannot change
+/// identity while held, so their release comes straight from their definition below.
 pub fn ability_press(index: usize) -> Option<AbilityAction> {
-    let ability = slot_ability(index)?;
+    let ability = slot_ability(index).or_else(|| free_ability(index))?;
     let action = ability.action();
-    if let AbilityAction::Key(key) = action {
-        HELD_ABILITY_KEYS.lock().unwrap()[slot_of(index)?] = Some(key);
+    if let (Some(slot), AbilityAction::Key(key)) = (slot_of(index), action) {
+        HELD_ABILITY_KEYS.lock().unwrap()[slot] = Some(key);
     }
     Some(action)
 }
 
 static HELD_ABILITY_KEYS: Mutex<[Option<Key>; ABILITY_SLOTS]> = Mutex::new([None; ABILITY_SLOTS]);
 
-/// The key an ability's slot was holding down, if the control at `index` is one.
+/// The key an ability control was holding down, if it has one.
 pub fn ability_release(index: usize) -> Option<Key> {
-    let slot = slot_of(index)?;
-    HELD_ABILITY_KEYS.lock().unwrap()[slot].take()
+    if let Some(slot) = slot_of(index) {
+        return HELD_ABILITY_KEYS.lock().unwrap()[slot].take()
+    }
+    match free_ability(index)?.action() {
+        AbilityAction::Key(key) => Some(key),
+        AbilityAction::Alarm { .. } => None,
+    }
 }
 
-/// Whether the control at `index` is one of the ability slots.
-pub fn is_ability_slot(index: usize) -> bool {
-    slot_of(index).is_some()
+/// Whether the control at `index` performs an ability (a contextual slot or an on-demand button).
+pub fn is_ability_control(index: usize) -> bool {
+    slot_of(index).is_some() || free_ability(index).is_some()
 }
 
 /// An alarm asked for by a button, for the game thread to set between two frames: the object, the
@@ -2226,25 +2325,51 @@ mod tests {
         let slot = |name: &str| index_of(name).unwrap();
         clear_abilities();
         // Nothing asked for: no slot is up and the abilities' own list is hidden.
-        set_abilities(0, false, false);
+        set_abilities(0, 0, false, false);
         for name in SLOT_NAMES {
             assert!(slot_ability(slot(name)).is_none());
         }
         // A bush: Cut takes the first slot, with its own picture and the key `1`.
-        set_abilities(Ability::Cut.bit(), false, false);
+        set_abilities(Ability::Cut.bit(), 0, false, false);
         assert_eq!(slot_ability(slot("hab1")), Some(Ability::Cut));
         assert_eq!(icon_at(slot("hab1")), Some(Icon::HmCut));
         assert_eq!(Ability::Cut.action(), AbilityAction::Key(Key::Alpha1));
         // Water as well: Surf goes to the next slot and Cut stays where it was, so a finger on it
         // does not find another button under it.
-        set_abilities(Ability::Cut.bit() | Ability::Surf.bit(), false, false);
+        set_abilities(Ability::Cut.bit() | Ability::Surf.bit(), 0, false, false);
         assert_eq!(slot_ability(slot("hab1")), Some(Ability::Cut));
         assert_eq!(slot_ability(slot("hab2")), Some(Ability::Surf));
         // The bush is behind: the button waits out the grace before it goes, and the others stay.
-        set_abilities(Ability::Surf.bit(), false, false);
+        set_abilities(Ability::Surf.bit(), 0, false, false);
         assert_eq!(slot_ability(slot("hab1")), Some(Ability::Cut), "it does not blink away at once");
         // A slot that is empty is not a control on the screen, and one with an ability is.
         assert!(slot_ability(slot("hab3")).is_none());
+
+        // The five on-demand buttons are independent of those slots. Each is visible only while its
+        // own availability bit is reported, and each keeps its own icon and action.
+        let fixed = [
+            ("fly", Ability::Fly, Icon::HmFly),
+            ("teleport", Ability::Teleport, Icon::HmTeleport),
+            ("speed", Ability::Speed, Icon::HmSpeed),
+            ("eye", Ability::Eye, Icon::HmEye),
+            ("scent", Ability::Scent, Icon::HmScent),
+        ];
+        for &(name, ability, icon) in &fixed {
+            set_abilities(0, ability.bit(), false, false);
+            for &(other_name, other, _) in &fixed {
+                assert_eq!(shown_by_game(slot(other_name)), other == ability, "{other_name}");
+            }
+            assert!(is_ability_control(slot(name)));
+            assert_eq!(icon_at(slot(name)), Some(icon));
+        }
+        assert_eq!(Ability::Fly.action(), AbilityAction::Key(Key::Alpha2));
+        assert_eq!(Ability::Teleport.action(), AbilityAction::Alarm { object: PLAYER_OBJECT, alarm: 0, nearest: false });
+        assert_eq!(Ability::Speed.action(), AbilityAction::Alarm { object: PLAYER_OBJECT, alarm: 8, nearest: false });
+        assert_eq!(Ability::Eye.action(), AbilityAction::Alarm { object: PLAYER_OBJECT, alarm: 11, nearest: false });
+        assert_eq!(Ability::Scent.action(), AbilityAction::Alarm { object: 520, alarm: 0, nearest: false });
+        assert_eq!(ability_release(slot("fly")), Some(Key::Alpha2));
+        assert_eq!(ability_release(slot("teleport")), None);
+
         // Every ability has its own picture and none shares a bit.
         let mut seen = 0;
         for ability in ABILITIES {
@@ -2365,6 +2490,12 @@ mod tests {
 
         load_layout("");
         assert!(icon_at(one).is_none());
+
+        // A fresh layout starts the stick at 80%; an older explicit 100% placement is not rewritten.
+        assert_eq!(placement(JOYSTICK_NAME).scale, 0.8);
+        load_layout("joystick=0.135,0.700,1.0,1\n");
+        assert_eq!(placement(JOYSTICK_NAME).scale, 1.0);
+        load_layout("");
     }
 
     #[test]

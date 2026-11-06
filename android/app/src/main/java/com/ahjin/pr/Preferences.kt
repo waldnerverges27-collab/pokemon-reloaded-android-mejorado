@@ -149,11 +149,15 @@ class Preferences(context: Context) {
 
     /**
      * How the picture fills the screen: `full`, `aspect` or `integer` (whole multiples of the game's
-     * own size, so every pixel is the same size). Until the player picks one, the old on/off setting
-     * decides.
+     * own size, so every pixel is the same size). A new install starts with perfect pixels; an older
+     * install that only has the on/off aspect setting keeps the choice that setting expresses.
      */
     var videoMode: String
-        get() = prefs.getString("videoMode", null)?.takeIf { it in VIDEO_MODES } ?: if (keepAspect) "aspect" else "full"
+        get() = resolveVideoMode(
+            prefs.getString("videoMode", null),
+            prefs.contains("keepAspect"),
+            keepAspect,
+        )
         set(value) {
             prefs.edit().putString("videoMode", value).apply()
             keepAspect = value != "full"

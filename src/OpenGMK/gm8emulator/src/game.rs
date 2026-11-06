@@ -2011,7 +2011,7 @@ impl Game {
         crate::touch_controls::set_modal_id(self.modal_system());
         crate::touch_controls::set_party(self.party_species());
         let abilities = self.ability_readout();
-        crate::touch_controls::set_abilities(abilities.wanted, abilities.menu, abilities.items);
+        crate::touch_controls::set_abilities(abilities.wanted, abilities.free, abilities.menu, abilities.items);
     }
 
     /// Binds the buttons, the joystick and the pad to the game's actions instead of to keys.

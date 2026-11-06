@@ -403,9 +403,9 @@ fn control_key_down(index: usize) {
         run_sys_action(action);
         return
     }
-    // An ability's slot does what the ability it shows is started with: a key, or an alarm the game
+    // An ability control does what the ability it shows is started with: a key, or an alarm the game
     // thread sets between two frames.
-    if crate::touch_controls::is_ability_slot(index) {
+    if crate::touch_controls::is_ability_control(index) {
         use crate::touch_controls::AbilityAction;
         match crate::touch_controls::ability_press(index) {
             Some(AbilityAction::Key(key)) => push_key(key, true),
@@ -457,7 +457,7 @@ fn control_key_up(index: usize) {
     if crate::touch_controls::sys_action(index).is_some() {
         return
     }
-    if crate::touch_controls::is_ability_slot(index) {
+    if crate::touch_controls::is_ability_control(index) {
         if let Some(key) = crate::touch_controls::ability_release(index) {
             push_key(key, false);
         }

@@ -126,7 +126,8 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
     val allControls = defaults.controls + customs.values.sortedBy { it.slot }.map(::customSpec)
     fun specOf(name: String): ControlSpec? =
         if (name == JOYSTICK) defaults.joystick else allControls.firstOrNull { it.name == name }
-    fun placementOf(spec: ControlSpec) = placements[spec.name] ?: Placement(spec.cx, spec.cy)
+    fun placementOf(spec: ControlSpec) =
+        placements[spec.name] ?: Placement(spec.cx, spec.cy, Layout.defaultScale(spec.name))
 
     val shown = allControls.filter { it.contexts and screen.mask != 0 } +
         (if (screen.mask and (Layout.WORLD or Layout.BATTLE or Layout.CHOICE or Layout.MENU_NAV or Layout.SCREEN or Layout.SCREEN_C or Layout.DEX) != 0) listOf(defaults.joystick) else emptyList())
@@ -246,7 +247,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                             detectDragGestures(
                                 onDragStart = { at ->
                                     dragging = shownNow.map { spec ->
-                                        val p = placements[spec.name] ?: Placement(spec.cx, spec.cy)
+                                        val p = placementOf(spec)
                                         val radius = if (spec.name == JOYSTICK) spec.r * h * p.scale else spec.r * w * p.scale
                                         spec to hypot(at.x - p.cx * w, at.y - p.cy * h) - radius
                                     }.filter { it.second <= 12f }.minByOrNull { it.second }?.first?.name
@@ -259,8 +260,10 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                                 onDragCancel = { dragging = null },
                             ) { change, drag ->
                                 val name = dragging ?: return@detectDragGestures
-                                val spec = specOf(name) ?: return@detectDragGestures
-                                val current = placements[name] ?: Placement(spec.cx, spec.cy)
+                                // This handler survives recompositions. Read the current list: a custom
+                                // button added after the gesture started did not exist in the old capture.
+                                val spec = shownNow.firstOrNull { it.name == name } ?: return@detectDragGestures
+                                val current = placementOf(spec)
                                 change.consume()
                                 placements[name] = current.copy(
                                     cx = (current.cx + drag.x / w).coerceIn(0.02f, 0.98f),
@@ -277,7 +280,7 @@ fun ControlsLayoutScreen(filesDir: File, onBack: () -> Unit) {
                         drawLine(Color.White.copy(alpha = 0.06f), Offset(0f, h * i / 3), Offset(w, h * i / 3))
                     }
                     for (spec in shown) {
-                        val p = placements[spec.name] ?: Placement(spec.cx, spec.cy)
+                        val p = placementOf(spec)
                         val isStick = spec.name == JOYSTICK
                         val r = if (isStick) spec.r * h * p.scale else spec.r * w * p.scale
                         val center = Offset(p.cx * w, p.cy * h)

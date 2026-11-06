@@ -7,6 +7,21 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
+private val APK_ABIS = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+
+/** Chooses an APK for this device. An exact ABI match beats a universal/legacy asset; an asset
+ * explicitly made for an unsupported ABI is not offered. The list order is the device's ABI order. */
+internal fun chooseApkName(names: List<String>, supportedAbis: List<String>): String? {
+    fun rank(name: String): Int {
+        val abi = APK_ABIS.firstOrNull { name.contains(it, ignoreCase = true) } ?: return 0
+        val index = supportedAbis.indexOfFirst { it.equals(abi, ignoreCase = true) }
+        return if (index >= 0) 1000 - index else -1
+    }
+    return names.filter { it.endsWith(".apk", ignoreCase = true) }
+        .mapNotNull { name -> rank(name).takeIf { it >= 0 }?.let { name to it } }
+        .maxByOrNull { it.second }?.first
+}
+
 /**
  * Looks for a newer build on GitHub. The repository's releases are the only place a version is
  * published, so there is no server to keep running and nothing to keep in step.
@@ -34,11 +49,12 @@ object Update {
             if (tag.isEmpty() || !isNewer(tag, installed)) {
                 return@runCatching null
             }
-            val asset = json.optJSONArray("assets")?.let { assets ->
-                (0 until assets.length())
-                    .map { assets.getJSONObject(it) }
-                    .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
-            }
+            val apks = json.optJSONArray("assets")?.let { assets ->
+                (0 until assets.length()).map { assets.getJSONObject(it) }
+                    .filter { it.optString("name").endsWith(".apk", ignoreCase = true) }
+            }.orEmpty()
+            val chosen = chooseApkName(apks.map { it.optString("name") }, android.os.Build.SUPPORTED_ABIS.toList())
+            val asset = apks.firstOrNull { it.optString("name") == chosen }
             Release(
                 version = tag,
                 apkUrl = asset?.optString("browser_download_url")?.takeIf { it.isNotEmpty() },
