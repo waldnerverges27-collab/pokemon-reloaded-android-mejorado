@@ -54,8 +54,8 @@ android {
         applicationId = "com.ahjin.pr"
         minSdk = 29
         targetSdk = 36
-        versionCode = 42
-        versionName = "0.9.0-dev9"
+        versionCode = 43
+        versionName = "0.9.0-dev10"
     }
 
     splits {

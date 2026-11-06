@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SaveAlt
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.VideogameAsset
@@ -57,13 +58,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.ahjin.pr.matchesSearch
 import com.ahjin.pr.CryPacks
 import com.ahjin.pr.GameRepository
 import com.ahjin.pr.Diagnostics
@@ -72,6 +77,7 @@ import com.ahjin.pr.Update
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,6 +98,8 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
+    val searchAnchors = remember { mutableStateMapOf<String, Int>() }
     val snackbar = remember { SnackbarHostState() }
     var status by remember(revision) { mutableStateOf(repo.status()) }
     var keepScreenOn by remember { mutableStateOf(prefs.keepScreenOn) }
@@ -105,8 +113,15 @@ fun SettingsScreen(
     var stickDeadzone by remember { mutableStateOf(prefs.stickDeadzone) }
     var checking by remember { mutableStateOf(false) }
     var preparingReport by remember { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     val appVersion = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty()
+    }
+    val searchEntries = remember(appVersion) { settingSearchEntries(appVersion) }
+    val searchResults = remember(searchQuery, searchEntries) {
+        searchEntries.filter {
+            matchesSearch(searchQuery, it.title, it.subtitle, it.section, it.keywords)
+        }
     }
     var confirmingDelete by remember { mutableStateOf(false) }
     val installed = status as? GameRepository.Status.Ready
@@ -115,6 +130,67 @@ fun SettingsScreen(
     var showCryPack by rememberSaveable { mutableStateOf(false) }
     var showDoctor by rememberSaveable { mutableStateOf(false) }
     val cryStatus = remember(cryChanges, revision) { CryPacks.status(context) }
+
+    fun anchor(group: String) = Modifier.onGloballyPositioned { coordinates ->
+        searchAnchors[group] = coordinates.positionInParent().y.roundToInt()
+    }
+
+    fun scrollToGroup(group: String) {
+        scope.launch {
+            searchAnchors[group]?.let { scrollState.animateScrollTo(it.coerceAtLeast(0)) }
+        }
+    }
+
+    fun checkForUpdates() {
+        if (checking) return
+        checking = true
+        scope.launch {
+            val found = Update.check(appVersion).getOrNull()
+            checking = false
+            if (found != null) {
+                onUpdateFound(found)
+            } else {
+                snackbar.showSnackbar("Ya tienes la ultima version ($appVersion).")
+            }
+        }
+    }
+
+    fun shareDiagnostics() {
+        if (preparingReport) return
+        preparingReport = true
+        scope.launch {
+            val text = runCatching { withContext(Dispatchers.IO) { Diagnostics.report(context, repo, prefs) } }
+            preparingReport = false
+            text.onSuccess { runCatching { Diagnostics.share(context, it) } }
+        }
+    }
+
+    fun selectSearchResult(entry: SettingSearchEntry) {
+        if (entry.requiresGame && installed == null) return
+        entry.scrollTo?.let {
+            scrollToGroup(it)
+            return
+        }
+        when (entry.action) {
+            SettingAction.DELETE_GAME -> confirmingDelete = true
+            SettingAction.CRIES -> {
+                CryPacks.dismiss()
+                showCryPack = true
+            }
+            SettingAction.MY_SAVES -> onMySaves()
+            SettingAction.BACKUPS -> onBackups()
+            SettingAction.CONTROLS -> onControls()
+            SettingAction.LAYOUT -> onLayout()
+            SettingAction.EXTRAS -> onExtras()
+            SettingAction.UPDATE -> checkForUpdates()
+            SettingAction.HELP -> onHelp()
+            SettingAction.DOCTOR -> showDoctor = true
+            SettingAction.REPORT -> shareDiagnostics()
+            SettingAction.LOG -> onLog()
+            SettingAction.ABOUT -> onAbout()
+            null -> Unit
+        }
+    }
 
     if (showCryPack) {
         CryPackDialog(
@@ -170,12 +246,43 @@ fun SettingsScreen(
         contentWindowInsets = WindowInsets(0.dp),
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(scrollState).padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             Spacer(Modifier.height(4.dp))
 
-            SettingsGroup("Juego") {
+            SearchField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = "Buscar en Ajustes",
+            )
+            if (searchQuery.isNotBlank()) {
+                SettingsGroup("Resultados (${searchResults.size})") {
+                    if (searchResults.isEmpty()) {
+                        InfoRow(
+                            icon = Icons.Filled.Search,
+                            title = "Sin resultados",
+                            value = "Prueba con otra palabra, con o sin acentos.",
+                            items = 1,
+                            index = 0,
+                        )
+                    } else {
+                        searchResults.forEachIndexed { index, entry ->
+                            NavRow(
+                                icon = entry.icon,
+                                title = entry.title,
+                                subtitle = "${entry.section} · ${entry.subtitle}",
+                                items = searchResults.size,
+                                index = index,
+                                enabled = !entry.requiresGame || installed != null,
+                                onClick = { selectSearchResult(entry) },
+                            )
+                        }
+                    }
+                }
+            }
+
+            SettingsGroup("Juego", modifier = anchor("Juego")) {
                 if (installed == null) {
                     InfoRow(
                         icon = Icons.Filled.Info,
@@ -200,7 +307,7 @@ fun SettingsScreen(
                 }
             }
 
-            SettingsGroup("Audio") {
+            SettingsGroup("Audio", modifier = anchor("Audio")) {
                 val running = cryWork as? CryPacks.Work.Running
                 val subtitle = when {
                     running != null -> "${running.stage} · ${running.percent} %"
@@ -224,7 +331,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup("Partidas") {
+            SettingsGroup("Partidas", modifier = anchor("Partidas")) {
                 NavRow(
                     icon = Icons.Filled.Save,
                     title = "Mis partidas",
@@ -248,7 +355,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup("Mando") {
+            SettingsGroup("Mando", modifier = anchor("Mando")) {
                 NavRow(
                     icon = Icons.Filled.SportsEsports,
                     title = "Controles",
@@ -259,7 +366,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup("Botones") {
+            SettingsGroup("Botones", modifier = anchor("Botones")) {
                 SwitchRow(
                     icon = Icons.Filled.TouchApp,
                     title = "Iconos en los botones",
@@ -282,7 +389,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup("Control de movimiento") {
+            SettingsGroup("Control de movimiento", modifier = anchor("Control de movimiento")) {
                 ChoiceRow(
                     icon = Icons.Filled.Gamepad,
                     title = "Joystick",
@@ -309,7 +416,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup("Controles tactiles") {
+            SettingsGroup("Controles tactiles", modifier = anchor("Controles tactiles")) {
                 SliderRow(
                     icon = Icons.Filled.Opacity,
                     title = "Opacidad de los botones",
@@ -362,7 +469,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup("Vibracion al tocar") {
+            SettingsGroup("Vibracion al tocar", modifier = anchor("Vibracion al tocar")) {
                 listOf(
                     Triple(0, "Desactivada", "Sin vibracion"),
                     Triple(1, "Ligera", "Un toque suave en cada boton"),
@@ -383,7 +490,7 @@ fun SettingsScreen(
                 }
             }
 
-            SettingsGroup("Resolucion") {
+            SettingsGroup("Resolucion", modifier = anchor("Resolucion")) {
                 listOf(
                     Triple("full", "Rellenar la pantalla", "La imagen ocupa todo el movil, aunque se deforme un poco") to Icons.Filled.Fullscreen,
                     Triple("aspect", "Mantener la proporcion", "El aspecto clasico del PC, con bandas oscuras a los lados") to Icons.Filled.AspectRatio,
@@ -406,7 +513,7 @@ fun SettingsScreen(
                 }
             }
 
-            SettingsGroup("Extras") {
+            SettingsGroup("Extras", modifier = anchor("Extras")) {
                 NavRow(
                     icon = Icons.Filled.Speed,
                     title = "Velocidad, imagen y mas",
@@ -417,7 +524,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup("Apariencia") {
+            SettingsGroup("Apariencia", modifier = anchor("Apariencia")) {
                 ChoiceRow(
                     icon = Icons.Filled.DarkMode,
                     title = "Oscuro",
@@ -448,7 +555,7 @@ fun SettingsScreen(
             }
 
             val darkNow = isDarkTheme(prefs.themeMode)
-            SettingsGroup("Color y negro") {
+            SettingsGroup("Color y negro", modifier = anchor("Color y negro")) {
                 SwitchRow(
                     icon = Icons.Filled.DarkMode,
                     title = "Negro puro (AMOLED)",
@@ -472,7 +579,7 @@ fun SettingsScreen(
                 }
             }
 
-            SettingsGroup("Pantalla") {
+            SettingsGroup("Pantalla", modifier = anchor("Pantalla")) {
                 SwitchRow(
                     icon = Icons.Filled.LightMode,
                     title = "Mantener la pantalla encendida",
@@ -487,7 +594,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup("Actualizaciones") {
+            SettingsGroup("Actualizaciones", modifier = anchor("Actualizaciones")) {
                 NavRow(
                     icon = Icons.Filled.SystemUpdate,
                     title = "Version de la app: $appVersion",
@@ -495,22 +602,11 @@ fun SettingsScreen(
                     items = 1,
                     index = 0,
                     enabled = !checking,
-                    onClick = {
-                        checking = true
-                        scope.launch {
-                            val found = Update.check(appVersion).getOrNull()
-                            checking = false
-                            if (found != null) {
-                                onUpdateFound(found)
-                            } else {
-                                snackbar.showSnackbar("Ya tienes la ultima version ($appVersion).")
-                            }
-                        }
-                    },
+                    onClick = { checkForUpdates() },
                 )
             }
 
-            SettingsGroup("Ayuda") {
+            SettingsGroup("Ayuda", modifier = anchor("Ayuda")) {
                 NavRow(
                     icon = Icons.AutoMirrored.Filled.HelpOutline,
                     title = "Guia de uso",
@@ -534,14 +630,7 @@ fun SettingsScreen(
                     items = 5,
                     index = 2,
                     enabled = !preparingReport,
-                    onClick = {
-                        preparingReport = true
-                        scope.launch {
-                            val text = runCatching { withContext(Dispatchers.IO) { Diagnostics.report(context, repo, prefs) } }
-                            preparingReport = false
-                            text.onSuccess { runCatching { Diagnostics.share(context, it) } }
-                        }
-                    },
+                    onClick = { shareDiagnostics() },
                 )
                 NavRow(
                     icon = Icons.Filled.Article,

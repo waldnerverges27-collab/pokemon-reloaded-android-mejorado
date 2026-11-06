@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.TouchApp
@@ -38,14 +39,17 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.ahjin.pr.searchTextDocument
 
 private class HelpTopic(val icon: ImageVector, val title: String, val paragraphs: List<String>)
+private data class HelpTopicResult(val index: Int, val topic: HelpTopic, val paragraphs: List<String>)
 
 private val TOPICS = listOf(
     HelpTopic(
@@ -153,6 +157,13 @@ private val TOPICS = listOf(
 fun HelpScreen(onBack: () -> Unit) {
     // -1 means every card is folded. Saved so rotating the phone does not close what was open.
     var open by rememberSaveable { mutableIntStateOf(-1) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val searching = query.isNotBlank()
+    val results = TOPICS.mapIndexedNotNull { index, topic ->
+        searchTextDocument(query, topic.title, topic.paragraphs)?.let { paragraphs ->
+            HelpTopicResult(index, topic, paragraphs)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -169,8 +180,36 @@ fun HelpScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Spacer(Modifier.height(4.dp))
-            TOPICS.forEachIndexed { index, topic ->
-                val expanded = open == index
+            SearchField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = "Buscar en la Guía",
+            )
+            if (searching) {
+                Text(
+                    if (results.size == 1) "1 tema encontrado" else "${results.size} temas encontrados",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+            }
+            if (searching && results.isEmpty()) {
+                Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Sin resultados", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Prueba con otra palabra, con o sin acentos. La búsqueda revisa títulos y todo el contenido.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            results.forEach { result ->
+                val index = result.index
+                val topic = result.topic
+                val expanded = searching || open == index
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -181,23 +220,25 @@ fun HelpScreen(onBack: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { open = if (expanded) -1 else index }
+                                .clickable(enabled = !searching) { open = if (expanded) -1 else index }
                                 .padding(horizontal = 16.dp, vertical = 16.dp),
                         ) {
                             Icon(topic.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.width(16.dp))
                             Text(topic.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            Icon(
-                                if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                                contentDescription = if (expanded) "Cerrar" else "Abrir",
-                            )
+                            if (!searching) {
+                                Icon(
+                                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                    contentDescription = if (expanded) "Cerrar" else "Abrir",
+                                )
+                            }
                         }
                         AnimatedVisibility(visible = expanded) {
                             Column(
                                 modifier = Modifier.padding(start = 56.dp, end = 16.dp, bottom = 16.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                topic.paragraphs.forEach {
+                                result.paragraphs.forEach {
                                     Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
