@@ -14,6 +14,8 @@
 
 </div>
 
+> **Versión actual: 0.9.0-dev10 (43).** [Notas de la versión](../../releases/tag/v0.9.0-dev10) · [APK ARM64](../../releases/download/v0.9.0-dev10/pokemon-reloaded-mejorado-0.9.0-dev10-arm64-v8a.apk) · [APK ARMv7](../../releases/download/v0.9.0-dev10/pokemon-reloaded-mejorado-0.9.0-dev10-armeabi-v7a.apk)
+
 ---
 
 ## Índice
@@ -62,6 +64,9 @@ de audio, controles, rendimiento y extras. Los controles táctiles cambian solos
 Capturas reales de la versión **0.7.2** en un RedMagic 8S Pro. La app también se ha probado en un Samsung Galaxy S21 5G y en un Samsung Galaxy A53 5G. En las de juego se ve el indicador de
 rendimiento (FPS, milisegundos por fotograma y memoria) activado.
 
+> Las capturas se conservan como referencia visual. Las versiones actuales añaden la carga directa de
+> Continuar, el asistente de instalación y los buscadores de Ajustes y Guía.
+
 ### En el juego
 
 <table>
@@ -107,15 +112,16 @@ rendimiento (FPS, milisegundos por fotograma y memoria) activado.
 
 - Android 10 o superior (API 29).
 - Probado en RedMagic 8S Pro, Samsung Galaxy S21 5G y Samsung Galaxy A53 5G.
-- Un procesador de 64 bits (arm64-v8a). El APK incluye también el motor de 32 bits (armeabi-v7a).
+- El APK correspondiente al procesador: **ARM64** (`arm64-v8a`) para la mayoría de móviles actuales o **ARMv7** (`armeabi-v7a`) para dispositivos de 32 bits. Cada paquete incluye solo el motor de su arquitectura.
 - El juego en un `.zip`, disponible en el [blog de F3R](https://pokemon-reloaded.blogspot.com/).
-- Unos 350 MB libres para el juego descomprimido (el `.zip` pesa unos 200 MB).
+- Unos 350 MB libres para el juego descomprimido (el `.zip` pesa unos 200 MB), más espacio temporal para importarlo, hacer copias o actualizar.
 
 ### Instalación
 
 1. Descarga el APK de la [última versión](../../releases/latest) e instálalo.
 2. Abre la app y pulsa **Importar** para elegir el `.zip` del juego (o **Descargar**, que abre el enlace de la última versión del juego).
-3. Pulsa **Jugar**. Cuando ya tengas una partida original, Inicio mostrará su nombre, ranura, lugar y fecha, y el botón pasará a **Continuar**.
+3. Pulsa **Jugar**. Cuando ya tengas una partida original, Inicio mostrará su nombre, ranura, lugar y fecha, y el botón pasará a **Continuar**: ese botón cargará directamente la partida mediante la rutina original, sin intro ni selección. **Jugar desde el inicio** mantiene el arranque normal.
+4. Si algo no encaja, abre **Ajustes → Ayuda → Asistente de instalación**. La comprobación no borra el juego ni toca las partidas, y ofrece las acciones seguras para cada caso.
 
 También puedes mantener pulsado el `.zip` en tu administrador de archivos y elegir **Abrir con →
 Pokemon Reloaded** (o **Compartir** con la app). La app mira dentro del zip, te dice si es el juego, un
@@ -256,7 +262,7 @@ Se configuran en **Ajustes → Extras**.
 | **Tabla de tipos** | Botón especial para combate que muestra la imagen de efectividades **del propio juego** sobre la partida. El juego se **detiene** mientras está abierta (el rival no ataca) y se cierra con un toque en la pantalla o con cualquier botón del mando. |
 | **Correr fijo** | Botón especial: un toque deja `X` pulsada y otro la suelta. Se libera solo al abrir un menú, un diálogo o un combate. |
 | **Botón turbo** | Botón especial: mientras lo mantienes, pulsa `Z` unas 7 veces por segundo (textos y menús a toda prisa). |
-| **Atajo de Android** | Al mantener pulsado el icono de la app, **Continuar** abre el juego por su inicio normal. |
+| **Atajo de Android** | Al mantener pulsado el icono de la app, **Continuar** carga directamente la última partida original. Si el juego ya está abierto, se reutiliza como antes. |
 | **Imagen** | Suavizado opcional, rejilla LCD, líneas CRT y respeto de la cámara frontal. |
 | **Botones táctiles** | Ocultarse solos tras unos segundos sin tocar, vibración (apagada, ligera o fuerte). |
 | **Indicador de rendimiento** | FPS, tiempo por fotograma y memoria residente en una esquina. |
@@ -296,13 +302,15 @@ que eso nunca sea una pérdida, la app guarda copias aparte, en su propia carpet
 
 ### Ayuda y diagnóstico
 
-- **Guía de uso** dentro de la app (Ajustes → Ayuda), con secciones desplegables y sin conexión.
+- **Asistente de instalación**, en el primer arranque y en **Ajustes → Ayuda**. Comprueba arquitectura, ejecutable, archivos de idioma, banco de sonido MIDI, partidas `.savc`, espacio, escritura y restos de instalaciones interrumpidas. Explica cada resultado y ofrece reimportar conservando partidas, reparar los archivos auxiliares, abrir copias o compartir el diagnóstico. Su única escritura es una prueba temporal que se elimina; no borra el juego ni modifica partidas.
+- **Buscadores en Ajustes y Guía.** Ignoran mayúsculas, acentos y signos, y admiten varias palabras en cualquier orden. Ajustes lleva a cada grupo o acción; la Guía busca en todo el texto y puede mostrar solo los párrafos relevantes.
+- **Guía de uso** dentro de la app (Ajustes → Ayuda), con secciones desplegables, búsqueda y sin conexión.
 - **Informe de diagnóstico** de un toque: versión, dispositivo, memoria, estado del juego, ajustes y
   el final del registro, listo para compartir como `.txt`. No incluye las partidas.
 
 ### Gestión de partidas, registros y actualizaciones
 
-- **Inicio para continuar:** muestra la última partida original por la fecha del `.savc`, con nombre, ranura, lugar y fecha. **Continuar** abre el juego por su inicio normal; **Otras partidas** abre el gestor. Si no hay ninguna, muestra los primeros pasos.
+- **Inicio para continuar:** muestra la última partida original por la fecha real del `.savc`, con nombre, ranura, lugar y fecha. **Continuar** y su atajo la cargan directamente mediante `LoaderControlSlotActivate` y `LoadFileSav`, las rutinas originales del juego, sin usar un savestate ni detenerse en la intro. **Jugar desde el inicio** conserva el arranque normal y **Otras partidas** abre el gestor. Si no hay ninguna, muestra los primeros pasos.
 - **Partidas:** ver, exportar, importar, borrar y mover entre ranuras. Guardar y cargar dentro del juego usa siempre el sistema original (`F5`/`F6`); la app no mantiene guardados rápidos aparte.
 - **Registros:** la app guarda un log que se puede compartir como archivo de texto desde
   **Ajustes → Logs**, y que sobrevive a un reinicio.
@@ -391,8 +399,8 @@ romper el motor, y viceversa.
 .
 ├── android/                 App Android (Kotlin / Compose)
 │   └── app/src/main/
-│       ├── java/com/ahjin/pr/   Lanzador, ajustes, editor de controles, copias, diagnóstico, actualizador
-│       ├── (src/test)           Pruebas JVM: copias de seguridad, diseños y temas
+│       ├── java/com/ahjin/pr/   Lanzador, ajustes, editor, copias, asistente, buscadores y actualizador
+│       ├── (src/test)           Pruebas JVM: copias, diseños, temas, actualizador, partidas, asistente y búsqueda
 │       ├── assets/              Sprites de botones, SoundFont, diseño por defecto de los controles
 │       └── res/                 Tema, tipografía e iconos
 ├── docs/screenshots/        Capturas de pantalla del README
@@ -452,8 +460,7 @@ cd android
 ./build.sh :app:assembleRelease      # o `gradle :app:assembleRelease`
 ```
 
-Las pruebas de la parte Kotlin (copias de seguridad, diseños, temas) se lanzan con
-`gradle :app:testDebugUnitTest`. Las del motor que no dependen de la ventana (`touch_controls.rs`,
+Las pruebas de la parte Kotlin se lanzan con `gradle :app:testDebugUnitTest`. En dev10 son **107 pruebas JVM**: copias de seguridad, diseños, temas, actualizador, partidas originales, solicitud de Continuar, asistente de instalación y buscadores. Las del motor que no dependen de la ventana (`touch_controls.rs`,
 `extras.rs`) se pueden ejecutar con `cargo test` en un crate de prueba que incluya esos dos módulos,
 porque el crate completo de `gm8emulator` solo compila para Android.
 
@@ -508,6 +515,9 @@ Además, `tools/generate-layout.py` regenera el diseño por defecto de los contr
 
 | Versión | Novedades |
 | --- | --- |
+| **0.9.0-dev10** (versión actual, 43) | **Buscadores en Ajustes y Guía.** Los resultados ignoran mayúsculas, acentos y signos, aceptan varias palabras y cubren todos los grupos de Ajustes. Las opciones locales desplazan hasta su grupo y las demás usan las acciones existentes. La Guía busca también en los párrafos y muestra solo el contenido relevante cuando no pierde contexto. Incluye dev9 y dev8.1; 107/107 pruebas JVM. |
+| **0.9.0-dev9** (versión de pruebas) | **Asistente de instalación y diagnóstico.** Disponible en el primer arranque y en Ajustes → Ayuda. Comprueba arquitectura, archivos básicos, audio MIDI, partidas, espacio, escritura e instalaciones interrumpidas; ofrece reimportar con conservación y copia de partidas, reparar archivos auxiliares y compartir el informe. La revisión no borra ni repara el juego por sí sola, y su prueba temporal se elimina. |
+| **0.9.0-dev8.1** (versión de pruebas) | **Continuar carga directamente la partida original.** La ranura se elige por la fecha real del `.savc` y se activa la misma rutina de carga del juego, sin intro, selección ni savestates. Jugar desde el inicio conserva el arranque normal y el atajo usa la última partida. La carga directa quedó confirmada en un teléfono. |
 | **0.9.0-dev8** (versión de pruebas) | **Inicio para continuar y retirada del guardado rápido.** Inicio identifica la última partida original por la fecha de su `.savc` y muestra nombre, ranura, lugar y fecha, con acceso a las demás ranuras y primeros pasos si no hay ninguna. Se eliminan las ranuras rápidas, sus acciones de mando, el atajo de carga rápida y la carga automática del motor. Los iconos fijos conservan el guardado original `F5`/`F6`. No se borran partidas ni los archivos de las antiguas ranuras rápidas. |
 | **0.9.0-dev7** (versión de pruebas) | **Editor de controles con borrador.** Deshacer/rehacer incluye posiciones, tamaños, visibilidad y botones propios; cada arrastre o ajuste de tamaño cuenta como una sola acción. Se puede restaurar un botón sin perder el resto del diseño, ensayar el borrador en una pantalla táctil interactiva y recibir un aviso al salir sin guardar. El juego solo lee los cambios después de pulsar Guardar. No cambia las teclas, los contextos ni los controles en ejecución. |
 | **0.9.0-dev6** (versión de pruebas) | **Actualizador reanudable y verificado.** Las descargas de APK se pueden cancelar y continuar después de un corte, una rotación o una reapertura, sin duplicar bytes si el servidor no admite `Range`. Los errores de red, espacio y respuesta se explican con una acción concreta. Antes de instalar se comprueba también el SHA-256 publicado por GitHub, además del tamaño, paquete, versión y certificado. Si falta el permiso de instalación, se reintenta con el APK ya descargado. No cambia los controles, el juego ni las partidas. |
@@ -548,6 +558,7 @@ Cada versión, con su APK, está en [Releases](../../releases).
 - Desarrollado y probado en un **RedMagic 8S Pro** (Snapdragon 8 Gen 2, Android 13, arm64). También se ha
   probado en un **Samsung Galaxy S21 5G** y en un **Samsung Galaxy A53 5G**.
 - El motor de **32 bits (armeabi-v7a)** se compila y empaqueta, pero no se ha probado en ningún móvil de 32 bits.
+- El **asistente de instalación** y los **buscadores** tienen pruebas JVM de sus comprobaciones, índices y filtrado; su presentación y el desplazamiento a grupos deben seguir validándose en distintos móviles.
 - Los **botones con teclas de PC** (joystick desde 0.7.7, el resto desde 0.7.8, menús desde 0.7.9) escriben en las variables del propio juego, pero no se han probado en un móvil con una partida de PC real; si algo no responde, un log de **Ajustes → Logs** con la línea `[teclas] la partida trae` dice si ha actuado.
 - La **pulsación larga en la caja del PC** (0.7.5) está hecha leyendo el propio juego, pero no se ha probado en un móvil; si el menú no se abre o no responde a los toques, avísalo con un log de **Ajustes → Logs** (aparece la línea `caja: pulsacion larga`).
 - **Abrir con** (0.7.3) se ha probado con pruebas automáticas sobre zips de ejemplo, pero no en
@@ -573,7 +584,6 @@ Problemas ya resueltos en el camino:
 
 Ideas para más adelante:
 
-- Imágenes propias (pixel art) para más botones táctiles.
 - Botones propios para las minijuegos.
 - Revisar la compatibilidad con mandos de todo tipo.
 
